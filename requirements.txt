@@ -1,2 +1,2 @@
 # Requirements for standalone only
-PySide2
+PySide6

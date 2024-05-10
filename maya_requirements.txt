@@ -1,1 +1,4 @@
 # Requirements for Maya 2025 only
+pyperclip
+python-dotenv
+Send2Trash

@@ -1,3 +1,5 @@
+import pkg_resources
+
 from pathlib import Path
 from typing import List
 
@@ -15,5 +17,12 @@ def list_user_setup_script() -> List[Path]:
     return all_files
 
 
+def format_installed_packages():
+    installed_packages = pkg_resources.working_set
+    installed_packages_list = sorted([f"{i.key}=={i.version}" for i in installed_packages])
+    print('\n'.join(installed_packages_list))
+
+
 if __name__ == '__main__':
-    list_user_setup_script()
+    format_installed_packages()
+    # list_user_setup_script()

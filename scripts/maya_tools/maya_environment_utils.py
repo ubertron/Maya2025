@@ -2,11 +2,12 @@ import platform
 
 from maya import mel
 from typing import List
+from core import DARWIN_STR
 
 
 def get_environment_variables(variable_name: str, log: bool = False) -> List[str]:
-    sep = ':' if platform.system() == 'Darwin' else ';'
-    paths = mel.eval('getenv %s' % variable_name).split(sep)
+    sep = ':' if platform.system() == DARWIN_STR else ';'
+    paths = mel.eval(f'getenv {variable_name}').split(sep)
     paths.sort(key=lambda x: x.lower())
 
     if log:
@@ -19,6 +20,7 @@ def format_environment_variables():
     get_environment_variables('MAYA_SCRIPT_PATH', True)
     get_environment_variables('MAYA_PLUGIN_PATH', True)
     get_environment_variables('MAYA_MODULE_PATH', True)
+    get_environment_variables('MAYA_APP_DIR', True)
 
 
 if __name__ == "__main__":

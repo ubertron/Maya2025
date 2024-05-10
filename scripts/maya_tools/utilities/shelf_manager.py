@@ -19,16 +19,15 @@ class ShelfManager:
 
     @property
     def shelf_names(self) -> List[str]:
-        # return pm.tabLayout(self.TOP_LEVEL_SHELF, query=True, childArray=True)
         return cmds.tabLayout(self.TOP_LEVEL_SHELF, query=True, childArray=True)
 
     @property
     def current_button_labels(self) -> List[str]:
-        return [pm.shelfButton(x, query=True, label=True) for x in self.current_buttons]
+        return [cmds.shelfButton(x, query=True, label=True) for x in self.current_buttons]
 
     @property
     def current_buttons(self) -> List[str]:
-        shelf_contents = pm.shelfLayout(self.name, query=True, childArray=True)
+        shelf_contents = cmds.shelfLayout(self.name, query=True, childArray=True)
         return [] if shelf_contents is None else [x for x in shelf_contents if 'shelfButton' in x]
 
     @property
@@ -41,7 +40,8 @@ class ShelfManager:
         :param select:
         """
         if self.name not in self.shelf_names:
-            pm.shelfLayout(self.name, parent=self.TOP_LEVEL_SHELF)
+            cmds.shelfLayout(self.name, parent=self.TOP_LEVEL_SHELF)
+
             if select:
                 self.select_tab_index()
 
@@ -50,7 +50,7 @@ class ShelfManager:
         Remove the shelf from the ui
         """
         if self.name in self.shelf_names:
-            pm.deleteUI(self.name)
+            cmds.deleteUI(self.name)
 
     def select_tab_index(self, tab_index: Optional[int] = None):
         """
@@ -59,7 +59,8 @@ class ShelfManager:
         """
         if tab_index is not None:
             assert tab_index <= len(self.shelf_names), 'Invalid index'
-        pm.shelfTabLayout(self.TOP_LEVEL_SHELF, edit=True, selectTabIndex=tab_index if tab_index else self.tab_index)
+
+        cmds.shelfTabLayout(self.TOP_LEVEL_SHELF, edit=True, selectTabIndex=tab_index if tab_index else self.tab_index)
 
     def select_tab_name(self, name: Optional[str] = None):
         """
@@ -68,7 +69,8 @@ class ShelfManager:
         """
         if name is not None:
             assert name in self.shelf_names, 'Invalid shelf name'
-        pm.shelfTabLayout(self.TOP_LEVEL_SHELF, edit=True, selectTab=name if name else self.name)
+
+        cmds.shelfTabLayout(self.TOP_LEVEL_SHELF, edit=True, selectTab=name if name else self.name)
 
     def add_shelf_button(self, label: str, icon: Path, command: str = '', overlay_label: Optional[str] = None,
                          overwrite: bool = True):
@@ -83,37 +85,46 @@ class ShelfManager:
         if label in self.current_button_labels and overwrite:
             self.delete_button(label=label)
 
-        button = pm.shelfButton(label=label, image1=icon, parent=self.name, command=command,
-                                overlayLabelBackColor=(0, 0, 0, 0))
         if overlay_label:
-            button.setImageOverlayLabel(overlay_label)
+            cmds.shelfButton(label=label, image1=icon, parent=self.name, command=command,
+                             overlayLabelBackColor=(0, 0, 0, 0), imageOverlayLabel=overlay_label)
+        else:
+            cmds.shelfButton(label=label, image1=icon, parent=self.name, command=command)
 
     def add_separator(self):
         """
         Add a separator to the current shelf
         """
-        pm.setParent(self.name)
-        pm.separator(width=12, height=35, horizontal=False)
+        cmds.setParent(self.name)
+        cmds.separator(width=12, height=35, horizontal=False, backgroundColor=(0.6, 0.6, 0.6), enableBackground=False)
+
+    def add_label(self, text, bold=False):
+        """
+        Add a text to the current shelf`
+        """
+        cmds.setParent(self.name)
+        cmds.text(label='<b>{}</b>'.format(text) if bold else text, width=len(text) * 7, align='center')
 
     def delete_button(self, label: str):
         """
         Delete a button by label
         :param label:
         """
-        button = next((x for x in self.current_buttons if pm.shelfButton(x, query=True, label=True) == label), None)
+        button = next((x for x in self.current_buttons if cmds.shelfButton(x, query=True, label=True) == label), None)
         if button:
-            pm.deleteUI(button)
+            cmds.deleteUI(button)
 
     def delete_buttons(self):
         """
         Delete all buttons in shelf
         """
         for button in self.buttons:
-            pm.deleteUI(button)
+            cmds.deleteUI(button)
 
     @property
     def buttons(self) -> List[str]:
-        buttons = pm.shelfLayout(self.name, query=True, childArray=True)
+        buttons = cmds.shelfLayout(self.name, query=True, childArray=True)
+
         return buttons if buttons is not None else []
 
 
@@ -127,6 +138,7 @@ def build_shelf_command(function: Type, script: str, imports: Optional[str] = No
     :return:
     """
     import_string = f'{imports}\n\n' if imports else ''
+
     return f'{import_string}{inspect.getsource(function)}\n\n{script}'
 
 
@@ -136,7 +148,7 @@ def message_script(text: str) -> str:
     @param text:
     @return:
     """
-    return f'import pymel.core as pm\npm.inViewMessage(assistMessage="{text}", fade=True, pos="midCenter")'
+    return f'from maya import cmds\ncmds.inViewMessage(assistMessage="{text}", fade=True, pos="midCenter")'
 
 
 def launch_tool_caddy():

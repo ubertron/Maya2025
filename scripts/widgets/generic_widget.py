@@ -1,0 +1,113 @@
+from PySide6.QtWidgets import QWidget, QPushButton, QLabel, QLayout, QSizePolicy
+from PySide6.QtCore import Qt
+from typing import Optional, Callable
+
+from widgets.layouts import VBoxLayout
+
+
+class GenericWidget(QWidget):
+    def __init__(self, name: str = '', parent: Optional[QWidget] = None):
+        super(GenericWidget, self).__init__(parent=parent)
+        self.tool_name = name
+        self.setWindowTitle(self.tool_name)
+        self.setObjectName(self.tool_name)
+        self.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+        self.setLayout(VBoxLayout(2))
+
+    def add_widget(self, widget: QWidget) -> QWidget:
+        """
+        Add a widget to the layout
+        :param widget:
+        :return:
+        """
+        self.layout().addWidget(widget)
+        return widget
+
+    def add_label(self, text: str, center_align: bool = True) -> QLabel:
+        """
+        Add a label to the layout
+        :param text:
+        :param center_align:
+        :return:
+        """
+        label: QLabel = self.add_widget(QLabel(text))
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter if center_align else Qt.AlignmentFlag.AlignLeft)
+        return label
+
+    def add_button(self, text: str, tool_tip: str = '', event: Optional[Callable] = None) -> QPushButton:
+        """
+        Add a button to the layout
+        :param text:
+        :param tool_tip:
+        :param event:
+        :return:
+        """
+        button: QPushButton = self.add_widget(QPushButton(text))
+        button.setToolTip(tool_tip)
+        button.clicked.connect(event)
+        return button
+
+    def replace_layout(self, layout: QLayout):
+        """
+        Change the layout for a different layout
+        :param layout:
+        """
+        QWidget().setLayout(self.layout())
+        self.setLayout(layout)
+
+    def clear_layout(self):
+        """
+        Remove all widgets from the current layout
+        """
+        for i in reversed(range(self.layout().count())):
+            self.layout().itemAt(i).widget().setParent(None)
+
+    def add_stretch(self):
+        """
+        Add a stretch item to the layout
+        """
+        self.layout().addStretch(True)
+
+    def add_spacing(self, value: int):
+        """
+        Add spacing to the layout
+        :param value: size of the spacing
+        """
+        self.layout().addSpacing(value)
+
+    def set_margin(self, value: int):
+        """
+        Set widget margin
+        :param value:
+        """
+        self.layout().setMargin(value)
+
+    def set_spacing(self, value: int):
+        """
+        Set widget spacing
+        :param value:
+        """
+        self.layout().setSpacing(value)
+
+
+class TestWidget(GenericWidget):
+    def __init__(self):
+        super(TestWidget, self).__init__(name='Date Time Widget')
+        self.add_stretch()
+        self.label = self.add_label('Well what are you waiting for? Click it!')
+        self.add_stretch()
+        self.button: QtWidgets.QPushButton = self.add_button('Click me', tool_tip='Get time', event=self.get_time)
+        self.resize(320, 120)
+
+    def get_time(self):
+        self.label.setText(datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S"))
+
+
+if __name__ == '__main__':
+    from datetime import datetime
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication()
+    tool = TestWidget()
+    tool.show()
+    app.exec()

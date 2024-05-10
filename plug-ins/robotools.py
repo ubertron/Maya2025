@@ -3,11 +3,12 @@ import sys
 import maya.api.OpenMaya as om
 import logging
 import platform
+import shutil
 
 from maya import mel
 from pathlib import Path
 
-from maya_utils import robotools_utils
+from maya_tools import robotools_utils
 
 
 def maya_useNewAPI():
@@ -58,6 +59,7 @@ def uninitializePlugin(plugin):
 
     try:
         logging.info('>>> Robotools plugin uninitialize script')
+        logging.info('>>> Deleting Robotools')
         robotools_utils.delete_robotools()
         pluginFn.deregisterCommand(RobotoolsInitializeCmd.kPluginCmdName)
     except RuntimeError:
