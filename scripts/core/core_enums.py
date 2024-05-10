@@ -79,3 +79,27 @@ class ObjectType(Enum):
     script = auto()
     shadingEngine = auto()
     transform = auto()
+
+
+class Attr(Enum):
+    translate = '.translate'
+    rotate = '.rotate'
+    scale = '.scale'
+
+
+@unique
+class DataType(Enum):
+    float = auto()
+    float2 = auto()
+    float3 = auto()
+    int = auto()
+    int2 = auto()
+    int3 = auto()
+    long = auto()
+    long2 = auto()
+    long3 = auto()
+    double = auto()
+    double2 = auto()
+    double3 = auto()
+    str = auto()
+    list = auto()

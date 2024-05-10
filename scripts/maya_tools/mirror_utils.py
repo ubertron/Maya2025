@@ -1,7 +1,6 @@
-import pymel.core as pm
+from maya import cmds
 
-
-from core_tools.enums import Axis
+from core.core_enums import Axis
 
 
 def mirror_geometry(nodes=None, axis=Axis.x, positive=False, merge_threshold=0.001, verbose=False):
@@ -11,9 +10,10 @@ def mirror_geometry(nodes=None, axis=Axis.x, positive=False, merge_threshold=0.0
     :param axis: Specify geometric axis
     :param positive: Specify positive or negative axis
     :param merge_threshold: threshold along axis
+    :param verbose: 
     """
-    selection = pm.ls(sl=True)
-    nodes = pm.ls(nodes) if nodes else pm.ls(sl=True, tr=True)
+    selection = cmds.ls(sl=True)
+    nodes = cmds.ls(nodes) if nodes else cmds.ls(sl=True, tr=True)
     direction = {
         Axis.x: 0 + positive,
         Axis.y: 2 + positive,
@@ -21,15 +21,16 @@ def mirror_geometry(nodes=None, axis=Axis.x, positive=False, merge_threshold=0.0
     }
 
     for item in nodes:
-        pm.select(item)
-        pivot_position = [pm.xform(item, query=True, piv=True, ws=True)[i] for i in range(3)]
+        cmds.select(item)
+        pivot_position = [cmds.xform(item, query=True, piv=True, ws=True)[i] for i in range(3)]
         slice_geometry(item, axis, not positive)
-        pm.polyMirrorFace(item,  ws=True, d=direction[axis], mergeMode=1, p=pivot_position, mt=merge_threshold, mtt=1)
+        cmds.polyMirrorFace(item,  ws=True, d=direction[axis], mergeMode=1, p=pivot_position, mt=merge_threshold, mtt=1)
 
     if verbose:
-        print('Mirrored: {}'.format(str(selection)))
+        print(f'>>> Mirrored: {selection}')
 
-    pm.select(selection)
+    cmds.select(selection)
+
     return selection
 
 
@@ -40,8 +41,8 @@ def slice_geometry(nodes=None, axis=Axis.x, positive=True):
     :param axis: Specify geometric axis
     :param positive: Specify positive or negative axis
     """
-    selection = pm.ls(sl=True)
-    nodes = pm.ls(nodes) if nodes else pm.ls(sl=True, tr=True)
+    selection = cmds.ls(sl=True)
+    nodes = cmds.ls(nodes) if nodes else cmds.ls(sl=True, tr=True)
     angles = {
         Axis.x: [0, positive * 180 - 90, 0],
         Axis.y: [90 - positive * 180, 0, 0],
@@ -50,10 +51,10 @@ def slice_geometry(nodes=None, axis=Axis.x, positive=True):
     cut_axis = angles[axis]
 
     for item in nodes:
-        pm.select(item)
-        pivot_matrix = pm.xform(item, query=True, piv=True, ws=True)
+        cmds.select(item)
+        pivot_matrix = cmds.xform(item, query=True, piv=True, ws=True)
         pivot_position = [pivot_matrix[0], pivot_matrix[1], pivot_matrix[2]]
-        pm.polyCut(
+        cmds.polyCut(
             cutPlaneCenter=pivot_position,
             cutPlaneRotate=cut_axis,
             extractFaces=True,
@@ -61,4 +62,4 @@ def slice_geometry(nodes=None, axis=Axis.x, positive=True):
             deleteFaces=True
         )
 
-    pm.select(selection)
+    cmds.select(selection)

@@ -43,11 +43,11 @@ def setup_robotools():
     load_base_male = 'from maya_tools.character_utils import load_base_character\nload_base_character("male")'
     base_female_cmd = 'from maya_tools.character_utils import import_base_character\nimport_base_character("female")'
     load_base_female = 'from maya_tools.character_utils import load_base_character\nload_base_character("female")'
-    create_cube = 'import pymel.core as pm; pm.polyCube(w=1, h=1, d=1, sx=1, sy=1, sz=1)'
+    create_cube = 'from maya import cmds; cmds.polyCube(w=1, h=1, d=1, sx=1, sy=1, sz=1)'
     slice_cmd = 'from maya_tools.mirror_utils import slice_geometry\nslice_geometry()'
     mirror_cmd = 'from maya_tools.mirror_utils import mirror_geometry\nmirror_geometry()'
-    quadrangulate = 'import pymel.core as pm\npm.runtime.Quadrangulate()'
-    merge_vertices = 'from maya_tools.geometry_utils import merge_vertices\nmerge_vertices'
+    quadrangulate = 'from maya import cmds\ncmds.polyQuad()'
+    merge_vertices = 'from maya_tools.geometry_utils import merge_vertices\nmerge_vertices()'
     select_triangles = 'from maya_tools import geometry_utils; geometry_utils.get_triangular_faces(select=True)'
     select_ngons = 'from maya_tools import geometry_utils; geometry_utils.get_ngons(select=True)'
     super_reset = 'from maya_tools import node_utils; node_utils.super_reset()'
@@ -144,4 +144,4 @@ def delete_robotools():
     Get rid of the shelf
     """
     logging.info('>>> Deleting Robotools shelf')
-    # ShelfManager('Robotools').delete()
+    ShelfManager('Robotools').delete()

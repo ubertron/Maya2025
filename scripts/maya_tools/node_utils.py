@@ -1,6 +1,6 @@
-import pymel.core as pm
+from maya import cmds
 
-from maya_tools.maya_enums import ComponentType
+from core.core_enums import ComponentType, Attr, DataType
 
 
 class State:
@@ -9,33 +9,33 @@ class State:
         Query and restore selection/component mode
         """
         self.component_mode = get_component_mode()
-        self.selection = pm.ls(sl=True)
+        self.selection = cmds.ls(sl=True)
         if self.object_mode:
-            self.object_selection = pm.ls(sl=True)
+            self.object_selection = cmds.ls(sl=True)
             self.component_selection = []
         else:
-            self.component_selection = pm.ls(sl=True)
+            self.component_selection = cmds.ls(sl=True)
             set_component_mode(ComponentType.object)
-            self.object_selection = pm.ls(sl=True)
+            self.object_selection = cmds.ls(sl=True)
             set_component_mode(self.component_mode)
-            pm.hilite(self.object_selection)
+            cmds.hilite(self.object_selection)
 
     def restore(self):
         if self.object_selection:
-            pm.select(self.object_selection, noExpand=True)
+            cmds.select(self.object_selection, noExpand=True)
             set_component_mode(self.component_mode)
         else:
             set_component_mode(ComponentType.object)
-            pm.select(clear=True)
+            cmds.select(clear=True)
         if not self.object_mode:
-            pm.select(self.component_selection)
+            cmds.select(self.component_selection)
 
     @property
     def object_mode(self):
         return self.component_mode == ComponentType.object
 
     def remove_objects(self, objects):
-        # Sometimes necessary as pm.objExists check causes an exception
+        # Sometimes necessary as cmds.objExists check causes an exception
         for item in list(objects):
             if item in self.object_selection:
                 self.object_selection.remove(item)
@@ -46,15 +46,15 @@ def get_component_mode():
     Query the component mode
     @return:
     """
-    if pm.selectMode(query=True, object=True):
+    if cmds.selectMode(query=True, object=True):
         return ComponentType.object
-    elif pm.selectType(query=True, vertex=True):
+    elif cmds.selectType(query=True, vertex=True):
         return ComponentType.vertex
-    elif pm.selectType(query=True, edge=True):
+    elif cmds.selectType(query=True, edge=True):
         return ComponentType.edge
-    elif pm.selectType(query=True, facet=True):
+    elif cmds.selectType(query=True, facet=True):
         return ComponentType.face
-    elif pm.selectType(query=True, polymeshUV=True):
+    elif cmds.selectType(query=True, polymeshUV=True):
         return ComponentType.uv
     else:
         return 'unknown'
@@ -66,19 +66,19 @@ def set_component_mode(component_type=ComponentType.object):
     @param component_type:
     """
     if component_type == ComponentType.object:
-        pm.selectMode(object=True)
+        cmds.selectMode(object=True)
     else:
-        pm.selectMode(component=True)
+        cmds.selectMode(component=True)
         if component_type == ComponentType.vertex:
-            pm.selectType(vertex=True)
+            cmds.selectType(vertex=True)
         elif component_type == ComponentType.edge:
-            pm.selectType(edge=True)
+            cmds.selectType(edge=True)
         elif component_type == ComponentType.face:
-            pm.selectType(facet=True)
+            cmds.selectType(facet=True)
         elif component_type == ComponentType.uv:
-            pm.selectType(polymeshUV=True)
+            cmds.selectType(polymeshUV=True)
         else:
-            pm.warning('Unknown component type')
+            cmds.warning('Unknown component type')
 
 
 def select_components(transform, components, component_type=ComponentType.face, hilite=True):
@@ -92,18 +92,18 @@ def select_components(transform, components, component_type=ComponentType.face, 
     state = State()
 
     if component_type == ComponentType.vertex:
-        pm.select(transform.vtx[components])
+        cmds.select(transform.vtx[components])
     elif component_type == ComponentType.edge:
-        pm.select(transform.e[components])
+        cmds.select(transform.e[components])
     elif component_type == ComponentType.face:
-        pm.select(transform.f[components])
+        cmds.select(transform.f[components])
     elif component_type == ComponentType.uv:
-        pm.select(transform.map[components])
+        cmds.select(transform.map[components])
     else:
-        pm.warning('Component type not supported')
+        cmds.warning('Component type not supported')
 
     if hilite:
-        pm.hilite(transform)
+        cmds.hilite(transform)
     else:
         state.restore()
 
@@ -115,7 +115,7 @@ def delete_history(nodes=None):
     """
     state = State()
     set_component_mode(ComponentType.object)
-    pm.delete(pm.ls(nodes, tr=True) if nodes else pm.ls(sl=True, tr=True), constructionHistory=True)
+    cmds.delete(cmds.ls(nodes, tr=True) if nodes else cmds.ls(sl=True, tr=True), constructionHistory=True)
     state.restore()
 
 
@@ -124,8 +124,8 @@ def freeze_transformations(nodes=None):
     Freeze transformations on supplied nodes
     @param nodes:
     """
-    for node in list(nodes) if nodes else pm.ls(sl=True, tr=True):
-        pm.makeIdentity(node, apply=True, translate=True, rotate=True, scale=True)
+    for node in list(nodes) if nodes else cmds.ls(sl=True, tr=True):
+        cmds.makeIdentity(node, apply=True, translate=True, rotate=True, scale=True)
 
 
 def reset_pivot(nodes=None):
@@ -133,11 +133,11 @@ def reset_pivot(nodes=None):
     Fix transformations on the pivot so that it is relative to the origin
     @param nodes:
     """
-    for item in pm.ls(nodes, tr=True) if nodes else pm.ls(sl=True, tr=True):
-        pivot_node = pm.xform(item, query=True, worldSpace=True, rotatePivot=True)
-        pm.xform(item, relative=True, translation=[-i for i in pivot_node])
-        pm.makeIdentity(item, apply=True, translate=True)
-        pm.xform(item, translation=pivot_node)
+    for item in cmds.ls(nodes, tr=True) if nodes else cmds.ls(sl=True, tr=True):
+        pivot_node = cmds.xform(item, query=True, worldSpace=True, rotatePivot=True)
+        cmds.xform(item, relative=True, translation=[-i for i in pivot_node])
+        cmds.makeIdentity(item, apply=True, translate=True)
+        cmds.xform(item, translation=pivot_node)
 
 
 def super_reset(nodes=None):
@@ -145,57 +145,57 @@ def super_reset(nodes=None):
     Reset transformations, reset pivot and delete construction history
     @param nodes:
     """
-    nodes = pm.ls(nodes, tr=True) if nodes else pm.ls(sl=True, tr=True)
+    nodes = cmds.ls(nodes, tr=True) if nodes else cmds.ls(sl=True, tr=True)
     freeze_transformations(nodes)
     reset_pivot(nodes)
     delete_history(nodes)
 
 
-def pivot_to_base(pm_obj=None, reset=True):
+def pivot_to_base(transform=None, reset=True):
     """
     Send pivot to the base of the object
-    @param pm_obj:
+    @param transform:
     @param reset:
     """
-    for item in list(pm_obj) if pm_obj else pm.ls(sl=True, tr=True):
-        bounding_box = pm.exactWorldBoundingBox(item)  # [x_min, y_min, z_min, x_max, y_max, z_max]
+    for item in list(transform) if transform else cmds.ls(sl=True, tr=True):
+        bounding_box = cmds.exactWorldBoundingBox(item)  # [x_min, y_min, z_min, x_max, y_max, z_max]
         base = [(bounding_box[0] + bounding_box[3]) / 2, bounding_box[1], (bounding_box[2] + bounding_box[5]) / 2]
-        pm.xform(item, piv=base, ws=True)
+        cmds.xform(item, piv=base, ws=True)
 
     if reset:
-        reset_pivot(pm_obj)
+        reset_pivot(transform)
 
 
-def pivot_to_center(pm_obj=None, reset=True):
+def pivot_to_center(transform=None, reset=True):
     """
     Send pivot to the center of the object
-    @param pm_obj:
+    @param transform:
     @param reset:
     """
-    for item in list(pm_obj) if pm_obj else pm.ls(sl=True, tr=True):
-        pm.xform(item, centerPivotsOnComponents=True)
+    for item in list(transform) if transform else cmds.ls(sl=True, tr=True):
+        cmds.xform(item, centerPivotsOnComponents=True)
 
     if reset:
-        reset_pivot(pm_obj)
+        reset_pivot(transform)
 
 
-def pivot_to_origin(pm_obj=None, reset=True):
+def pivot_to_origin(transform=None, reset=True):
     """
     Send pivot to the origin
-    @param pm_obj:
+    @param transform:
     @param reset:
     """
-    for item in list(pm_obj) if pm_obj else pm.ls(sl=True, tr=True):
-        pm.xform(item, piv=[0, 0, 0], ws=True)
+    for item in list(transform) if transform else cmds.ls(sl=True, tr=True):
+        cmds.xform(item, piv=[0, 0, 0], ws=True)
 
     if reset:
-        reset_pivot(pm_obj)
+        reset_pivot(transform)
 
 
-def move_to_origin(pm_obj=None):
+def move_to_origin(transform=None):
     """
     Move objects to the origin
-    @param pm_obj:
+    @param transform:
     """
-    for item in list(pm_obj) if pm_obj else pm.ls(sl=True, tr=True):
-        pm.setAttr(item.translate, (0, 0, 0), type='float3')
+    for item in list(transform) if transform else cmds.ls(sl=True, tr=True):
+        cmds.setAttr(f'{item}{Attr.translate.value}', 0, 0, 0, type=DataType.float3.name)
