@@ -6,15 +6,22 @@ import os
 from pathlib import Path
 from maya import cmds
 
-from core.core_paths import SITE_PACKAGES, MAYA_INTERPRETER_PATH, MAYA_REQUIREMENTS, icon_path
+from core.core_paths import SITE_PACKAGES, MAYA_INTERPRETER_PATH, MAYA_REQUIREMENTS, icon_path, PROJECT_ROOT
 from core.config_utils import MayaConfig
 from maya_tools import plug_in_utils
 from maya_tools.utilities.shelf_manager import ShelfManager, message_script
+from maya_tools.utilities import hotkey_manager
+from maya_tools.maya_environment_utils import is_using_mac_osx
+
 
 ROBOTOOLS_TITLE: str = 'Robotools'
 ROBOTOOLS_VERSION = '0.3'
 ROBOTOOLS_PLUG_IN = 'robotools'
 ROBOTOOLS_SHELF_VERSION: str = 1.3
+MAYA_CONFIG: MayaConfig = MayaConfig()
+PREFERENCES_KEY: str = 'PREFERENCES'
+ROBOTOOLS_HOTKEYS_NAME: str = 'Robotools_Hotkeys'
+ROBOTOOLS_HOTKEYS_PATH: Path = PROJECT_ROOT.joinpath('scripts', 'startup', f'{ROBOTOOLS_HOTKEYS_NAME}.mhk')
 
 
 def setup_robotools():
@@ -30,6 +37,12 @@ def setup_robotools():
     else:
         logging.info(">>> Tools up to date")
 
+    setup_robotools_shelf()
+    setup_preferences()
+    setup_hotkeys()
+
+
+def setup_robotools_shelf():
     logging.info('>>> Setting up Robotools shelf')
     sm = ShelfManager(ROBOTOOLS_TITLE)
     sm.delete()
@@ -81,7 +94,35 @@ def setup_robotools():
     sm.add_shelf_button(label='Pivot To Origin', overlay_label='Pv->O', icon=script_icon, command=pivot_origin)
     sm.add_shelf_button(label='Move To Origin', overlay_label='>Orig', icon=script_icon, command=move_to_origin)
 
-    # logging.info('>>> Setting up Robotools hotkeys')
+
+def setup_preferences():
+    """
+    Sets up Maya preferences
+    """
+    logging.info('>>> Setting Maya preferences')
+    cmds.currentUnit(linear='meter')
+
+    grid_size = MAYA_CONFIG.get(section=PREFERENCES_KEY, option='GRID_SIZE', default=3)
+    grid_spacing = MAYA_CONFIG.get(section=PREFERENCES_KEY, option='GRID_SPACING', default=1.0)
+    divisions = MAYA_CONFIG.get(section=PREFERENCES_KEY, option='DIVISIONS', default=2)
+    cmds.grid(size=int(grid_size), spacing=float(grid_spacing), divisions=int(divisions))
+
+    cmds.displayColor('gridHighlight', 1)
+    cmds.displayColor('grid', 12)
+    cmds.selectPref(clickDrag=True)
+
+    if is_using_mac_osx():
+        cmds.mouse(mouseButtonTracking=2)
+        cmds.multiTouch(gestures=False, trackpad=1)
+
+
+def setup_hotkeys():
+    """
+    Set up the Robotools hotkeys
+    """
+    logging.info('>>> Setting up hotkeys')
+    RobotoolsHotkeyManager().init_hotkeys()
+    RobotoolsHotkeyManager().save_hotkeys()
 
 
 def robotools_plug_in_path() -> Path or None:
@@ -132,9 +173,8 @@ def check_requirements_hash() -> bool:
             sha256.update(byte_block)
 
     new_hash = sha256.hexdigest()
-    config = MayaConfig()
-    saved_hash = config.get(section=modules_key, option=requirements_key)
-    config.set(section=modules_key, option=requirements_key, value=new_hash, save=True)
+    saved_hash = MAYA_CONFIG.get(section=modules_key, option=requirements_key)
+    MAYA_CONFIG.set(section=modules_key, option=requirements_key, value=new_hash, save=True)
 
     return new_hash == saved_hash
 
@@ -145,3 +185,40 @@ def delete_robotools():
     """
     logging.info('>>> Deleting Robotools shelf')
     ShelfManager('Robotools').delete()
+
+
+class RobotoolsHotkeyManager(hotkey_manager.HotkeyManager):
+    def __init__(self):
+        super(RobotoolsHotkeyManager, self).__init__(name=ROBOTOOLS_HOTKEYS_NAME, path=ROBOTOOLS_HOTKEYS_PATH)
+
+    def init_hotkeys(self):
+        """
+        Set up the hotkeys
+        """
+        logging.info('>>> Setting up Robotools hotkeys')
+        is_mac: bool = is_using_mac_osx()
+        is_pc: bool = not is_using_mac_osx()
+
+        self.set_hotkey('hotkeyPrefs', annotation='Hotkey Editor', mel_command='HotkeyPreferencesWindow',
+                        key='H', cmd=is_mac, ctrl=is_pc, overwrite=True)
+        self.set_hotkey('appendToPoly', annotation='Append To Poly', mel_command='AppendToPolygonTool',
+                        key='A', cmd=is_mac, ctrl=is_pc, overwrite=True)
+        self.set_hotkey('createPoly', annotation='Create Polygon Tool', mel_command='CreatePolygonTool',
+                        key='C', cmd=is_mac, ctrl=is_pc, overwrite=True)
+        self.set_hotkey('combine', annotation='Combine', mel_command='CombinePolygons',
+                        key='A', cmd=is_mac, ctrl=is_pc, alt=True, overwrite=True)
+        self.set_hotkey('mergeVertices', annotation='Merge Vertices', mel_command='PolyMergeVertices',
+                        key='W', cmd=is_mac, ctrl=is_pc, overwrite=True)
+        self.set_hotkey('toggleGrid', annotation='Toggle Grid', mel_command='ToggleGrid',
+                        key=';', cmd=is_mac, ctrl=is_pc, overwrite=True)
+        self.set_hotkey('selectEdgeLoop', annotation='Select Edge Loop', mel_command='SelectEdgeLoopSp',
+                        key=']', cmd=is_mac, ctrl=is_pc, overwrite=True)
+        self.set_hotkey('selectEdgeRing', annotation='Select Edge Ring', mel_command='SelectEdgeRingSp',
+                        key='[', cmd=is_mac, ctrl=is_pc, overwrite=True)
+
+    def save_hotkeys(self):
+        """
+        Save the hotkeys file locally
+        """
+        ROBOTOOLS_HOTKEYS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        self.export_set()

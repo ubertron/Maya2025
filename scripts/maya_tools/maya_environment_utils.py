@@ -5,8 +5,16 @@ from typing import List
 from core import DARWIN_STR
 
 
+def is_using_mac_osx() -> bool:
+    """
+    Returns true if using Mac OSX
+    :return:
+    """
+    return platform.system() == DARWIN_STR
+
+
 def get_environment_variables(variable_name: str, log: bool = False) -> List[str]:
-    sep = ':' if platform.system() == DARWIN_STR else ';'
+    sep = ':' if is_using_mac_osx() else ';'
     paths = mel.eval(f'getenv {variable_name}').split(sep)
     paths.sort(key=lambda x: x.lower())
 

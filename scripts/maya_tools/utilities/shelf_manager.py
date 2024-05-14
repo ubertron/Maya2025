@@ -149,10 +149,3 @@ def message_script(text: str) -> str:
     @return:
     """
     return f'from maya import cmds\ncmds.inViewMessage(assistMessage="{text}", fade=True, pos="midCenter")'
-
-
-def launch_tool_caddy():
-    from robotools.maya_tools import launch_utility
-    from robotools.utils import tool_caddy
-
-    launch_utility(module=tool_caddy, utility_class=tool_caddy.ToolCaddy)

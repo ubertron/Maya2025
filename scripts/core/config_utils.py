@@ -27,17 +27,18 @@ class MayaConfig:
         if save:
             self.save()
 
-    def get(self, section: str, option: str) -> str or None:
+    def get(self, section: str, option: str, default=None) -> str or None:
         """
         Get a config value
         :param section:
         :param option:
+        :param default: return default value if no value found
         :return:
         """
         if self.config.has_section(section=section):
             return self.config.get(section=section, option=option)
         else:
-            return None
+            return default
 
     def save(self):
         """
