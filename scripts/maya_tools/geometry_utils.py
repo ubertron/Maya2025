@@ -1,7 +1,7 @@
 import math
 
 from maya import cmds
-from typing import List, Optional
+from typing import Optional, Sequence
 
 from maya_tools.scene_utils import message_script
 from maya_tools.node_utils import State
@@ -16,7 +16,7 @@ def get_vertex_count(transform) -> int:
     return cmds.polyEvaluate(transform, vertex=True)
 
 
-def get_vertex_positions(transform: str) -> List[List[float]]:
+def get_vertex_positions(transform: str) -> list[list[float]]:
     """
     Gets the position of each vertex in a mesh
     :param transform:
@@ -113,7 +113,7 @@ def get_faces_by_vert_count(transform: Optional[str] = None, select: bool = Fals
     vertex_dict = {'triangle': [], 'quad': [], 'ngon': []}
 
     for i in range(num_faces):
-        vertices = cmds.polyListComponentConversion(f'{transform}.f[{i}]', tv=True)
+        vertices = cmds.polylistComponentConversion(f'{transform}.f[{i}]', tv=True)
         vertex_count = len(cmds.ls(vertices, flatten=True))
         if vertex_count == 3:
             key = 'triangle'
@@ -131,7 +131,7 @@ def get_faces_by_vert_count(transform: Optional[str] = None, select: bool = Fals
         return vertex_dict[return_type]
 
 
-def select_faces(transform: str, vertices: List[int]):
+def select_faces(transform: str, vertices: list[int]):
     """
     Select faces on a mesh
     :param transform:
@@ -141,3 +141,26 @@ def select_faces(transform: str, vertices: List[int]):
     cmds.select(face_objects)
     cmds.hilite(transform)
     cmds.selectType(facet=True)
+
+
+def toggle_backface_culling(transforms: Optional[Sequence[str]] = None):
+    """
+    Toggle backface culling on passed or selected objects
+    :param transforms:
+    """
+    transforms = list(cmds.ls(transforms)) if transforms else cmds.ls(sl=True, transforms=True)
+
+    for item in transforms:
+        value = f'{item}.backfaceCulling'
+        cmds.setAttr(value, 3) if cmds.getAttr(value) == 0 else cmds.setAttr(value, 0)
+
+
+def toggle_xray(transforms: Optional[Sequence[str]] = None):
+    """
+    Toggle xray on passed or selected objects
+    :param transforms:
+    """
+    transforms = list(cmds.ls(transforms)) if transforms else cmds.ls(sl=True, transforms=True)
+
+    for item in transforms:
+        cmds.displaySurface(item, xRay=(not cmds.displaySurface(item, xRay=True, query=True)[0]))

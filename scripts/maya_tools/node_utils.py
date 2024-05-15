@@ -36,7 +36,7 @@ class State:
 
     def remove_objects(self, objects):
         # Sometimes necessary as cmds.objExists check causes an exception
-        for item in list(objects):
+        for item in [objects]:
             if item in self.object_selection:
                 self.object_selection.remove(item)
 
@@ -124,7 +124,7 @@ def freeze_transformations(nodes=None):
     Freeze transformations on supplied nodes
     @param nodes:
     """
-    for node in list(nodes) if nodes else cmds.ls(sl=True, tr=True):
+    for node in [nodes] if nodes else cmds.ls(sl=True, tr=True):
         cmds.makeIdentity(node, apply=True, translate=True, rotate=True, scale=True)
 
 
@@ -157,7 +157,7 @@ def pivot_to_base(transform=None, reset=True):
     @param transform:
     @param reset:
     """
-    for item in list(transform) if transform else cmds.ls(sl=True, tr=True):
+    for item in [transform] if transform else cmds.ls(sl=True, tr=True):
         bounding_box = cmds.exactWorldBoundingBox(item)  # [x_min, y_min, z_min, x_max, y_max, z_max]
         base = [(bounding_box[0] + bounding_box[3]) / 2, bounding_box[1], (bounding_box[2] + bounding_box[5]) / 2]
         cmds.xform(item, piv=base, ws=True)
@@ -172,7 +172,7 @@ def pivot_to_center(transform=None, reset=True):
     @param transform:
     @param reset:
     """
-    for item in list(transform) if transform else cmds.ls(sl=True, tr=True):
+    for item in [transform] if transform else cmds.ls(sl=True, tr=True):
         cmds.xform(item, centerPivotsOnComponents=True)
 
     if reset:
@@ -185,7 +185,7 @@ def pivot_to_origin(transform=None, reset=True):
     @param transform:
     @param reset:
     """
-    for item in list(transform) if transform else cmds.ls(sl=True, tr=True):
+    for item in [transform] if transform else cmds.ls(sl=True, tr=True):
         cmds.xform(item, piv=[0, 0, 0], ws=True)
 
     if reset:
@@ -197,5 +197,5 @@ def move_to_origin(transform=None):
     Move objects to the origin
     @param transform:
     """
-    for item in list(transform) if transform else cmds.ls(sl=True, tr=True):
+    for item in [transform] if transform else cmds.ls(sl=True, tr=True):
         cmds.setAttr(f'{item}{Attr.translate.value}', 0, 0, 0, type=DataType.float3.name)

@@ -68,6 +68,8 @@ def setup_robotools_shelf():
     pivot_center = 'from maya_tools import node_utils; node_utils.pivot_to_center()'
     pivot_origin = 'from maya_tools import node_utils; node_utils.pivot_to_origin()'
     move_to_origin = 'from maya_tools import node_utils; node_utils.move_to_origin()'
+    backface_culling = 'from maya_tools.geometry_utils import toggle_backface_culling\ntoggle_backface_culling()'
+    toggle_xray = 'from maya_tools.geometry_utils import toggle_xray\ntoggle_xray()'
 
     sm.add_label('Robotools v{}'.format(ROBOTOOLS_VERSION), bold=True)
     sm.add_shelf_button(label='About Robotools', icon=robonobo_icon, command=message_script(version_info))
@@ -86,6 +88,8 @@ def setup_robotools_shelf():
     sm.add_shelf_button(label='Merge Vertices', overlay_label='Merge', icon=script_icon, command=merge_vertices)
     sm.add_shelf_button(label='Select Triangles', overlay_label='Tris', icon=script_icon, command=select_triangles)
     sm.add_shelf_button(label='Select Ngons', overlay_label='Ngons', icon=script_icon, command=select_ngons)
+    sm.add_shelf_button(label='Toggle Backface Culling', overlay_label='tBFC', icon=script_icon, command=backface_culling)
+    sm.add_shelf_button(label='Toggle Xray', overlay_label='tXRay', icon=script_icon, command=toggle_xray)
     sm.add_separator()
     sm.add_label('Nodes')
     sm.add_shelf_button(label='Super Reset', overlay_label='SpRst', icon=script_icon, command=super_reset)
@@ -215,6 +219,7 @@ class RobotoolsHotkeyManager(hotkey_manager.HotkeyManager):
                         key=']', cmd=is_mac, ctrl=is_pc, overwrite=True)
         self.set_hotkey('selectEdgeRing', annotation='Select Edge Ring', mel_command='SelectEdgeRingSp',
                         key='[', cmd=is_mac, ctrl=is_pc, overwrite=True)
+        self.set_hotkey('connect', annotation='Connect', mel_command='ConnectComponents', key='C', overwrite=True)
 
     def save_hotkeys(self):
         """

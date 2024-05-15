@@ -72,10 +72,13 @@ class Gender(Enum):
 
 @unique
 class ObjectType(Enum):
+    file = auto()
     lambert = auto()
     materialInfo = auto()
     mesh = auto()
     nodeGraphEditorInfo = auto()
+    modelPanel = auto()
+    place2dTexture = auto()
     script = auto()
     shadingEngine = auto()
     transform = auto()

@@ -1,4 +1,5 @@
 # Requirements for Maya 2025 only
+pillow
 pyperclip
 python-dotenv
 Send2Trash
