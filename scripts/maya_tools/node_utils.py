@@ -1,6 +1,6 @@
 from maya import cmds
 
-from core.core_enums import ComponentType, Attr, DataType
+from core.core_enums import ComponentType, Attr, DataType, ObjectType
 
 
 class State:
@@ -199,3 +199,60 @@ def move_to_origin(transform=None):
     """
     for item in [transform] if transform else cmds.ls(sl=True, tr=True):
         cmds.setAttr(f'{item}{Attr.translate.value}', 0, 0, 0, type=DataType.float3.name)
+
+
+def get_selected_transforms():
+    state = State()
+    set_component_mode(ComponentType.object)
+    selection = cmds.ls(sl=True, tr=True)
+    state.restore()
+    return selection
+
+
+def get_transforms(nodes=None):
+    state = State()
+    set_component_mode(ComponentType.object)
+    selection = cmds.ls(nodes, tr=True) if nodes else cmds.ls(sl=True, tr=True)
+    state.restore()
+    return selection
+
+
+def get_shape_from_transform(transform, full_path=False):
+    """
+    Gets the shape node if any from a transform
+    :param transform:
+    :param full_path:
+    :return:
+    """
+    if cmds.nodeType(transform) == 'transform':
+        shape_list = cmds.listRelatives(transform, f=full_path, shapes=True)
+        return shape_list[0] if shape_list else None
+    else:
+        return None
+
+
+def get_transform_from_shape(node, full_path=False):
+    """
+    Gets the transform node from a shape
+    :param node:
+    :param full_path:
+    :return:
+    """
+    return node if cmds.nodeType(node) == 'transform' else cmds.listRelatives(node, fullPath=full_path, parent=True)[0]
+
+
+def is_node_type(obj, object_type: ObjectType):
+    shape = get_shapes_from_transform(obj)
+    return cmds.objectType(shape) == object_type.name
+
+
+def move_to_last():
+    """
+    Move selected objects to the location of the last selected object
+    """
+    transforms = cmds.ls(sl=True, tr=True)
+    assert len(transforms) > 1, "Select more than one node."
+    location = cmds.getAttr(f'{transforms[-1]}.translate')[0]
+
+    for i in range(len(transforms) - 1):
+        cmds.setAttr(f'{transforms[i]}.translate', *location, type='float3')

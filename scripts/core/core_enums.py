@@ -78,6 +78,7 @@ class ObjectType(Enum):
     mesh = auto()
     nodeGraphEditorInfo = auto()
     modelPanel = auto()
+    nurbsCurve = auto()
     place2dTexture = auto()
     script = auto()
     shadingEngine = auto()

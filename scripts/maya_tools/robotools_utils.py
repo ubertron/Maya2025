@@ -67,9 +67,11 @@ def setup_robotools_shelf():
     pivot_base = 'from maya_tools import node_utils; node_utils.pivot_to_base()'
     pivot_center = 'from maya_tools import node_utils; node_utils.pivot_to_center()'
     pivot_origin = 'from maya_tools import node_utils; node_utils.pivot_to_origin()'
-    move_to_origin = 'from maya_tools import node_utils; node_utils.move_to_origin()'
     backface_culling = 'from maya_tools.geometry_utils import toggle_backface_culling\ntoggle_backface_culling()'
     toggle_xray = 'from maya_tools.geometry_utils import toggle_xray\ntoggle_xray()'
+    rebuild_curve = 'from maya_tools import curve_utils; curve_utils.rebuild_closed_curve_from_selected_cv(False)'
+    move_to_origin = 'from maya_tools import node_utils; node_utils.move_to_origin()'
+    move_to_last = 'from maya_tools import node_utils; node_utils.move_to_last()'
 
     sm.add_label('Robotools v{}'.format(ROBOTOOLS_VERSION), bold=True)
     sm.add_shelf_button(label='About Robotools', icon=robonobo_icon, command=message_script(version_info))
@@ -91,12 +93,16 @@ def setup_robotools_shelf():
     sm.add_shelf_button(label='Toggle Backface Culling', overlay_label='tBFC', icon=script_icon, command=backface_culling)
     sm.add_shelf_button(label='Toggle Xray', overlay_label='tXRay', icon=script_icon, command=toggle_xray)
     sm.add_separator()
+    sm.add_label('Shapes')
+    sm.add_shelf_button(label='Rebuild Curve From CV', overlay_label='Rbld', icon=script_icon, command=rebuild_curve)
+    sm.add_separator()
     sm.add_label('Nodes')
     sm.add_shelf_button(label='Super Reset', overlay_label='SpRst', icon=script_icon, command=super_reset)
     sm.add_shelf_button(label='Pivot To Base', overlay_label='Pv->B', icon=script_icon, command=pivot_base)
     sm.add_shelf_button(label='Pivot To Center', overlay_label='Pv->C', icon=script_icon, command=pivot_center)
     sm.add_shelf_button(label='Pivot To Origin', overlay_label='Pv->O', icon=script_icon, command=pivot_origin)
     sm.add_shelf_button(label='Move To Origin', overlay_label='>Orig', icon=script_icon, command=move_to_origin)
+    sm.add_shelf_button(label='Move To Last', overlay_label='>Last', icon=script_icon, command=move_to_last)
 
 
 def setup_preferences():
