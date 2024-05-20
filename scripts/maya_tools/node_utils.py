@@ -1,4 +1,5 @@
 from maya import cmds
+from typing import Optional
 
 from core.core_enums import ComponentType, Attr, DataType, ObjectType
 
@@ -246,6 +247,21 @@ def is_node_type(obj, object_type: ObjectType):
     return cmds.objectType(shape) == object_type.name
 
 
+def match_pivot_to_last(transforms=None):
+    """
+    Relocate selected pivots to the location of the pivot of the last object
+    :param transforms:
+    """
+    selection = cmds.ls(transforms, tr=True) if transforms else cmds.ls(sl=True, tr=True)
+    assert len(selection) > 1, "Please select more than one object"
+    target_position = cmds.xform(selection[-1], query=True, worldSpace=True, rotatePivot=True)
+
+    for i in range(len(selection) - 1):
+        cmds.xform(selection[i], worldSpace=True, pivots=target_position)
+
+    reset_pivot(selection[:-1])
+
+
 def move_to_last():
     """
     Move selected objects to the location of the last selected object
@@ -256,3 +272,21 @@ def move_to_last():
 
     for i in range(len(transforms) - 1):
         cmds.setAttr(f'{transforms[i]}.translate', *location, type='float3')
+
+
+def rename_transforms(transforms: Optional[list] = None, token: str = "node",
+                      padding: int = 2, start: int = 1) -> list[str]:
+    """
+    Rename selected nodes using a token
+    :param transforms:
+    :param token:
+    :param padding:
+    :param start:
+    """
+    transforms = cmds.ls(transforms, tr=True) if transforms else cmds.ls(sl=True, tr=True)
+    name_list = []
+
+    for idx, x in enumerate(transforms):
+        name_list.append(cmds.rename(x, f"{token}{str(idx + start).zfill(padding)}"))
+
+    return name_list

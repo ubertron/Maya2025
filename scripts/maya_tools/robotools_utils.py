@@ -72,6 +72,8 @@ def setup_robotools_shelf():
     rebuild_curve = 'from maya_tools import curve_utils; curve_utils.rebuild_closed_curve_from_selected_cv(False)'
     move_to_origin = 'from maya_tools import node_utils; node_utils.move_to_origin()'
     move_to_last = 'from maya_tools import node_utils; node_utils.move_to_last()'
+    rename_nodes = 'from maya_tools import node_utils; node_utils.rename_nodes()'
+    pivot_match = 'from maya_tools import node_utils; node_utils.match_pivot_to_last()'
 
     sm.add_label('Robotools v{}'.format(ROBOTOOLS_VERSION), bold=True)
     sm.add_shelf_button(label='About Robotools', icon=robonobo_icon, command=message_script(version_info))
@@ -103,6 +105,8 @@ def setup_robotools_shelf():
     sm.add_shelf_button(label='Pivot To Origin', overlay_label='Pv->O', icon=script_icon, command=pivot_origin)
     sm.add_shelf_button(label='Move To Origin', overlay_label='>Orig', icon=script_icon, command=move_to_origin)
     sm.add_shelf_button(label='Move To Last', overlay_label='>Last', icon=script_icon, command=move_to_last)
+    sm.add_shelf_button(label='Rename Nodes', overlay_label='Rname', icon=script_icon, command=rename_nodes)
+    sm.add_shelf_button(label='Pivot Match', overlay_label='PvtM', icon=script_icon, command=pivot_match)
 
 
 def setup_preferences():

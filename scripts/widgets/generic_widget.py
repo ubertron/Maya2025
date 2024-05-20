@@ -1,18 +1,25 @@
-from PySide6.QtWidgets import QWidget, QPushButton, QLabel, QLayout, QSizePolicy
+import platform
+
+from PySide6.QtWidgets import QWidget, QPushButton, QLabel, QLayout, QSizePolicy, QMainWindow
 from PySide6.QtCore import Qt
+from shiboken6 import wrapInstance
 from typing import Optional, Callable
 
-from widgets.layouts import VBoxLayout
+from widgets.layouts import HBoxLayout, VBoxLayout
+from core import DARWIN_STR
+from core.core_enums import Alignment
+from core.environment_utils import is_using_maya_python
 
 
 class GenericWidget(QWidget):
-    def __init__(self, name: str = '', parent: Optional[QWidget] = None):
+    def __init__(self, title: str = '', alignment: Alignment = Alignment.vertical, parent: Optional[QWidget] = None):
         super(GenericWidget, self).__init__(parent=parent)
-        self.tool_name = name
-        self.setWindowTitle(self.tool_name)
-        self.setObjectName(self.tool_name)
+        self.title = title
+        self.setWindowTitle(self.title)
+        self.setObjectName(self.title)
         self.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        self.setLayout(VBoxLayout(2))
+        self.setLayout(VBoxLayout() if alignment is Alignment.vertical else HBoxLayout())
+        self._init_maya_properties()
 
     def add_widget(self, widget: QWidget) -> QWidget:
         """
@@ -23,7 +30,7 @@ class GenericWidget(QWidget):
         self.layout().addWidget(widget)
         return widget
 
-    def add_label(self, text: str, center_align: bool = True) -> QLabel:
+    def add_label(self, text: str = '', center_align: bool = True) -> QLabel:
         """
         Add a label to the layout
         :param text:
@@ -89,10 +96,20 @@ class GenericWidget(QWidget):
         """
         self.layout().setSpacing(value)
 
+    def _init_maya_properties(self):
+        """
+        Initializes widget properties for Maya
+        """
+        if is_using_maya_python():
+            from maya import OpenMayaUI
+            self.mayaMainWindow = wrapInstance(int(OpenMayaUI.MQtUtil.mainWindow()), QMainWindow)
+            self.setWindowFlags(Qt.Window)
+            self.setWindowFlags(Qt.Tool if platform.system() == DARWIN_STR else Qt.Window)
+
 
 class TestWidget(GenericWidget):
     def __init__(self):
-        super(TestWidget, self).__init__(name='Date Time Widget')
+        super(TestWidget, self).__init__(title='Date Time Widget')
         self.add_stretch()
         self.label = self.add_label('Well what are you waiting for? Click it!')
         self.add_stretch()

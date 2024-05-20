@@ -3,16 +3,18 @@ from PySide6.QtCore import QPoint, Qt
 
 from typing import Optional, Callable
 
-from widgets.layouts import VBoxLayout
+from core.core_enums import Alignment
+from widgets.layouts import HBoxLayout, VBoxLayout
 
 
 class GenericDialog(QDialog):
-    def __init__(self, title: str = '', position: Optional[QPoint] = None, modal: bool = True, parent=None):
+    def __init__(self, title: str = '', position: Optional[QPoint] = None, modal: bool = True,
+                 alignment=Alignment.vertical, parent: Optional[QWidget] = None):
         super(GenericDialog, self).__init__()
         self.setWindowTitle(title)
         self.setParent(parent)
         self.setWindowModality(Qt.WindowModality.ApplicationModal if modal else Qt.WindowModality.NonModal)
-        self.setLayout(VBoxLayout(margin=8, spacing=4))
+        self.setLayout(VBoxLayout() if alignment is Alignment.vertical else HBoxLayout())
 
         if position:
             self.move(position)
