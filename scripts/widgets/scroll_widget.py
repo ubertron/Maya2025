@@ -61,7 +61,7 @@ class ScrollWidget(GenericWidget):
         :param widget: widget
         :return: QWidget
         """
-        self.widget.addWidget(widget)
+        self.widget.add_widget(widget)
         return widget
 
     def replace_layout(self, layout: QLayout):
