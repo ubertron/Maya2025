@@ -1,6 +1,6 @@
 import platform
 
-from PySide6.QtWidgets import QWidget, QPushButton, QLabel, QLayout, QSizePolicy, QMainWindow
+from PySide6.QtWidgets import QWidget, QPushButton, QLabel, QLayout, QSizePolicy, QMainWindow, QSpacerItem
 from PySide6.QtCore import Qt
 from shiboken6 import wrapInstance
 from typing import Optional, Callable
@@ -64,10 +64,15 @@ class GenericWidget(QWidget):
 
     def clear_layout(self):
         """
-        Remove all widgets from the current layout
+        Remove all widgets and spacer items from the current layout
         """
         for i in reversed(range(self.layout().count())):
-            self.layout().itemAt(i).widget().setParent(None)
+            item = self.layout().itemAt(i)
+
+            if isinstance(item, QSpacerItem):
+                self.layout().takeAt(i)
+            else:
+                item.widget().setParent(None)
 
     def add_stretch(self):
         """

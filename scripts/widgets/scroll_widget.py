@@ -67,8 +67,8 @@ class ScrollWidget(GenericWidget):
     def replace_layout(self, layout: QLayout):
         self.widget.replace_layout(layout)
 
-    def clear_layout(self, layout: Optional[QLayout] = None):
-        self.widget.clear_layout(layout)
+    def clear_layout(self):
+        self.widget.clear_layout()
 
     def add_stretch(self):
         self.widget.add_stretch()

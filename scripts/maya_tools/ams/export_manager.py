@@ -33,7 +33,7 @@ class ExportManager(GenericWidget):
         self.info_label: QLabel = self.add_label(center_align=False)
         self.info_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.project_root = self.settings.value(self.project_key, defaultValue=None)
-        self.resize(640, 800)
+        self.resize(480, 640)
         self.refresh()
 
     def refresh(self):
