@@ -6,8 +6,9 @@ from PySide6.QtWidgets import QLabel, QSizePolicy, QWidget
 from PySide6.QtCore import Qt
 
 from core.core_enums import Alignment, AssetType
-from maya_tools.ams.ams_enums import StatusStyle
+from maya_tools.ams.ams_enums import ResourceStatus
 from maya_tools.ams.asset import Asset
+from maya_tools.ams.project_utils import ProjectDefinition
 from widgets.generic_widget import GenericWidget
 from widgets.scroll_widget import ScrollWidget
 from widgets.grid_widget import GridWidget
@@ -42,20 +43,16 @@ class CharacterExporter(GenericWidget):
         return self.parent_widget.project_root
 
     @property
-    def source_art(self) -> Path:
-        return self.project_root.joinpath('SourceArt')
+    def project(self) -> ProjectDefinition:
+        return self.parent_widget.project
 
     @property
-    def character_folder(self):
-        return self.source_art.joinpath('Characters')
-
-    @property
-    def exports(self):
-        return self.project_root.joinpath('Assets/Models')
+    def characters_folder(self):
+        return self.project.source_art_root.joinpath('Characters')
 
     @property
     def character_asset_folders(self) -> list[str]:
-        result = [x.name for x in self.character_folder.iterdir() if x.is_dir()] if self.character_folder.exists() else []
+        result = [x.name for x in self.characters_folder.iterdir() if x.is_dir()] if self.characters_folder.exists() else []
         result.sort(key=lambda x: x.lower())
         return [x for x in result if not x.startswith('_')]
 
@@ -65,8 +62,9 @@ class CharacterExporter(GenericWidget):
         self.characters = []
 
         # browse all the scene folders for Maya files and export data
-        for folder in self.character_asset_folders:
-            asset = Asset(source_folder=self.character_folder.joinpath(folder), asset_type=AssetType.character)
+        for name in self.character_asset_folders:
+            asset = Asset(name=name, asset_type=AssetType.character, project=self.project)
+
             if asset.scene_file_exists:
                 self.characters.append(asset)
 
@@ -116,16 +114,16 @@ class CharacterExportWidget(GenericWidget):
         Clear the grid layout and add the base rig component
         """
         self.asset_grid.clear_layout()
-        self.set_component(name=self.rig, status_style=StatusStyle.needs_export)
+        self.set_component(name=self.rig, status_style=ResourceStatus.needs_export)
 
         for animation in self.asset.animations:
-            self.set_component(name=animation, status_style=StatusStyle.needs_export)
+            self.set_component(name=animation, status_style=ResourceStatus.needs_export)
 
     @property
     def components(self) -> list:
         return self.asset_grid.get_column_values(column=0)
 
-    def set_component(self, name: str, status_style: StatusStyle):
+    def set_component(self, name: str, status_style: ResourceStatus):
         """
         Creates a row with a name and a styled status label
         :param name:
@@ -146,8 +144,8 @@ class CharacterExportWidget(GenericWidget):
         Just for testing stuff
         """
         logging.debug('debug routine')
-        # self.set_component(name='run', status_style=StatusStyle.needs_export)
-        # self.set_component(name='walk', status_style=StatusStyle.needs_export)
+        self.set_component(name='run', status_style=ResourceStatus.needs_export)
+        self.set_component(name='walk', status_style=ResourceStatus.needs_export)
 
 
 if __name__ == '__main__':

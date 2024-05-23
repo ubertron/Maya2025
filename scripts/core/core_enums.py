@@ -1,4 +1,5 @@
 from enum import Enum, unique, auto
+from dataclasses import dataclass
 
 
 class Axis(Enum):
@@ -25,26 +26,27 @@ class Gender:
 
 
 class AssetType(Enum):
-    character = auto()
-    environment = auto()
-    fx = auto()
-    prop = auto()
-    vehicle = auto()
+    character = 'Characters'
+    environment = 'Environments'
+    fx = 'FX'
+    prop = 'Props'
+    vehicle = 'Vehicles'
 
 
 class FileExtension(Enum):
-    jpg = ".jpg"
-    fbx = ".fbx"
-    json = ".json"
-    mb = ".mb"
-    ma = ".ma"
-    png = ".png"
-    psd = ".psd"
-    py = ".py"
-    substance = ".substance"
-    tga = ".tga"
-    uasset = ".uasset"
-    ztool = ".ztool"
+    ams = '.ams'
+    jpg = '.jpg'
+    fbx = '.fbx'
+    json = '.json'
+    mb = '.mb'
+    ma = '.ma'
+    png = '.png'
+    psd = '.psd'
+    py = '.py'
+    substance = '.substance'
+    tga = '.tga'
+    uasset = '.uasset'
+    ztool = '.ztool'
 
 
 @unique
@@ -107,3 +109,30 @@ class DataType(Enum):
     double3 = auto()
     str = auto()
     list = auto()
+
+
+@unique
+class Engine(Enum):
+    godot = 'Godot'
+    python = 'Python'
+    spark = 'Spark AR'
+    standalone = 'Standalone'
+    unity = 'Unity'
+    unreal = 'Unreal Engine'
+
+
+@dataclass
+class Platform:
+    engine: Engine
+    version: str or None
+
+    def __repr__(self) -> str:
+        return f'{self.engine.value} v{self.version}' if self.version else f'{self.engine.value}'
+
+
+@unique
+class ResourceType(Enum):
+    animation = auto()
+    image = auto()
+    metadata = auto()
+    scene = auto()

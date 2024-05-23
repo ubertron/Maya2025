@@ -9,6 +9,7 @@ from core.core_enums import Alignment
 from core.environment_utils import is_using_maya_python
 from maya_tools.ams.character_exporter import CharacterExporter
 from maya_tools.ams.environment_exporter import EnvironmentExporter
+from maya_tools.ams.project_utils import ProjectDefinition, load_project_definition
 
 
 class ExportManager(GenericWidget):
@@ -20,11 +21,10 @@ class ExportManager(GenericWidget):
         project_widget: GenericWidget = self.add_widget(GenericWidget(alignment=Alignment.horizontal))
         project_widget.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         self.settings = QSettings(DEVELOPER, self.title.replace(' ', ''))
-        # print(self.settings.fileName())
         self.project_label: QLabel = project_widget.add_label('Project:')
         project_widget.add_stretch()
         self.set_project_button: QPushButton = project_widget.add_button(
-            'Set Project', tool_tip='Set the project for the tool.', event=self.set_project_button_clicked)
+            'Set Project...', tool_tip='Set the project for the tool.', event=self.set_project_button_clicked)
         self.tab_bar = self.add_widget(QTabWidget())
         self.character_exporter: CharacterExporter = CharacterExporter(self)
         self.environment_exporter = EnvironmentExporter(self)
@@ -33,7 +33,7 @@ class ExportManager(GenericWidget):
         self.info_label: QLabel = self.add_label(center_align=False)
         self.info_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.project_root = self.settings.value(self.project_key, defaultValue=None)
-        self.resize(480, 640)
+        self.resize(400, 600)
         self.refresh()
 
     def refresh(self):
@@ -69,12 +69,17 @@ class ExportManager(GenericWidget):
         if value:
             path = Path(value)
             self._project_root = path
-            self.project_label.setText(f'Project: {path.name}')
+            self._project = load_project_definition(project_root=path)
+            self.project_label.setText(str(self.project))
             self.settings.setValue(self.project_key, path.as_posix())
         else:
             self._project_root = None
 
         self.character_exporter.refresh()
+
+    @property
+    def project(self) -> ProjectDefinition:
+        return self._project
 
 
 if __name__ == '__main__':
