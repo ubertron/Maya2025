@@ -9,7 +9,7 @@ from widgets.generic_widget import GenericWidget
 class ClickableLabel(QLabel):
     clicked: Signal = Signal(QPoint)
 
-    def __init__(self, *args, global_context: bool = True, button: enum = Qt.LeftButton):
+    def __init__(self, *args, global_context: bool = True, button: enum = Qt.MouseButton.LeftButton):
         super(ClickableLabel, self).__init__(*args)
         assert type(button).__name__ == 'MouseButton', 'Please supply Qt.MouseButton enum'
         self.global_context: bool = global_context

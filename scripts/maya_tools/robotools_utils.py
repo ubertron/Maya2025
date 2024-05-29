@@ -3,16 +3,17 @@ import hashlib
 import logging
 import os
 
+from distutils.dir_util import copy_tree
 from pathlib import Path
 from maya import cmds
 
-from core.core_paths import SITE_PACKAGES, MAYA_INTERPRETER_PATH, MAYA_REQUIREMENTS, icon_path, PROJECT_ROOT
+from core.core_paths import SITE_PACKAGES, MAYA_INTERPRETER_PATH, MAYA_REQUIREMENTS, icon_path, PROJECT_ROOT, \
+    PRESETS_FOLDER
 from core.config_utils import MayaConfig
 from maya_tools import plug_in_utils
 from maya_tools.utilities.shelf_manager import ShelfManager, message_script
 from maya_tools.utilities import hotkey_manager
-from maya_tools.maya_environment_utils import is_using_mac_osx
-
+from maya_tools.maya_environment_utils import is_using_mac_osx, MAYA_APP_DIR
 
 ROBOTOOLS_TITLE: str = 'Robotools'
 ROBOTOOLS_VERSION = '0.3'
@@ -39,6 +40,7 @@ def setup_robotools():
 
     setup_robotools_shelf()
     setup_preferences()
+    setup_presets()
     setup_hotkeys()
 
 
@@ -128,6 +130,15 @@ def setup_preferences():
     if is_using_mac_osx():
         cmds.mouse(mouseButtonTracking=2)
         cmds.multiTouch(gestures=False, trackpad=1)
+
+
+def setup_presets():
+    """
+    Set up the Robotools presets
+    Includes FBX export presets
+    """
+    logging.info('>>> Setting Maya presets')
+    copy_tree(src=PRESETS_FOLDER.as_posix(), dst=MAYA_APP_DIR.as_posix())
 
 
 def setup_hotkeys():

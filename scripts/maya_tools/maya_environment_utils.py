@@ -1,4 +1,5 @@
 import platform
+from pathlib import Path
 
 from maya import mel
 from typing import List
@@ -29,6 +30,9 @@ def format_environment_variables():
     get_environment_variables('MAYA_PLUGIN_PATH', True)
     get_environment_variables('MAYA_MODULE_PATH', True)
     get_environment_variables('MAYA_APP_DIR', True)
+
+
+MAYA_APP_DIR: Path = Path(get_environment_variables(variable_name='MAYA_APP_DIR')[0])
 
 
 if __name__ == "__main__":

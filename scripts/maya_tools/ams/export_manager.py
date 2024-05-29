@@ -33,12 +33,12 @@ class ExportManager(GenericWidget):
         self.info_label: QLabel = self.add_label(center_align=False)
         self.info_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.project_root = self.settings.value(self.project_key, defaultValue=None)
-        self.resize(400, 600)
+        self.setFixedSize(400, 500)
         self.refresh()
 
     def refresh(self):
         self.info = f'Welcome to {self.project_root.name}' if self.project_root else 'Please set the project.'
-        # self.character_exporter.collect_asset_data()
+        self.character_exporter.collect_asset_data()
 
     def set_project_button_clicked(self):
         """

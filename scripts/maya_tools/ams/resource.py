@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from core.core_enums import FileExtension, ResourceType
-from maya_tools.ams.ams_enums import ResourceStatus
+from maya_tools.ams.ams_enums import ItemStatus
 
 
 @dataclass
@@ -8,7 +8,7 @@ class Resource:
     name: str
     extension: FileExtension
     resource_type: ResourceType
-    status: ResourceStatus
+    status: ItemStatus
 
     def __repr__(self) -> str:
         return f'{self.file_name} [{self.resource_type.name}] [{self.status.name}]'
@@ -22,5 +22,5 @@ if __name__ == '__main__':
     resource = Resource(name='clairee',
                         extension=FileExtension.mb,
                         resource_type=ResourceType.scene,
-                        status=ResourceStatus.needs_export)
+                        status=ItemStatus.export)
     print(resource)

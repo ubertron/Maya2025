@@ -1,5 +1,5 @@
 from enum import Enum, unique, auto
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 
 
 class Axis(Enum):
@@ -31,6 +31,25 @@ class AssetType(Enum):
     fx = 'FX'
     prop = 'Props'
     vehicle = 'Vehicles'
+
+    @staticmethod
+    def keys() -> list:
+        return list(map(lambda x: x.name, AssetType))
+
+    @staticmethod
+    def values() -> list:
+        return list(map(lambda x: x.value, AssetType))
+
+    @staticmethod
+    def get(key: str):
+        return AssetType.__members__[key]
+
+
+if __name__ == '__main__':
+    print(AssetType.names(), AssetType.values())
+    print(AssetType.get('character'))
+    # print(type(AssetType.get('character')))
+    # print(type(AssetType.list()[0]))
 
 
 class FileExtension(Enum):
@@ -135,4 +154,18 @@ class ResourceType(Enum):
     animation = auto()
     image = auto()
     metadata = auto()
+    rig = auto()
     scene = auto()
+
+
+@unique
+class MetadataKey(Enum):
+    project = auto()
+    name = auto()
+    asset_type = auto()
+    asset_schema = auto()
+    export_hash = auto()
+    animations = auto()
+
+
+

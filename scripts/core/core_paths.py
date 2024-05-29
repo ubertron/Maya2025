@@ -13,6 +13,7 @@ MAYA_INTERPRETER_PATH: Path = MAYA_APP_DIRECTORY.joinpath('Maya.app/Contents/bin
 MAYA_CONFIG: Path = PROJECT_ROOT.joinpath('bin/maya_config.ini')
 MODELS_FOLDER: Path = PROJECT_ROOT.joinpath('models')
 SCENES_FOLDER: Path = PROJECT_ROOT.joinpath('scenes')
+PRESETS_FOLDER: Path = PROJECT_ROOT.joinpath('scripts/startup/presets')
 
 
 def icon_path(file_name: str) -> Path:

@@ -2,10 +2,10 @@ import os
 
 from pathlib import Path
 
-from core.core_enums import FileExtension, AssetType, ResourceType
+from core.core_enums import FileExtension, AssetType, ResourceType, Platform, Engine
 from maya_tools.ams.project_utils import ProjectDefinition, load_project_definition
 from maya_tools.ams.resource import Resource
-from maya_tools.ams.ams_enums import ResourceStatus
+from maya_tools.ams.ams_enums import ItemStatus
 
 
 class Asset:
@@ -26,12 +26,22 @@ class Asset:
         return info
 
     @property
+    def status(self) -> ItemStatus:
+        if self.scene_resource.status is ItemStatus.export:
+            return ItemStatus.export
+
+        if next((x for x in self.animation_resources if x.status is ItemStatus.export), None):
+            return ItemStatus.export
+
+        return ItemStatus.exported
+
+    @property
     def source_art_folder(self) -> Path:
         return self.project.source_art_root.joinpath(self.asset_type.value, self.name)
 
     @property
     def export_folder(self) -> Path:
-        return self.project.exports_path.joinpath(self.asset_type.value, self.name)
+        return self.project.exports_root.joinpath(self.asset_type.value, self.name)
 
     @property
     def source_art_files(self):
@@ -55,8 +65,9 @@ class Asset:
 
     @property
     def scene_resource(self) -> Resource:
-        status = ResourceStatus.exported if self.scene_file_export_path.exists() else ResourceStatus.needs_export
-        return Resource(name=self.name, extension=FileExtension.mb, resource_type=ResourceType.scene, status=status)
+        resource_type = ResourceType.rig if self.asset_type is AssetType.character else ResourceType.scene
+        status = ItemStatus.exported if self.scene_file_export_path.exists() else ItemStatus.export
+        return Resource(name=self.name, extension=FileExtension.mb, resource_type=resource_type, status=status)
 
     @property
     def animation_resources(self) -> list[Resource]:
@@ -64,7 +75,7 @@ class Asset:
 
         for animation in self.animation_paths:
             animation_export_path = self.get_export_path(animation_path=animation)
-            status = ResourceStatus.exported if animation_export_path.exists() else ResourceStatus.needs_export
+            status = ItemStatus.exported if animation_export_path.exists() else ItemStatus.export
             resource = Resource(name=animation.stem, extension=FileExtension.mb, resource_type=ResourceType.animation,
                                 status=status)
             resources.append(resource)
@@ -72,7 +83,18 @@ class Asset:
         return resources
 
     def get_export_path(self, animation_path: Path) -> Path:
-        return self.export_folder.joinpath(f'{animation_path.stem.replace("_", "@")}{FileExtension.fbx.value}')
+        """
+        Deduces the export path of an animation file
+        Changes the underscore to ampersand for Unity files
+        :param animation_path:
+        :return:
+        """
+        if self.project.platform.engine is Engine.unity:
+            animation_export_file_name = animation_path.stem.replace("_", "@")
+        else:
+            animation_export_file_name = animation_path.stem
+
+        return self.export_folder.joinpath(f'{animation_export_file_name}{FileExtension.fbx.value}')
 
     @property
     def metadata_path(self) -> Path:

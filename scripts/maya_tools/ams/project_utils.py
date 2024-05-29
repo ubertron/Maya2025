@@ -7,8 +7,7 @@ load_project_definition(): loads the ProjectDefinition instance from the project
 import pickle
 from dataclasses import dataclass
 from pathlib import Path
-from core.core_enums import Platform, Engine
-from core.core_enums import FileExtension
+from core.core_enums import Platform, Engine, FileExtension, AssetType
 
 
 @dataclass
@@ -30,14 +29,14 @@ class ProjectDefinition:
 
     @property
     def content_folders(self) -> list[Path]:
-        return [self.materials_folder, self.exports_path, self.scenes_path, self.source_art_root, self.textures_path]
+        return [self.materials_folder, self.exports_root, self.scenes_path, self.source_art_root, self.textures_path]
 
     @property
     def materials_folder(self) -> Path:
         return self.root.joinpath(self.materials)
 
     @property
-    def exports_path(self) -> Path:
+    def exports_root(self) -> Path:
         return self.root.joinpath(self.exports)
 
     @property
@@ -55,6 +54,32 @@ class ProjectDefinition:
     @property
     def paths_verified(self) -> bool:
         return False not in [x.exists() for x in self.content_folders]
+
+    @staticmethod
+    def relative_asset_folder(name: str, asset_type: AssetType, asset_schema: tuple = ()) -> Path:
+        return Path(asset_type.value, *asset_schema, name)
+
+    def get_asset_source_art_folder(self, name: str, asset_type: AssetType, asset_schema: tuple = ()) -> Path:
+        """
+        Get the source art folder for an asset
+        :param name:
+        :param asset_type:
+        :param asset_schema:
+        :return:
+        """
+        relative_folder = self.relative_asset_folder(name=name, asset_type=asset_type, asset_schema=asset_schema)
+        return self.source_art_root.joinpath(relative_folder)
+
+    def get_asset_export_folder(self, name: str, asset_type: AssetType, asset_schema: tuple = ()) -> Path:
+        """
+        Get the export folder for an asset
+        :param name:
+        :param asset_type:
+        :param asset_schema:
+        :return:
+        """
+        relative_folder = self.relative_asset_folder(name=name, asset_type=asset_type, asset_schema=asset_schema)
+        return self.exports_root.joinpath(relative_folder)
 
 
 def save_project_definition(project_definition: ProjectDefinition, project_root: Path):
@@ -96,6 +121,7 @@ if __name__ == '__main__':
         source_art=Path('SourceArt'),
     )
 
-    save_project_definition(project_definition=my_project_definition, project_root=animation_manager)
-    loaded_definition = load_project_definition(project_root=animation_manager)
-    print(loaded_definition)
+    # save_project_definition(project_definition=my_project_definition, project_root=animation_manager)
+    loaded_definition: ProjectDefinition = load_project_definition(project_root=animation_manager)
+    # print(loaded_definition)
+    print(loaded_definition.get_asset_folder('clairee', asset_type=AssetType.character, asset_schema=('Cat', 'Female')))
