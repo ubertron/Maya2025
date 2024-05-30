@@ -2,9 +2,13 @@ import logging
 
 from pathlib import Path
 from maya import cmds, mel
+from typing import Union
 
+from maya_tools.maya_enums import FBXProperty
 from maya_tools.maya_environment_utils import MAYA_APP_DIR
 
+FBX_PLUG_IN: str = 'fbxmaya.mll'
+FBX_PLUG_IN_PATH: Path = Path(cmds.pluginInfo(FBX_PLUG_IN, query=True, path=True))
 FBX_EXPORT_PRESETS: Path = [x for x in MAYA_APP_DIR.joinpath('FBX').rglob('*.fbxexportpreset')]
 
 
@@ -49,7 +53,7 @@ def get_export_frame_range() -> tuple or False:
         return False
 
 
-def set_export_frame_range(start: int, end: int):
+def set_export_frame_range(start: float, end: float):
     """
     Set the export frame range
     :param start:
@@ -76,3 +80,52 @@ def get_fbx_export_preset_path(preset_name: str, single: bool = True) -> Path or
 
 FBX_EXPORT_PRESET_RIG: Path = get_fbx_export_preset_path('ams_rig', single=True)
 FBX_EXPORT_PRESET_ANIMATION: Path = get_fbx_export_preset_path('ams_animation', single=True)
+
+
+def fbx_reset_export():
+    """
+    Reset the FBX export settings
+    Needs to be done prior to setting the values in an FBXPreset
+    """
+    mel.eval('FBXResetExport;')
+
+
+def check_fbx_plug_in():
+    """
+    Ensure that the FBX plug-in is loaded
+    """
+    if FBX_PLUG_IN not in cmds.pluginInfo(query=True, listPlugins=True):
+        cmds.loadPlugin(FBX_PLUG_IN)
+        cmds.pluginInfo(FBX_PLUG_IN, edit=True, autoload=True)
+
+
+def get_fbx_property(fbx_property: FBXProperty, output: bool = False):
+    """
+    Get the value of an FBXProperty
+    :param fbx_property:
+    :param output:
+    :return:
+    """
+    result = mel.eval(f'{fbx_property.name} -q;')
+
+    if output:
+        logging.info(result)
+
+    return result
+
+
+def set_fbx_property(fbx_property: FBXProperty, value: Union[int, bool, float, str]):
+    """
+    Set the value of an FBXProperty
+    :param fbx_property:
+    :param value:
+    """
+    if type(value) is int:
+        mel.eval(f'{fbx_property.name} -v {str(value).lower()};')
+    elif type(value) is bool:
+        if fbx_property is FBXProperty.FBXExportBakeComplexAnimation:
+            mel.eval(f'{fbx_property.name} -v {str(value).lower()};')
+        else:
+            mel.eval(f'{fbx_property.name} -v {"1" if value is True else "0"};')
+    else:
+        mel.eval(f'{fbx_property.name} {value};')

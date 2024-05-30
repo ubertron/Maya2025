@@ -1,0 +1,45 @@
+from enum import unique, Enum, auto
+
+
+@unique
+class FBXProperty(Enum):
+    FBXExportAnimationOnly = auto()  # bool
+    FBXExportApplyConstantKeyReducer = auto()  # bool
+    FBXExportAxisConversionMethod = auto()  # [none|convertAnimation|addFbxRoot]
+    FBXExportBakeComplexAnimation = auto()  # bool
+    FBXExportBakeComplexEnd = auto()  # int
+    FBXExportBakeComplexStart = auto()  # int
+    FBXExportBakeComplexStep = auto()  # int
+    FBXExportBakeResampleAnimation = auto()  # bool
+    FBXExportCacheFile = auto()  # bool
+    FBXExportCameras = auto()  # bool
+    FBXExportColladaFrameRate = auto()  # float
+    FBXExportColladaSingleMatrix = auto()  # bool
+    FBXExportColladaTriangulate = auto()  # bool
+    FBXExportConstraints = auto()  # bool
+    FBXExportConvertUnitString = auto()  # [mm|dm|cm|m|km|In|ft|yd|mi]
+    FBXExportDxfTriangulate = auto()  # bool
+    FBXExportDxfDeformation = auto()  # bool
+    FBXExportEmbeddedTextures = auto()  # bool
+    FBXExportFileVersion = auto()  # -v [version]
+    FBXExportGenerateLog = auto()  # bool
+    FBXExportHardEdges = auto()  # bool
+    FBXExportInAscii = auto()  # bool
+    FBXExportIncludeChildren = auto()  # bool
+    FBXExportInputConnections = auto()  # bool
+    FBXExportInstances = auto()  # bool
+    FBXExportLights = auto()  # bool
+    FBXExportQuaternion = auto()  # bool
+    FBXExportQuickSelectSetAsCache = auto()  # -v "setName"
+    FBXExportReferencedAssetsContent = auto()  # bool
+    FBXExportScaleFactor = auto()  # float
+    FBXExportShapes = auto()  # bool
+    FBXExportSkeletonDefinitions = auto()  # bool
+    FBXExportSkins = auto()  # bool
+    FBXExportSmoothingGroups = auto()  # bool
+    FBXExportSmoothMesh = auto()  # bool
+    FBXExportSplitAnimationIntoTakes = auto()  # -v \"take_name\" 1 5 (see documentation)
+    FBXExportTangents = auto()  # bool
+    FBXExportTriangulate = auto()  # bool
+    FBXExportUpAxis = auto()  # [y|z]
+    FBXExportUseSceneName = auto()  # bool
