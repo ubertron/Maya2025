@@ -11,6 +11,7 @@ class State:
         """
         self.component_mode = get_component_mode()
         self.selection = cmds.ls(sl=True)
+
         if self.object_mode:
             self.object_selection = cmds.ls(sl=True)
             self.component_selection = []
@@ -28,6 +29,7 @@ class State:
         else:
             set_component_mode(ComponentType.object)
             cmds.select(clear=True)
+
         if not self.object_mode:
             cmds.select(self.component_selection)
 
@@ -202,11 +204,17 @@ def move_to_origin(transform=None):
         cmds.setAttr(f'{item}{Attr.translate.value}', 0, 0, 0, type=DataType.float3.name)
 
 
-def get_selected_transforms():
+def get_selected_transforms() -> list[str]:
+    """
+    Get a list of selected transform nodes
+    This works if in component selection mode as well as object selection mode
+    :return:
+    """
     state = State()
     set_component_mode(ComponentType.object)
     selection = cmds.ls(sl=True, tr=True)
     state.restore()
+
     return selection
 
 
@@ -215,6 +223,7 @@ def get_transforms(nodes=None):
     set_component_mode(ComponentType.object)
     selection = cmds.ls(nodes, tr=True) if nodes else cmds.ls(sl=True, tr=True)
     state.restore()
+
     return selection
 
 

@@ -163,7 +163,9 @@ class MetadataKey(Enum):
     project = auto()
     name = auto()
     asset_type = auto()
-    asset_schema = auto()
+    schema = auto()
+    source_art_folder = auto()
+    export_folder = auto()
     export_hash = auto()
     animations = auto()
 

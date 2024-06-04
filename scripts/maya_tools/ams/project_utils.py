@@ -2,12 +2,18 @@
 ProjectDefinition: class for defining key paths for assets and components of a project
 save_project_definition(): saves the ProjectDefinition instance to the project root as a .ams file
 load_project_definition(): loads the ProjectDefinition instance from the project root .ams file
+---
+Potential further definitions:
+- Maya scene file format
 """
 
 import pickle
+
 from dataclasses import dataclass
 from pathlib import Path
+
 from core.core_enums import Platform, Engine, FileExtension, AssetType
+from core.environment_utils import is_using_maya_python
 
 
 @dataclass
@@ -56,29 +62,29 @@ class ProjectDefinition:
         return False not in [x.exists() for x in self.content_folders]
 
     @staticmethod
-    def relative_asset_folder(name: str, asset_type: AssetType, asset_schema: tuple = ()) -> Path:
-        return Path(asset_type.value, *asset_schema, name)
+    def relative_asset_folder(name: str, asset_type: AssetType, schema: tuple = ()) -> Path:
+        return Path(asset_type.value, *schema, name)
 
-    def get_asset_source_art_folder(self, name: str, asset_type: AssetType, asset_schema: tuple = ()) -> Path:
+    def get_asset_source_art_folder(self, name: str, asset_type: AssetType, schema: tuple = ()) -> Path:
         """
         Get the source art folder for an asset
         :param name:
         :param asset_type:
-        :param asset_schema:
+        :param schema:
         :return:
         """
-        relative_folder = self.relative_asset_folder(name=name, asset_type=asset_type, asset_schema=asset_schema)
+        relative_folder = self.relative_asset_folder(name=name, asset_type=asset_type, schema=schema)
         return self.source_art_root.joinpath(relative_folder)
 
-    def get_asset_export_folder(self, name: str, asset_type: AssetType, asset_schema: tuple = ()) -> Path:
+    def get_asset_export_folder(self, name: str, asset_type: AssetType, schema: tuple = ()) -> Path:
         """
         Get the export folder for an asset
         :param name:
         :param asset_type:
-        :param asset_schema:
+        :param schema:
         :return:
         """
-        relative_folder = self.relative_asset_folder(name=name, asset_type=asset_type, asset_schema=asset_schema)
+        relative_folder = self.relative_asset_folder(name=name, asset_type=asset_type, schema=schema)
         return self.exports_root.joinpath(relative_folder)
 
 
@@ -108,11 +114,44 @@ def load_project_definition(project_root: Path) -> ProjectDefinition or None:
         return None
 
 
+def get_current_project_root() -> Path or False:
+    """
+    Looks for a .ams file to deduce the project root
+    """
+    assert is_using_maya_python(), 'Requires Maya environment'
+    from maya_tools.scene_utils import get_scene_path
+    parent_dir = get_scene_path().parent
+
+    if parent_dir != Path('.'):
+        while len(parent_dir.parts) > 2:
+            search_path: Path = parent_dir.joinpath('.ams')
+
+            if search_path.exists():
+                return parent_dir
+            elif search_path.parent is None:
+                return None
+            else:
+                parent_dir = parent_dir.parent
+
+    return False
+
+
+def get_project_definition() -> ProjectDefinition or None:
+    """
+    Deduce the project definition while having a scene file loaded
+    :return:
+    """
+    project_root = get_current_project_root()
+
+    if project_root:
+        return load_project_definition(project_root=project_root)
+
+
 if __name__ == '__main__':
-    animation_manager = Path('/Users/andrewdavis/Dropbox/Projects/Unity/AnimationManager')
+    animation_sandbox = Path('/Users/andrewdavis/Dropbox/Projects/Unity/AnimationSandbox')
 
     my_project_definition = ProjectDefinition(
-        root=animation_manager,
+        root=animation_sandbox,
         platform=Platform(engine=Engine.unity, version='2021.3.9f1'),
         materials=Path('Assets/Materials'),
         exports=Path('Assets/Models'),
@@ -121,7 +160,7 @@ if __name__ == '__main__':
         source_art=Path('SourceArt'),
     )
 
-    # save_project_definition(project_definition=my_project_definition, project_root=animation_manager)
-    loaded_definition: ProjectDefinition = load_project_definition(project_root=animation_manager)
-    # print(loaded_definition)
-    print(loaded_definition.get_asset_folder('clairee', asset_type=AssetType.character, asset_schema=('Cat', 'Female')))
+    # save_project_definition(project_definition=my_project_definition, project_root=animation_sandbox)
+    loaded_definition: ProjectDefinition = load_project_definition(project_root=animation_sandbox)
+    print(loaded_definition, loaded_definition.root)
+    # print(loaded_definition.get_asset_folder('clairee', asset_type=AssetType.character, asset_schema=('Cat', 'Female')))

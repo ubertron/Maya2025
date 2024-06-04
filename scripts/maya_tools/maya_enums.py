@@ -43,3 +43,17 @@ class FBXProperty(Enum):
     FBXExportTriangulate = auto()  # bool
     FBXExportUpAxis = auto()  # [y|z]
     FBXExportUseSceneName = auto()  # bool
+
+
+class LayerDisplayType(Enum):
+    normal = 0
+    template = 1
+    reference = 2
+
+    @staticmethod
+    def get_by_value(value: int):
+        return next(x for x in list(map(lambda x: x, LayerDisplayType)) if x.value == value)
+
+
+if __name__ == '__main__':
+    print(LayerDisplayType.get_by_value(0))

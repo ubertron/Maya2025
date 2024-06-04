@@ -1,6 +1,7 @@
 import os
 
 from pathlib import Path
+from typing import Sequence
 
 from core.core_enums import FileExtension, AssetType, ResourceType, Platform, Engine
 from maya_tools.ams.project_utils import ProjectDefinition, load_project_definition
@@ -9,10 +10,24 @@ from maya_tools.ams.ams_enums import ItemStatus
 
 
 class Asset:
-    def __init__(self, name: str, asset_type: AssetType, project: ProjectDefinition):
+    asset_root_node: str = '|Group'
+    motion_system_group_node: str = '|Group|MotionSystem'
+    face_group_node: str = '|Group|FaceGroup'
+    rig_group_node: str = '|Group|DeformationSystem'
+    geometry_group_node: str = '|Group|Geometry'
+
+    def __init__(self, name: str, asset_type: AssetType, project: ProjectDefinition, schema: Sequence = ()):
+        """
+
+        :param name:
+        :param asset_type:
+        :param project:
+        :param schema: Optional asset subcategory subsequent to AssetType
+        """
         self.name = name
         self.asset_type: AssetType = asset_type
         self.project: ProjectDefinition = project
+        self.schema: Sequence = schema
 
     def __repr__(self):
         info = f'Name: {self.name} [{self.asset_type.name}]\nPath: {self.source_art_folder}'
@@ -36,12 +51,24 @@ class Asset:
         return ItemStatus.exported
 
     @property
+    def relative_folder(self) -> Path:
+        return Path(self.asset_type.value, *self.schema, self.name)
+
+    @property
     def source_art_folder(self) -> Path:
-        return self.project.source_art_root.joinpath(self.asset_type.value, self.name)
+        return self.project.source_art_root.joinpath(self.relative_folder)
+
+    @property
+    def source_art_folder_relative(self) -> Path:
+        return self.source_art_folder.relative_to(self.project.root)
 
     @property
     def export_folder(self) -> Path:
-        return self.project.exports_root.joinpath(self.asset_type.value, self.name)
+        return self.project.exports_root.joinpath(self.relative_folder)
+
+    @property
+    def export_folder_relative(self) -> Path:
+        return self.export_folder.relative_to(self.project.root)
 
     @property
     def source_art_files(self):
@@ -67,7 +94,8 @@ class Asset:
     def scene_resource(self) -> Resource:
         resource_type = ResourceType.rig if self.asset_type is AssetType.character else ResourceType.scene
         status = ItemStatus.exported if self.scene_file_export_path.exists() else ItemStatus.export
-        return Resource(name=self.name, extension=FileExtension.mb, resource_type=resource_type, status=status)
+        return Resource(name=self.name, scene_extension=FileExtension.mb, export_extension=FileExtension.fbx,
+                        resource_type=resource_type, status=status)
 
     @property
     def animation_resources(self) -> list[Resource]:
@@ -76,8 +104,8 @@ class Asset:
         for animation in self.animation_paths:
             animation_export_path = self.get_export_path(animation_path=animation)
             status = ItemStatus.exported if animation_export_path.exists() else ItemStatus.export
-            resource = Resource(name=animation.stem, extension=FileExtension.mb, resource_type=ResourceType.animation,
-                                status=status)
+            resource = Resource(name=animation.stem, scene_extension=FileExtension.mb,
+                                export_extension=FileExtension.fbx,resource_type=ResourceType.animation, status=status)
             resources.append(resource)
 
         return resources
@@ -102,10 +130,15 @@ class Asset:
 
 
 if __name__ == '__main__':
-    animation_manager: Path = Path.home().joinpath('Dropbox/Projects/Unity/AnimationManager')
-    project_definition: ProjectDefinition = load_project_definition(project_root=animation_manager)
-    clairee_folder = Path.home().joinpath('Dropbox/Projects/Unity/AnimationManager/SourceArt/Characters/clairee')
-    clairee_asset = Asset(name='clairee', asset_type=AssetType.character, project=project_definition)
-    print(clairee_asset.scene_resource)
-    print('\n'.join(str(x) for x in clairee_asset.animation_resources))
-    print(clairee_asset.metadata_path)
+    animation_sandbox: Path = Path.home().joinpath('Dropbox/Projects/Unity/AnimationSandbox')
+    project_definition: ProjectDefinition = load_project_definition(project_root=animation_sandbox)
+    # clairee_folder = Path.home().joinpath('Dropbox/Projects/Unity/AnimationSandbox/SourceArt/Characters/clairee')
+    clairee_asset = Asset(name='clairee', asset_type=AssetType.character, project=project_definition, schema=['Artisan', 'Female'])
+
+    # print(project_definition)
+    # print(clairee_asset.scene_resource)
+    # print('\n'.join(str(x) for x in clairee_asset.animation_resources))
+    # print(clairee_asset.metadata_path)
+
+    print(clairee_asset.source_art_folder_relative)
+    print(clairee_asset.export_folder_relative)

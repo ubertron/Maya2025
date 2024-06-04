@@ -1,4 +1,5 @@
 import logging
+import os
 
 from pathlib import Path
 from maya import cmds, mel
@@ -22,13 +23,18 @@ def load_fbx_preset(preset_path: Path):
     mel.eval(command)
 
 
-def export_fbx(export_path: Path, selected=True):
+def export_fbx(export_path: Path, selected: bool = True, replace: bool = True):
     """
     Export fbx
     :param export_path:
     :param selected:
+    :param replace:
+    :return: Path
     """
-    command = f'FBXExport -f "{export_path.as_posix()}"{" -s" if selected else ""}'
+    if replace and export_path.exists():
+        os.remove(export_path.as_posix())
+
+    command = f'FBXExport -f "{export_path.as_posix()}"{" -s" if selected else ""};'
     logging.info(command)
     mel.eval(command)
 

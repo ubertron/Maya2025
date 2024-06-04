@@ -1,11 +1,10 @@
-import os
 import logging
 
 from pathlib import Path
 from maya import cmds
 from typing import List
 
-from core.core_enums import ComponentType, ObjectType
+from core.core_enums import ComponentType
 
 
 def get_scene_name(include_extension: bool = True) -> str:
@@ -28,7 +27,7 @@ def get_scene_path() -> Path:
     Get the full path of the scene
     :return:
     """
-    return Path(cmds.sceneName())
+    return Path(cmds.file(query=True, sceneName=True))
 
 
 def new_scene():
@@ -218,3 +217,5 @@ def message_script(text: str, execute: bool = True):
         cmds.inViewMessage(assistMessage=text, fade=True, pos="midCenter")
 
     return f'from maya import cmds\ncmds.inViewMessage(assistMessage="{text}", fade=True, pos="midCenter")'
+
+

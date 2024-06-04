@@ -21,11 +21,10 @@ class FBXPreset:
         self.fbx_properties = fbx_properties if fbx_properties else {}
         self.custom_properties = custom_properties if custom_properties else {}
 
-    def apply(self):
+    def activate(self):
         """
         Apply the settings of an FBX preset
         """
-        check_fbx_plug_in()
         fbx_reset_export()
 
         for fbx_property, value in self.fbx_properties.items():

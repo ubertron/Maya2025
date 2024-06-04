@@ -10,6 +10,7 @@ from maya import cmds
 from core.core_paths import SITE_PACKAGES, MAYA_INTERPRETER_PATH, MAYA_REQUIREMENTS, icon_path, PROJECT_ROOT, \
     PRESETS_FOLDER
 from core.config_utils import MayaConfig
+from maya_tools.fbx_utils import check_fbx_plug_in
 from maya_tools import plug_in_utils
 from maya_tools.utilities.shelf_manager import ShelfManager, message_script
 from maya_tools.utilities import hotkey_manager
@@ -39,6 +40,7 @@ def setup_robotools():
         logging.info(">>> Tools up to date")
 
     setup_robotools_shelf()
+    setup_plug_ins()
     setup_preferences()
     setup_presets()
     setup_hotkeys()
@@ -110,6 +112,9 @@ def setup_robotools_shelf():
     sm.add_shelf_button(label='Rename Nodes', overlay_label='Rname', icon=script_icon, command=rename_nodes)
     sm.add_shelf_button(label='Pivot Match', overlay_label='PvtM', icon=script_icon, command=pivot_match)
 
+
+def setup_plug_ins():
+    check_fbx_plug_in()
 
 def setup_preferences():
     """

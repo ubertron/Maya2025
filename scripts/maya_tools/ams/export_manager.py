@@ -32,13 +32,14 @@ class ExportManager(GenericWidget):
         self.tab_bar.addTab(self.environment_exporter, 'Environments')
         self.info_label: QLabel = self.add_label(center_align=False)
         self.info_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.project = None
         self.project_root = self.settings.value(self.project_key, defaultValue=None)
         self.setFixedSize(400, 500)
         self.refresh()
 
     def refresh(self):
         self.info = f'Welcome to {self.project_root.name}' if self.project_root else 'Please set the project.'
-        self.character_exporter.collect_asset_data()
+        self.character_exporter.refresh_button_clicked()
 
     def set_project_button_clicked(self):
         """
@@ -66,10 +67,10 @@ class ExportManager(GenericWidget):
 
     @project_root.setter
     def project_root(self, value: Path or str or None):
-        if value:
+        if value and Path(value).exists():
             path = Path(value)
             self._project_root = path
-            self._project = load_project_definition(project_root=path)
+            self.project = load_project_definition(project_root=path)
             self.project_label.setText(str(self.project))
             self.settings.setValue(self.project_key, path.as_posix())
         else:
@@ -78,8 +79,12 @@ class ExportManager(GenericWidget):
         self.character_exporter.refresh()
 
     @property
-    def project(self) -> ProjectDefinition:
+    def project(self) -> ProjectDefinition or None:
         return self._project
+
+    @project.setter
+    def project(self, project_definition: ProjectDefinition or None):
+        self._project = project_definition
 
 
 if __name__ == '__main__':
