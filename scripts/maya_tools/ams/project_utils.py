@@ -114,13 +114,13 @@ def load_project_definition(project_root: Path) -> ProjectDefinition or None:
         return None
 
 
-def get_current_project_root() -> Path or False:
+def get_current_project_root(file_path: Path) -> Path or None:
     """
-    Looks for a .ams file to deduce the project root
+    Looks for a .ams file in a parent folder of the passed file_path to deduce the project root
+    :param file_path: 
+    :return: 
     """
-    assert is_using_maya_python(), 'Requires Maya environment'
-    from maya_tools.scene_utils import get_scene_path
-    parent_dir = get_scene_path().parent
+    parent_dir = file_path.parent
 
     if parent_dir != Path('.'):
         while len(parent_dir.parts) > 2:
@@ -133,15 +133,13 @@ def get_current_project_root() -> Path or False:
             else:
                 parent_dir = parent_dir.parent
 
-    return False
 
-
-def get_project_definition() -> ProjectDefinition or None:
+def get_project_definition(file_path: Path) -> ProjectDefinition or None:
     """
     Deduce the project definition while having a scene file loaded
     :return:
     """
-    project_root = get_current_project_root()
+    project_root = get_current_project_root(file_path=file_path)
 
     if project_root:
         return load_project_definition(project_root=project_root)

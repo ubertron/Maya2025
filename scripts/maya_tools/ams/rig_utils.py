@@ -9,7 +9,7 @@ from maya_tools.ams.resource import Resource
 from maya_tools.ams.asset import Asset
 from core.core_enums import AssetType
 from maya_tools.ams.project_utils import ProjectDefinition, load_project_definition, get_current_project_root
-from maya_tools.scene_utils import get_scene_name
+from maya_tools.scene_utils import get_scene_name, get_scene_path
 
 
 def generate_rig_hash(asset: Asset) -> str:
@@ -42,7 +42,7 @@ def generate_rig_hash_from_current_scene():
     More of a debug function - use generate_rig_hash directly in normal circumstances
     :return:
     """
-    current_project = get_current_project_root()
+    current_project = get_current_project_root(file_path=get_scene_path())
     project = load_project_definition(project_root=current_project)
     character_asset = Asset(get_scene_name(include_extension=False), asset_type=AssetType.character, project=project)
     return generate_rig_hash(character_asset)

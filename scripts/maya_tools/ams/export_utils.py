@@ -1,16 +1,20 @@
 import logging
 
 from maya import cmds, mel
+from pathlib import Path
+from typing import Optional
 
 from maya_tools.maya_enums import LayerDisplayType
 from maya_tools.ams.asset import Asset
 from maya_tools.ams.asset_metadata import AssetMetadata, load_asset_metadata
 from maya_tools.ams.project_utils import get_project_definition
 from maya_tools.ams.rig_utils import generate_rig_hash
-from maya_tools.ams.validation.tests.asset_structure import AssetStructure
+from maya_tools.ams.validation.tests import asset_structure, latest_rig
+from maya_tools.ams.resource import Resource
+from maya_tools.animation_utils import get_keyframe_range
 from maya_tools.fbx_utils import export_fbx
-from maya_tools.fbx_preset import RigExportPreset
-from maya_tools.scene_utils import load_scene, get_scene_path
+from maya_tools.fbx_preset import RigExportPreset, AnimationExportPreset, FBXPreset
+from maya_tools.scene_utils import load_scene, get_scene_path, save_scene
 from maya_tools import layer_utils
 
 
@@ -19,58 +23,124 @@ def export_rig(asset: Asset):
     Export the rig component of an Asset
     :param asset:
     """
-    if get_scene_path() != asset.scene_file_path:
-        load_scene(asset.scene_file_path)
+    export_asset(asset=asset, scene_file_path=asset.scene_file_path, export_file_path=asset.scene_file_export_path,
+                 export_preset=RigExportPreset(), nodes=[asset.rig_group_node, asset.geometry_group_node])
 
-    assert cmds.objExists(asset.rig_group_node), 'Cannot find rig group node'
-    assert cmds.objExists(asset.geometry_group_node), 'Cannot find geometry group node'
-    valid = validate_character(asset=asset)
-    assert valid is True, 'Rig failed validation, aborting export'
+    # create/update asset metadata
+    rig_hash: str = generate_rig_hash(asset=asset)
+    # thumbnail = generate_thumbnail(asset)
+
+    if asset.metadata_path.exists():
+        asset_metadata = load_asset_metadata(metadata_path=asset.metadata_path)
+        asset_metadata.rig_hash = rig_hash
+    else:
+        asset_metadata = AssetMetadata(asset=asset, rig_hash=rig_hash, animation_hash_dict={})
+
+    asset_metadata.save()
+    logging.info(f'Metadata saved to {asset_metadata.metadata_path}')
+    # export complete
+
+
+def export_animation(asset: Asset, resource: Resource):
+    # pre-export checks
+    asset_metadata: AssetMetadata = load_asset_metadata(metadata_path=asset.metadata_path)
+    assert asset_metadata is not None, 'Base rig not exported, aborting export.'
+    valid = validate_rig(asset=asset)
+    assert valid is True, 'Rig requires update, aborting export.'
+
+    # export
+    scene_file_path = asset.source_art_folder.joinpath(resource.scene_file_name)
+    export_file_path = asset.get_animation_export_path(animation_name=resource.name)
+
+    # need to open scene if not open to get the frame range
+    if get_scene_path() != scene_file_path:
+        load_scene(scene_file_path)
+
+    keyframe_range = get_keyframe_range(asset.motion_system_group_node)
+    export_preset = AnimationExportPreset(start_end=keyframe_range)
+    export_asset(asset=asset, scene_file_path=scene_file_path, export_file_path=export_file_path,
+                 export_preset=export_preset, nodes=[asset.rig_group_node])
+
+    # update asset metadata
+    rig_hash: str = generate_rig_hash(asset=asset)
+    asset_metadata.animation_hash_dict[resource.name] = rig_hash
+    asset_metadata.save()
+    logging.info(f'Metadata updated: {asset_metadata.metadata_path}')
+    # export complete
+
+
+def export_asset(asset: Asset, scene_file_path: Path, export_file_path: Path, export_preset: FBXPreset,
+                 nodes: Optional[list[str]] = None, auto_save: bool = False):
+    """
+    Function exports an asset to specified export location
+    :param asset:
+    :param scene_file_path:
+    :param export_file_path:
+    :param export_preset:
+    :param auto_save:
+    :param nodes:
+    """
+    # pre-export checks
+    if get_scene_path() != scene_file_path:
+        load_scene(scene_file_path)
+
+    for node in nodes:
+        assert cmds.objExists(node), f'Cannot find node: {node}. Aborting export.'
+
+    valid = validate_asset(asset=asset)
+    assert valid is True, 'Asset failed validation, aborting export.'
 
     # save file
-    # Perforce-only: check in
+    if auto_save:
+        save_scene(force=True)
 
-    RigExportPreset().activate()
-    cmds.select(asset.rig_group_node, asset.geometry_group_node)
-    asset.scene_file_export_path.parent.mkdir(parents=True, exist_ok=True)
-
-    # get layer display types
-    layer_display_types = layer_utils.get_layer_display_types(custom_only=True)
+    # Perforce-only: check in scene and check out export file
 
     # set layer display types to normal
+    layer_display_types = layer_utils.get_layer_display_types(custom_only=True)
+
     for layer in layer_display_types.keys():
         layer_utils.set_layer_display_type(layer=layer, layer_display_type=LayerDisplayType.normal)
 
-    # Perforce-only: check out export file
+    # export asset
+    export_preset.activate()
+    asset.export_folder.mkdir(parents=True, exist_ok=True)
 
-    # export rig
-    export_fbx(export_path=asset.scene_file_export_path, selected=True)
+    if nodes:
+        cmds.select(nodes)
+
+    export_fbx(export_path=export_file_path, selected=nodes is not None)
+
+    # Perforce-only: add export file if not already added
 
     # restore layer display types
     for layer, value in layer_display_types.items():
         layer_utils.set_layer_display_type(layer=layer, layer_display_type=value)
 
-    logging.info(f'Rig exported to {asset.scene_file_export_path}')
-
-    # Asset Metadata
-    export_hash: str = generate_rig_hash(asset=asset)
-    # thumbnail = generate_thumbnail(asset)
-    if asset.metadata_path.exists():
-        asset_metadata = load_asset_metadata(metadata_path=asset.metadata_path, project=get_project_definition())
-    else:
-        asset_metadata = AssetMetadata()
-
-    # export complete
+    logging.info(f'Asset exported to {export_file_path}')
 
 
-def validate_character(asset: Asset) -> bool:
+def validate_asset(asset: Asset) -> bool:
     """
     Run the tests for characters
     :param asset:
     :return:
     """
     logging.info(f'Validating {asset.name}')
-    test_result: TestResult = AssetStructure().test(asset)
+    test_result: TestResult = asset_structure.AssetStructure().test(asset)
+    logging.info(f'Tests passed? {test_result.passed}')
+
+    return test_result.passed
+
+
+def validate_rig(asset: Asset) -> bool:
+    """
+    Run the tests for rigs
+    :param asset:
+    :return:
+    """
+    logging.info(f'Validating rig for {asset.name}')
+    test_result: TestResult = latest_rig.LatestRig().test(asset)
     logging.info(f'Tests passed? {test_result.passed}')
 
     return test_result.passed

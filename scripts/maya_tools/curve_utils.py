@@ -2,7 +2,7 @@ from maya import cmds
 from typing import Sequence, Optional
 
 from maya_tools.node_utils import get_shape_from_transform, get_transform_from_shape
-from core.core_enums import ObjectType
+from maya_tools.maya_enums import ObjectType
 
 
 def get_cvs(transform: Optional[str] = None, debug: bool = False) -> list[float]:

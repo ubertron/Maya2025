@@ -190,6 +190,9 @@ class GridWidget(QWidget):
 class GridWidgetTest(GridWidget):
     def __init__(self):
         super(GridWidgetTest, self).__init__(title='Test Grid Widget')
+        self.init_buttons()
+
+    def init_buttons(self):
         self.label1 = self.add_label('1', row=0, column=0)
         self.label1.setStyleSheet('background-color: green')
         self.label2 = self.add_label('2', row=0, column=1, row_span=2)

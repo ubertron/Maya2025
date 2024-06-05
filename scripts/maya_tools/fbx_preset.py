@@ -79,7 +79,7 @@ class FBXPreset:
                 else:
                     value = '1' if value is True else '0'
 
-            diff = ' | DIFF' if str(maya_value) != str(value) else None
+            diff = ' | DIFF' if str(maya_value) != str(value) else ''
             diff_count.append(diff)
             logging.info(f'Property: {key.name} | system value: {maya_value} | preset value: {value}{diff}')
 
@@ -123,8 +123,8 @@ class RigExportPreset(FBXPreset):
 class AnimationExportPreset(FBXPreset):
     fbx_properties = {
         FBXProperty.FBXExportBakeComplexAnimation: True,
-        FBXProperty.FBXExportBakeComplexStart: 1.0,
-        FBXProperty.FBXExportBakeComplexEnd: 100.0,
+        FBXProperty.FBXExportBakeComplexStart: 1,
+        FBXProperty.FBXExportBakeComplexEnd: 100,
         FBXProperty.FBXExportColladaFrameRate: 25.0,
         FBXProperty.FBXExportInputConnections: False,
         FBXProperty.FBXExportCameras: False,

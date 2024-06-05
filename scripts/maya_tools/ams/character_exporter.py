@@ -7,7 +7,7 @@ from PySide6.QtWidgets import QLabel, QSizePolicy, QWidget, QMenu
 from PySide6.QtGui import QAction
 from PySide6.QtCore import Qt
 
-from core.core_enums import Alignment, AssetType
+from core.core_enums import Alignment, AssetType, ResourceType
 from core.environment_utils import is_using_maya_python
 from core.system_utils import open_file_location
 from maya_tools.ams.ams_enums import ItemStatus
@@ -96,6 +96,9 @@ class CharacterExporter(GenericWidget):
             character_export_widget = CharacterExportWidget(asset=asset, parent=self)
             panel_label = f'{asset.name} [{asset.status.name}]'
             panel = PanelWidget(title=panel_label, widget=character_export_widget, active=False)
+            panel.inactive_style = 'QLabel {color:rgb' + str(asset.status.value) + '};'
+            panel.update_panel_header()
+            character_export_widget.panel_widget = panel
             self.scroll_widget.add_widget(panel)
 
         self.scroll_widget.add_stretch()
@@ -123,6 +126,7 @@ class CharacterExportWidget(GenericWidget):
                                                               tool_tip='Export the rig and the animations')
         self.browse_button = button_bar.add_button('Browse...', tool_tip=f'Open {self.asset.name} folder',
                                                    event=partial(open_file_location, self.asset.source_art_folder))
+        self.metadata_button = button_bar.add_button('View metadata', event=partial(self.view_metadata_menu_item_clicked, self.asset.metadata_path))
 
         if logging.DEBUG >= logging.root.level:
             self.debug_button = button_bar.add_button(text='Debug Function', event=self.debug_routine)
@@ -132,6 +136,7 @@ class CharacterExportWidget(GenericWidget):
         self.add_stretch()
         self.init_asset_grid()
         self.setup_ui()
+        self.panel_widget = None
 
     def setup_ui(self):
         """
@@ -151,12 +156,50 @@ class CharacterExportWidget(GenericWidget):
         for animation_resource in self.asset.animation_resources:
             self.set_component(resource=animation_resource)
 
+    @property
+    def panel_widget(self) -> PanelWidget or None:
+        return self._panel_widget
+
+    @panel_widget.setter
+    def panel_widget(self, panel_widget: PanelWidget):
+        self._panel_widget = panel_widget
+
     def export_rig_button_clicked(self):
         """
         Event for export_rig_button
         """
         from maya_tools.ams.export_utils import export_rig
-        export_rig(self.asset)
+        export_rig(asset=self.asset)
+        self.set_component(resource=self.asset.scene_resource)
+
+    def export_animation_menu_item_clicked(self, resource: Resource, *args):
+        """
+        Event for animation export menu item
+        N.B. Can't invoke self.init_asset_grid() after export as QMenu would delete itself
+        :param resource:
+        :param args:
+        """
+        _ = args
+
+        if is_using_maya_python():
+            self.parent_widget.parent_widget.info = f'Exporting {resource.name} as {resource.export_file_name}'
+            from maya_tools.ams.export_utils import export_animation
+            export_animation(asset=self.asset, resource=resource)
+            updated_resource = self.asset.get_animation_resource_by_name(resource.name)
+            self.set_component(resource=updated_resource)
+            self.update_panel_header()
+        else:
+            self.parent_widget.parent_widget.info = 'Use Export Manager in Maya to open scene'
+
+    def view_metadata_menu_item_clicked(self, file_path, *args):
+        """
+        Event for view metadata button
+        :param file_path:
+        :param args:
+        """
+        _ = args
+        self.parent_widget.parent_widget.info = 'Viewing metadata'
+        open_file_location(file_path)
 
     @property
     def components(self) -> list:
@@ -165,13 +208,16 @@ class CharacterExportWidget(GenericWidget):
     def set_component(self, resource: Resource):
         """
         Creates a row with a name and a styled status label
+        If the row exists already, it is updated
         :param resource
         """
-        row = self.asset_grid.get_row_by_text(resource.name)
+        row = self.asset_grid.get_row_by_text(resource.scene_file_name)
         status_style = resource.status
+        style_str = 'QLabel {background-color:rgb' + str(resource.status.value) + ';color:rgb(40, 40, 40)};'
+        print(style_str)
 
-        if row:
-            self.asset_grid.set_text(row=row, column=2, text=status_style.name, style=status_style.value, nice=True)
+        if row is not None:
+            self.asset_grid.set_text(row=row, column=2, text=status_style.name, style=style_str, nice=True)
         else:
             row_count = self.asset_grid.row_count
             row = 0 if row_count == 1 and self.asset_grid.first_row_empty else row_count
@@ -180,7 +226,17 @@ class CharacterExportWidget(GenericWidget):
             label.setAlignment(Qt.AlignmentFlag.AlignLeft)
             label.clicked.connect(partial(self.context_menu, self.asset, resource))
             self.asset_grid.add_label(text=f'[{resource.resource_type.name}]', row=row, column=1)
-            self.asset_grid.add_label(status_style.name, row=row, column=2, style=status_style.value, nice=True)
+            self.asset_grid.add_label(status_style.name, row=row, column=2, style=style_str, nice=True)
+
+    def update_panel_header(self):
+        """
+        Change the name of the parent panel
+        self.panel_widget property must be set prior to using this
+        """
+        assert self.panel_widget is not None, 'Set the panel_widget property'
+        panel_label = f'{self.asset.name} [{self.asset.status.name}]'
+        self.panel_widget.set_panel_header(panel_label)
+        self.panel_widget.inactive_style = 'QLabel {color:rgb' + str(self.asset.status.value) + '};'
 
     def context_menu(self, *args):
         """
@@ -202,6 +258,10 @@ class CharacterExportWidget(GenericWidget):
         if resource.status is ItemStatus.exported:
             routine = partial(self.open_file_location, export_file_path)
             menu.addAction(QAction(f'Open {resource.export_file_name} in file browser', self, triggered=routine))
+
+        if resource.status is ItemStatus.export and resource.resource_type is ResourceType.animation:
+            routine = partial(self.export_animation_menu_item_clicked, resource)
+            menu.addAction(QAction(f'Export {resource.name} animation', self, triggered=routine))
 
         menu.exec_(point)
 

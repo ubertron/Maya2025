@@ -3,8 +3,7 @@ from maya import cmds
 from pathlib import Path
 from typing import Optional, Sequence
 
-from core.core_enums import ObjectType
-
+from maya_tools.maya_enums import ObjectType
 
 FILE_TEXTURE_NODES: list[str] = cmds.ls(type=ObjectType.file.name)
 LAMBERT_SHADER_NODES: list[str] = cmds.ls(type=ObjectType.lambert.name)

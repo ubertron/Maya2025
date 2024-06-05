@@ -1,6 +1,7 @@
 import os
 
-from core.core_enums import FileExtension, Gender, ObjectType
+from core.core_enums import FileExtension, Gender
+from maya_tools.maya_enums import ObjectType
 from core.core_paths import MODELS_FOLDER, SCENES_FOLDER
 from maya_tools.scene_utils import import_model, load_scene
 

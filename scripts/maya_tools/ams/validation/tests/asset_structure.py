@@ -15,6 +15,11 @@ class AssetStructure(AssetTest):
 
     @classmethod
     def test(cls, asset: Asset) -> TestResult:
+        """
+        Check presence of vital nodes in the asset hierarchy
+        :param asset:
+        :return:
+        """
         test_result = TestResult()
 
         if not cmds.objExists(asset.asset_root_node):

@@ -18,7 +18,7 @@ class Asset:
 
     def __init__(self, name: str, asset_type: AssetType, project: ProjectDefinition, schema: Sequence = ()):
         """
-
+        Class representing assets
         :param name:
         :param asset_type:
         :param project:
@@ -52,7 +52,10 @@ class Asset:
 
     @property
     def relative_folder(self) -> Path:
-        return Path(self.asset_type.value, *self.schema, self.name)
+        if self.schema:
+            return Path(self.asset_type.value, *self.schema, self.name)
+        else:
+            return Path(self.asset_type.value, self.name)
 
     @property
     def source_art_folder(self) -> Path:
@@ -102,27 +105,35 @@ class Asset:
         resources = []
 
         for animation in self.animation_paths:
-            animation_export_path = self.get_export_path(animation_path=animation)
+            animation_export_path = self.get_animation_export_path(animation_name=animation.stem)
             status = ItemStatus.exported if animation_export_path.exists() else ItemStatus.export
             resource = Resource(name=animation.stem, scene_extension=FileExtension.mb,
-                                export_extension=FileExtension.fbx,resource_type=ResourceType.animation, status=status)
+                                export_extension=FileExtension.fbx, resource_type=ResourceType.animation,
+                                status=status)
             resources.append(resource)
 
+        resources.sort(key=lambda x: x.name.lower())
         return resources
 
-    def get_export_path(self, animation_path: Path) -> Path:
+    def get_animation_resource_by_name(self, name: str) -> Resource or None:
+        """
+        Get an animation resource item by name
+        :param name:
+        :return:
+        """
+        return next((x for x in self.animation_resources if x.name == name), None)
+
+    def get_animation_export_path(self, animation_name: str) -> Path:
         """
         Deduces the export path of an animation file
         Changes the underscore to ampersand for Unity files
-        :param animation_path:
+        :param animation_name:
         :return:
         """
-        if self.project.platform.engine is Engine.unity:
-            animation_export_file_name = animation_path.stem.replace("_", "@")
-        else:
-            animation_export_file_name = animation_path.stem
+        using_unity: bool = self.project.platform.engine is Engine.unity
+        export_file_name: str = animation_name.replace('_', '@') if using_unity else animation_name
 
-        return self.export_folder.joinpath(f'{animation_export_file_name}{FileExtension.fbx.value}')
+        return self.export_folder.joinpath(f'{export_file_name}{FileExtension.fbx.value}')
 
     @property
     def metadata_path(self) -> Path:
@@ -132,13 +143,17 @@ class Asset:
 if __name__ == '__main__':
     animation_sandbox: Path = Path.home().joinpath('Dropbox/Projects/Unity/AnimationSandbox')
     project_definition: ProjectDefinition = load_project_definition(project_root=animation_sandbox)
-    # clairee_folder = Path.home().joinpath('Dropbox/Projects/Unity/AnimationSandbox/SourceArt/Characters/clairee')
-    clairee_asset = Asset(name='clairee', asset_type=AssetType.character, project=project_definition, schema=['Artisan', 'Female'])
+    clairee_asset = Asset(name='clairee', asset_type=AssetType.character, project=project_definition)
+    print(clairee_asset.metadata_path)
+    print(clairee_asset.get_animation_export_path(animation_name='clairee_walk'))
 
+    for x in clairee_asset.animation_resources:
+        print(x)
     # print(project_definition)
     # print(clairee_asset.scene_resource)
     # print('\n'.join(str(x) for x in clairee_asset.animation_resources))
     # print(clairee_asset.metadata_path)
 
-    print(clairee_asset.source_art_folder_relative)
-    print(clairee_asset.export_folder_relative)
+    # print(clairee_asset.source_art_folder_relative)
+    # print(clairee_asset.export_folder_relative)
+    # print(clairee_asset.animation_resources)

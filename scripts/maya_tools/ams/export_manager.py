@@ -14,10 +14,12 @@ from maya_tools.ams.project_utils import ProjectDefinition, load_project_definit
 
 class ExportManager(GenericWidget):
     title: str = 'Export Manager'
+    version: str = '0.1'
+    codename: str = 'hot mango'
     project_key: str = 'project_root'
 
     def __init__(self):
-        super(ExportManager, self).__init__(title=self.title)
+        super(ExportManager, self).__init__(title=f'{self.title} v{self.version} [{self.codename}]')
         project_widget: GenericWidget = self.add_widget(GenericWidget(alignment=Alignment.horizontal))
         project_widget.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         self.settings = QSettings(DEVELOPER, self.title.replace(' ', ''))

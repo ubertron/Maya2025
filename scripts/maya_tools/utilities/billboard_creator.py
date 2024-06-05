@@ -2,7 +2,7 @@ from PIL import Image
 from pathlib import Path
 from maya import cmds
 
-from core.core_enums import ObjectType
+from maya_tools.maya_enums import ObjectType
 from maya_tools.node_utils import pivot_to_base, move_to_origin
 from maya_tools.material_utils import apply_shader, lambert_file_texture_shader
 

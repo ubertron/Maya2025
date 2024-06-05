@@ -63,10 +63,21 @@ class PanelWidget(QWidget):
     def active(self, value):
         self._active = value
         self.update_panel_header()
-        self.setStyleSheet(self.active_style if value else self.inactive_style)
 
     def update_panel_header(self):
+        """
+        Sets the header text according to the state
+        """
+        self.setStyleSheet(self.active_style if self.active else self.inactive_style)
         self.panel_header.setText(f'{self.state_graphic} {self.windowTitle()}')
+
+    def set_panel_header(self, value: str):
+        """
+        Convenience function to set the panel header text
+        :param value:
+        """
+        self.setWindowTitle(value)
+        self.update_panel_header()
 
     @property
     def state_graphic(self):

@@ -1,7 +1,8 @@
 from maya import cmds
 from typing import Optional
 
-from core.core_enums import ComponentType, Attr, DataType, ObjectType
+from core.core_enums import ComponentType, Attr, DataType
+from maya_tools.maya_enums import ObjectType
 
 
 class State:

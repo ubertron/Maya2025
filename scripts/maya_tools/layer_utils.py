@@ -160,5 +160,5 @@ def set_layer_display_type(layer: str, layer_display_type: Union[int, LayerDispl
     :param layer:
     :param layer_display_type:
     """
-    value = layer_display_type.value if type(layer_display_type) is LayerDisplayType else layer_display_type
+    value = layer_display_type if type(layer) is int else layer_display_type.value
     cmds.setAttr(f'{layer}.displayType', value)

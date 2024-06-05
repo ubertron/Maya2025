@@ -1,5 +1,5 @@
 from enum import Enum, unique, auto
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 
 
 class Axis(Enum):
@@ -45,13 +45,6 @@ class AssetType(Enum):
         return AssetType.__members__[key]
 
 
-if __name__ == '__main__':
-    print(AssetType.names(), AssetType.values())
-    print(AssetType.get('character'))
-    # print(type(AssetType.get('character')))
-    # print(type(AssetType.list()[0]))
-
-
 class FileExtension(Enum):
     ams = '.ams'
     jpg = '.jpg'
@@ -89,21 +82,6 @@ class Gender(Enum):
     male = auto()
     female = auto()
     other = auto()
-
-
-@unique
-class ObjectType(Enum):
-    file = auto()
-    lambert = auto()
-    materialInfo = auto()
-    mesh = auto()
-    nodeGraphEditorInfo = auto()
-    modelPanel = auto()
-    nurbsCurve = auto()
-    place2dTexture = auto()
-    script = auto()
-    shadingEngine = auto()
-    transform = auto()
 
 
 class Attr(Enum):
@@ -166,8 +144,11 @@ class MetadataKey(Enum):
     schema = auto()
     source_art_folder = auto()
     export_folder = auto()
-    export_hash = auto()
+    rig_hash = auto()
     animations = auto()
 
 
-
+if __name__ == '__main__':
+    my_enum = MetadataKey.rig_hash
+    print(isinstance(my_enum, MetadataKey))
+    print(type(my_enum))

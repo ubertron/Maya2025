@@ -55,5 +55,21 @@ class LayerDisplayType(Enum):
         return next(x for x in list(map(lambda x: x, LayerDisplayType)) if x.value == value)
 
 
+@unique
+class ObjectType(Enum):
+    animCurve = auto()
+    file = auto()
+    lambert = auto()
+    materialInfo = auto()
+    mesh = auto()
+    nodeGraphEditorInfo = auto()
+    modelPanel = auto()
+    nurbsCurve = auto()
+    place2dTexture = auto()
+    script = auto()
+    shadingEngine = auto()
+    transform = auto()
+
+
 if __name__ == '__main__':
     print(LayerDisplayType.get_by_value(0))
