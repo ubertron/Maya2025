@@ -23,7 +23,7 @@ from widgets.scroll_widget import ScrollWidget
 
 
 logging.basicConfig()
-logging.getLogger().setLevel(logging.INFO)
+logging.getLogger().setLevel(logging.DEBUG)
 
 
 class CharacterExporter(GenericWidget):
@@ -120,30 +120,35 @@ class CharacterExportWidget(GenericWidget):
         self.parent_widget: CharacterExporter = parent
         button_bar: GenericWidget = self.add_widget(GenericWidget(alignment=Alignment.horizontal))
         button_bar.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        self.browse_button = button_bar.add_button('Open Folder', tool_tip=f'Open {self.asset.name} folder',
+                                                   event=partial(open_file_location, self.asset.source_art_folder))
         self.export_rig_button = button_bar.add_button('Export Rig', tool_tip='Export just the character rig',
                                                        event=self.export_rig_button_clicked)
-        self.export_animations_button = button_bar.add_button('Export Animations',
-                                                              tool_tip='Export the rig and the animations')
-        self.browse_button = button_bar.add_button('Browse...', tool_tip=f'Open {self.asset.name} folder',
-                                                   event=partial(open_file_location, self.asset.source_art_folder))
-        self.metadata_button = button_bar.add_button('View metadata', event=partial(self.view_metadata_menu_item_clicked, self.asset.metadata_path))
+        self.export_animations_button = button_bar.add_button('Export Animations', tool_tip='Export the animations',
+                                                              event=self.export_animations_button_clicked)
+        self.metadata_button = button_bar.add_button(
+            'View metadata', tool_tip='View the asset metadata file',
+            event=partial(self.view_metadata_menu_item_clicked, self.asset.metadata_path))
+        self.metadata_button.setVisible(logging.DEBUG >= logging.root.level)
 
         if logging.DEBUG >= logging.root.level:
-            self.debug_button = button_bar.add_button(text='Debug Function', event=self.debug_routine)
+            pass
+            # self.debug_button = button_bar.add_button(text='Debug Function', event=self.debug_routine)
 
         button_bar.add_stretch()
         self.asset_grid: GridWidget = self.add_widget(GridWidget())
         self.add_stretch()
         self.init_asset_grid()
-        self.setup_ui()
+        self.update_button_states()
         self.panel_widget = None
 
-    def setup_ui(self):
+    def update_button_states(self):
         """
         Standalone export capabilities currently not supported
         """
-        self.export_animations_button.setEnabled(is_using_maya_python())
         self.export_rig_button.setEnabled(is_using_maya_python())
+        self.export_animations_button.setEnabled(is_using_maya_python() and len(self.asset.animations) > 0)
+        self.metadata_button.setEnabled(self.asset.metadata_path.exists())
 
     def init_asset_grid(self):
         """
@@ -166,11 +171,29 @@ class CharacterExportWidget(GenericWidget):
 
     def export_rig_button_clicked(self):
         """
-        Event for export_rig_button
+        Event for self.export_rig_button
         """
         from maya_tools.ams.export_utils import export_rig
         export_rig(asset=self.asset)
         self.set_component(resource=self.asset.scene_resource)
+        self.update_panel_header()
+        self.update_button_states()
+
+    def export_animations_button_clicked(self):
+        """
+        Event for self.export_animations_button
+        """
+        from maya_tools.ams.export_utils import export_animation
+
+        for resource in self.asset.animation_resources:
+            if resource.status in (ItemStatus.export, ItemStatus.update):
+                export_animation(asset=self.asset, resource=resource)
+                updated_resource = self.asset.get_animation_resource_by_name(resource.name)
+                self.set_component(resource=updated_resource)
+
+        self.update_panel_header()
+        self.update_button_states()
+        self.parent_widget.parent_widget.info = f'Animations for {self.asset.name} exported.'
 
     def export_animation_menu_item_clicked(self, resource: Resource, *args):
         """
@@ -214,7 +237,6 @@ class CharacterExportWidget(GenericWidget):
         row = self.asset_grid.get_row_by_text(resource.scene_file_name)
         status_style = resource.status
         style_str = 'QLabel {background-color:rgb' + str(resource.status.value) + ';color:rgb(40, 40, 40)};'
-        print(style_str)
 
         if row is not None:
             self.asset_grid.set_text(row=row, column=2, text=status_style.name, style=style_str, nice=True)

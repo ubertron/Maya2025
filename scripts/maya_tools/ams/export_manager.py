@@ -36,7 +36,7 @@ class ExportManager(GenericWidget):
         self.info_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.project = None
         self.project_root = self.settings.value(self.project_key, defaultValue=None)
-        self.setFixedSize(400, 500)
+        self.setFixedSize(400 if is_using_maya_python() else 500, 500)
         self.refresh()
 
     def refresh(self):
