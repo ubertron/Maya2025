@@ -8,7 +8,8 @@ from importlib import reload
 from maya_tools.ams.resource import Resource
 from maya_tools.ams.asset import Asset
 from core.core_enums import AssetType
-from maya_tools.ams.project_utils import ProjectDefinition, load_project_definition, get_current_project_root
+from maya_tools.ams.project_utils import load_project_definition, get_current_project_root
+from maya_tools.ams.project_definition import ProjectDefinition
 from maya_tools.scene_utils import get_scene_name, get_scene_path
 
 

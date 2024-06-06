@@ -15,7 +15,6 @@ from maya_tools import maya_enums; reload(maya_enums)
 from maya_tools.ams import export_utils; reload(export_utils)
 from maya_tools.ams import asset; reload(asset)
 from maya_tools.ams import project_utils; reload(project_utils)
-from maya_tools.ams.project_utils import ProjectDefinition
 from maya_tools.ams import character_exporter; reload(character_exporter)
 from maya_tools.ams import export_manager; reload(export_manager)
 from maya_tools.display_utils import in_view_message

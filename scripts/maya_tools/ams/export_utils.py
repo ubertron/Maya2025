@@ -75,10 +75,6 @@ def export_asset(asset: Asset, scene_file_path: Path, export_file_path: Path, ex
     :param auto_save:
     :param nodes:
     """
-    # pre-export checks
-    if get_scene_path() != scene_file_path:
-        load_scene(scene_file_path)
-
     for node in nodes:
         assert cmds.objExists(node), f'Cannot find node: {node}. Aborting export.'
 

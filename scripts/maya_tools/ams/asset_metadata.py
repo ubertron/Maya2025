@@ -5,7 +5,8 @@ from pathlib import Path
 
 from core.core_enums import AssetType, FileExtension, MetadataKey
 from maya_tools.ams.asset import Asset
-from maya_tools.ams.project_utils import ProjectDefinition, load_project_definition, get_project_definition
+from maya_tools.ams.project_utils import load_project_definition, get_project_definition
+from maya_tools.ams.project_definition import ProjectDefinition
 
 
 @dataclass

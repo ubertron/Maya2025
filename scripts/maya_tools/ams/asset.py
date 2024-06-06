@@ -4,7 +4,8 @@ from pathlib import Path
 from typing import Sequence
 
 from core.core_enums import FileExtension, AssetType, ResourceType, Platform, Engine
-from maya_tools.ams.project_utils import ProjectDefinition, load_project_definition
+from maya_tools.ams.project_utils import load_project_definition
+from maya_tools.ams.project_definition import ProjectDefinition
 # from maya_tools.ams.asset_metadata import load_asset_metadata, AssetMetadata
 from maya_tools.ams.resource import Resource
 from maya_tools.ams.ams_enums import ItemStatus
@@ -85,7 +86,15 @@ class Asset:
 
     @property
     def animation_paths(self):
-        return [self.source_art_folder.joinpath(x) for x in self.animations]
+        return [self.get_animation_path(x) for x in self.animations]
+
+    def get_animation_path(self, animation_name: str):
+        """
+        Deduces absolute path of the animation scene
+        :param animation_name:
+        :return:
+        """
+        return self.source_art_folder.joinpath(animation_name)
 
     @property
     def scene_file_path(self) -> Path:
@@ -156,6 +165,17 @@ class Asset:
         export_file_name: str = animation_name.replace('_', '@') if using_unity else animation_name
 
         return self.export_folder.joinpath(f'{export_file_name}{FileExtension.fbx.value}')
+
+    def get_resource_export_path(self, resource: Resource):
+        """
+        Finds the export path of a resource
+        :param resource:
+        :return:
+        """
+        if resource.resource_type in (ResourceType.rig, ResourceType.scene):
+            return self.scene_file_export_path
+        elif resource.resource_type is ResourceType.animation:
+            return self.get_animation_export_path(animation_name=resource.name)
 
     @property
     def metadata_path(self) -> Path:

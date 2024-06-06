@@ -1,5 +1,5 @@
 from pathlib import Path
-from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QSizePolicy, QTabWidget
+from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QSizePolicy, QTabWidget, QProgressBar
 from PySide6.QtCore import QSettings, Qt
 
 
@@ -9,7 +9,8 @@ from core.core_enums import Alignment
 from core.environment_utils import is_using_maya_python
 from maya_tools.ams.character_exporter import CharacterExporter
 from maya_tools.ams.environment_exporter import EnvironmentExporter
-from maya_tools.ams.project_utils import ProjectDefinition, load_project_definition
+from maya_tools.ams.project_utils import load_project_definition
+from maya_tools.ams.project_definition import ProjectDefinition
 
 
 class ExportManager(GenericWidget):
@@ -27,21 +28,36 @@ class ExportManager(GenericWidget):
         project_widget.add_stretch()
         self.set_project_button: QPushButton = project_widget.add_button(
             'Set Project...', tool_tip='Set the project for the tool.', event=self.set_project_button_clicked)
-        self.tab_bar = self.add_widget(QTabWidget())
+        self.tab_bar: QTabWidget = self.add_widget(QTabWidget())
         self.character_exporter: CharacterExporter = CharacterExporter(self)
         self.environment_exporter = EnvironmentExporter(self)
         self.tab_bar.addTab(self.character_exporter, 'Characters')
         self.tab_bar.addTab(self.environment_exporter, 'Environments')
         self.info_label: QLabel = self.add_label(center_align=False)
         self.info_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.progress_bar: QProgressBar = self.add_widget(QProgressBar())
         self.project = None
-        self.project_root = self.settings.value(self.project_key, defaultValue=None)
+        self.project_root: Path = self.settings.value(self.project_key, defaultValue=None)
         self.setFixedSize(400 if is_using_maya_python() else 500, 500)
+        self.setup_ui()
         self.refresh()
 
-    def refresh(self):
+    def setup_ui(self):
+        self.progress = 0
         self.info = f'Welcome to {self.project_root.name}' if self.project_root else 'Please set the project.'
+
+    def refresh(self):
         self.character_exporter.refresh_button_clicked()
+
+    @property
+    def progress(self):
+        return self.progress_bar.value()
+
+    @progress.setter
+    def progress(self, value):
+        print(f'Value set to {value}')
+        self.progress_bar.setVisible(value > 0)
+        self.progress_bar.setValue(value)
 
     def set_project_button_clicked(self):
         """
