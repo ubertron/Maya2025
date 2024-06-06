@@ -1,19 +1,19 @@
 import logging
 
-from maya import cmds, mel
+from maya import cmds
 from pathlib import Path
 from typing import Optional
 
 from maya_tools.maya_enums import LayerDisplayType
 from maya_tools.ams.asset import Asset
+from maya_tools.ams.validation.test_result import TestResult
 from maya_tools.ams.asset_metadata import AssetMetadata, load_asset_metadata
-from maya_tools.ams.project_utils import get_project_definition
 from maya_tools.ams.rig_utils import generate_rig_hash
-from maya_tools.ams.validation.tests import asset_structure, latest_rig
+from maya_tools.ams.validation.tests import asset_structure
 from maya_tools.ams.resource import Resource
 from maya_tools.animation_utils import get_keyframe_range
-from maya_tools.fbx_utils import export_fbx
-from maya_tools.fbx_preset import RigExportPreset, AnimationExportPreset, FBXPreset
+from maya_tools.io.fbx_utils import export_fbx
+from maya_tools.io.fbx_presets import RigExportPreset, AnimationExportPreset, FBXPreset
 from maya_tools.scene_utils import load_scene, get_scene_path, save_scene
 from maya_tools import layer_utils
 
@@ -42,12 +42,6 @@ def export_rig(asset: Asset):
 
 
 def export_animation(asset: Asset, resource: Resource):
-    # pre-export checks
-    asset_metadata: AssetMetadata = load_asset_metadata(metadata_path=asset.metadata_path)
-    assert asset_metadata is not None, 'Base rig not exported, aborting export.'
-    valid = validate_rig(asset=asset)
-    assert valid is True, 'Rig requires update, aborting export.'
-
     # export
     scene_file_path = asset.source_art_folder.joinpath(resource.scene_file_name)
     export_file_path = asset.get_animation_export_path(animation_name=resource.name)
@@ -63,6 +57,7 @@ def export_animation(asset: Asset, resource: Resource):
 
     # update asset metadata
     rig_hash: str = generate_rig_hash(asset=asset)
+    asset_metadata: AssetMetadata = load_asset_metadata(metadata_path=asset.metadata_path)
     asset_metadata.animation_hash_dict[resource.name] = rig_hash
     asset_metadata.save()
     logging.info(f'Metadata updated: {asset_metadata.metadata_path}')
@@ -86,9 +81,6 @@ def export_asset(asset: Asset, scene_file_path: Path, export_file_path: Path, ex
 
     for node in nodes:
         assert cmds.objExists(node), f'Cannot find node: {node}. Aborting export.'
-
-    valid = validate_asset(asset=asset)
-    assert valid is True, 'Asset failed validation, aborting export.'
 
     # save file
     if auto_save:
@@ -120,27 +112,6 @@ def export_asset(asset: Asset, scene_file_path: Path, export_file_path: Path, ex
     logging.info(f'Asset exported to {export_file_path}')
 
 
-def validate_asset(asset: Asset) -> bool:
-    """
-    Run the tests for characters
-    :param asset:
-    :return:
-    """
-    logging.info(f'Validating {asset.name}')
-    test_result: TestResult = asset_structure.AssetStructure().test(asset)
-    logging.info(f'Tests passed? {test_result.passed}')
-
-    return test_result.passed
 
 
-def validate_rig(asset: Asset) -> bool:
-    """
-    Run the tests for rigs
-    :param asset:
-    :return:
-    """
-    logging.info(f'Validating rig for {asset.name}')
-    test_result: TestResult = latest_rig.LatestRig().test(asset)
-    logging.info(f'Tests passed? {test_result.passed}')
 
-    return test_result.passed

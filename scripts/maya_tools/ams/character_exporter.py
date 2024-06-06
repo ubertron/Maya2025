@@ -15,6 +15,9 @@ from maya_tools.ams.asset import Asset
 from maya_tools.ams.project_utils import ProjectDefinition
 from maya_tools.ams.resource import Resource
 from maya_tools.maya_enums import LayerDisplayType
+from maya_tools.ams.validation.test_result import TestResult
+from maya_tools.ams.validation.asset_test import AssetTest
+from maya_tools.ams.validation.tests import latest_rig, asset_structure
 from widgets.clickable_label import ClickableLabel
 from widgets.generic_widget import GenericWidget
 from widgets.grid_widget import GridWidget
@@ -173,11 +176,22 @@ class CharacterExportWidget(GenericWidget):
         """
         Event for self.export_rig_button
         """
-        from maya_tools.ams.export_utils import export_rig
-        export_rig(asset=self.asset)
-        self.set_component(resource=self.asset.scene_resource)
-        self.update_panel_header()
-        self.update_button_states()
+        test_results: list[TestResult] = self.validate_rig()
+
+        if False in [test.passed for test in test_results]:
+            self.notify_failed_validation(test_results)
+            self.set_export_abort_message('Check log for errors')
+        else:
+            from maya_tools.ams.export_utils import export_rig
+
+            export_rig(asset=self.asset)
+            self.set_component(resource=self.asset.scene_resource)
+
+            for resource in self.asset.animation_resources:
+                self.set_component(resource)
+
+            self.update_panel_header()
+            self.update_button_states()
 
     def export_animations_button_clicked(self):
         """
@@ -187,13 +201,20 @@ class CharacterExportWidget(GenericWidget):
 
         for resource in self.asset.animation_resources:
             if resource.status in (ItemStatus.export, ItemStatus.update):
-                export_animation(asset=self.asset, resource=resource)
-                updated_resource = self.asset.get_animation_resource_by_name(resource.name)
-                self.set_component(resource=updated_resource)
+                test_results: list[TestResult] = self.validate_animation()
+
+                if False in [test.passed for test in test_results]:
+                    self.notify_failed_validation(test_results)
+                    self.set_export_abort_message('Check log for errors')
+                    return
+                else:
+                    export_animation(asset=self.asset, resource=resource)
+                    updated_resource = self.asset.get_animation_resource_by_name(resource.name)
+                    self.set_component(resource=updated_resource)
 
         self.update_panel_header()
         self.update_button_states()
-        self.parent_widget.parent_widget.info = f'Animations for {self.asset.name} exported.'
+        self.set_info(f'Animations for {self.asset.name} exported.')
 
     def export_animation_menu_item_clicked(self, resource: Resource, *args):
         """
@@ -205,14 +226,45 @@ class CharacterExportWidget(GenericWidget):
         _ = args
 
         if is_using_maya_python():
-            self.parent_widget.parent_widget.info = f'Exporting {resource.name} as {resource.export_file_name}'
-            from maya_tools.ams.export_utils import export_animation
-            export_animation(asset=self.asset, resource=resource)
-            updated_resource = self.asset.get_animation_resource_by_name(resource.name)
-            self.set_component(resource=updated_resource)
-            self.update_panel_header()
+            test_results: list[TestResult] = self.validate_animation()
+
+            if False in [test.passed for test in test_results]:
+                self.notify_failed_validation(test_results)
+                self.set_export_abort_message('Check log for errors')
+            else:
+                from maya_tools.ams.export_utils import export_animation
+
+                self.set_info(f'Exporting {resource.name} as {resource.export_file_name}')
+                export_animation(asset=self.asset, resource=resource)
+                updated_resource = self.asset.get_animation_resource_by_name(resource.name)
+                self.set_component(resource=updated_resource)
+                self.update_panel_header()
         else:
-            self.parent_widget.parent_widget.info = 'Use Export Manager in Maya to open scene'
+            self.set_info('Use Export Manager in Maya to open scene')
+
+    @staticmethod
+    def notify_failed_validation(test_results: list[TestResult]):
+        """
+        Log the failure messages
+        :param test_results:
+        """
+        for test_result in test_results:
+            for message in test_result.failure_list:
+                logging.info(message)
+
+    def set_export_abort_message(self, message: str):
+        """
+        Convenience method to set export abort message
+        :param message:
+        """
+        self.set_info(f'Export aborted: {message}')
+
+    def set_info(self, text: str):
+        """
+        Conenience method to set info
+        :param text:
+        """
+        self.parent_widget.parent_widget.info = text
 
     def view_metadata_menu_item_clicked(self, file_path, *args):
         """
@@ -221,7 +273,7 @@ class CharacterExportWidget(GenericWidget):
         :param args:
         """
         _ = args
-        self.parent_widget.parent_widget.info = 'Viewing metadata'
+        self.set_info('Viewing metadata')
         open_file_location(file_path)
 
     @property
@@ -281,7 +333,7 @@ class CharacterExportWidget(GenericWidget):
             routine = partial(self.open_file_location, export_file_path)
             menu.addAction(QAction(f'Open {resource.export_file_name} in file browser', self, triggered=routine))
 
-        if resource.status is ItemStatus.export and resource.resource_type is ResourceType.animation:
+        if resource.status in (ItemStatus.export, ItemStatus.update) and resource.resource_type is ResourceType.animation:
             routine = partial(self.export_animation_menu_item_clicked, resource)
             menu.addAction(QAction(f'Export {resource.name} animation', self, triggered=routine))
 
@@ -306,11 +358,11 @@ class CharacterExportWidget(GenericWidget):
         _ = args
 
         if is_using_maya_python():
-            self.parent_widget.parent_widget.info = f'Opening scene in Maya: {scene_path.name}'
+            self.set_info(f'Opening scene in Maya: {scene_path.name}')
             from maya_tools.scene_utils import load_scene
             load_scene(file_path=scene_path)
         else:
-            self.parent_widget.parent_widget.info = 'Use Export Manager in Maya to open scene.'
+            self.set_info('Use Export Manager in Maya to open scene.')
 
     def debug_routine(self):
         """
@@ -320,6 +372,30 @@ class CharacterExportWidget(GenericWidget):
         self.set_component(name='run', status_style=ItemStatus.export)
         self.set_component(name='walk', status_style=ItemStatus.export)
 
+    def validate_animation(self) -> list[TestResult]:
+        """
+        Run the tests for animations
+        :return:
+        """
+        return self.run_test_suite([latest_rig.LatestRig(), asset_structure.AssetStructure()])
+
+    def validate_rig(self) -> list[TestResult]:
+        """
+        Run the tests for rigs
+        :return:
+        """
+        return self.run_test_suite([asset_structure.AssetStructure()])
+
+    def run_test_suite(self, asset_tests: list[AssetTest]) -> list[TestResult]:
+        """
+        Run a suite of AssetTest tests
+        :param asset_tests:
+        :return:
+        """
+        logging.info(f'Validating {self.asset.name}')
+
+        return [asset_test.test(self.asset) for asset_test in asset_tests]
+
 
 if __name__ == '__main__':
     from PySide6.QtWidgets import QApplication
@@ -328,3 +404,4 @@ if __name__ == '__main__':
     widget = CharacterExportWidget(name='Clairee', parent=None)
     widget.show()
     app.exec()
+

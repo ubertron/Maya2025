@@ -10,7 +10,7 @@ from maya import cmds
 from core.core_paths import SITE_PACKAGES, MAYA_INTERPRETER_PATH, MAYA_REQUIREMENTS, icon_path, PROJECT_ROOT, \
     PRESETS_FOLDER
 from core.config_utils import MayaConfig
-from maya_tools.fbx_utils import check_fbx_plug_in
+from maya_tools.io.fbx_utils import check_fbx_plug_in
 from maya_tools import plug_in_utils
 from maya_tools.utilities.shelf_manager import ShelfManager, message_script
 from maya_tools.utilities import hotkey_manager
@@ -56,6 +56,8 @@ def setup_robotools_shelf():
     version_info = 'Robotools Shelf Version {}: {}'.format(ROBOTOOLS_SHELF_VERSION, robotools_plug_in_path())
     robonobo_icon = icon_path('robonobo_32.png')
     script_icon = icon_path('script.png')
+    export_manager = 'from maya_tools.ams.ams_debug import launch_export_manager\nlaunch_export_manager()'
+    root_name_toggle = 'from maya_tools.ams.ams_debug import root_name_toggle\nroot_name_toggle()'
     base_male_cmd = 'from maya_tools.character_utils import import_base_character\nimport_base_character("male")'
     load_base_male = 'from maya_tools.character_utils import load_base_character\nload_base_character("male")'
     base_female_cmd = 'from maya_tools.character_utils import import_base_character\nimport_base_character("female")'
@@ -81,6 +83,10 @@ def setup_robotools_shelf():
 
     sm.add_label('Robotools v{}'.format(ROBOTOOLS_VERSION), bold=True)
     sm.add_shelf_button(label='About Robotools', icon=robonobo_icon, command=message_script(version_info))
+    sm.add_separator()
+    sm.add_label('AMS')
+    sm.add_shelf_button(label='Export Manager (Debug)', overlay_label='ExMan', icon=script_icon, command=export_manager)
+    sm.add_shelf_button(label='Root Name Toggle (Debug)', overlay_label='RtTog', icon=script_icon, command=root_name_toggle)
     sm.add_separator()
     sm.add_label('Characters')
     sm.add_shelf_button(label='Import Base Male', icon=icon_path('base_male.png'), command=base_male_cmd)
@@ -115,6 +121,7 @@ def setup_robotools_shelf():
 
 def setup_plug_ins():
     check_fbx_plug_in()
+
 
 def setup_preferences():
     """

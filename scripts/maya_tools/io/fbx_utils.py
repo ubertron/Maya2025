@@ -15,7 +15,7 @@ FBX_EXPORT_PRESETS: Path = [x for x in MAYA_APP_DIR.joinpath('FBX').rglob('*.fbx
 
 def load_fbx_preset(preset_path: Path):
     """
-    Loads an FBX preset file
+    Loads a Maya-style FBX preset file
     """
     assert preset_path.exists(), f'Cannot find preset: {preset_path.as_posix()}'
     command = f'FBXLoadExportPresetFile -f "{preset_path.as_posix()}";'

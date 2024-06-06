@@ -30,3 +30,7 @@ class TestResult:
     @property
     def passed(self) -> bool:
         return len(self.failure_list) == 0
+
+    @property
+    def failed(self) -> bool:
+        return len(self.failure_list) > 0

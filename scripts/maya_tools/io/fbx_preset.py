@@ -1,10 +1,9 @@
 import logging
 
 from maya import mel
-from typing import Optional, Sequence
+from typing import Optional
 
-from maya_tools.fbx_utils import set_export_frame_range, check_fbx_plug_in, fbx_reset_export, \
-    set_fbx_property, get_fbx_property
+from maya_tools.io.fbx_utils import fbx_reset_export, set_fbx_property, get_fbx_property
 from maya_tools.maya_enums import FBXProperty
 
 
@@ -99,45 +98,3 @@ class FBXPreset:
             logging.info('All properties are exclusive from default values')
 
 
-class RigExportPreset(FBXPreset):
-    fbx_properties = {
-        FBXProperty.FBXExportSmoothingGroups: True,
-        FBXProperty.FBXExportTangents: True,
-        FBXProperty.FBXExportTriangulate: True,
-        FBXProperty.FBXExportColladaFrameRate: 25.0,
-        FBXProperty.FBXExportConstraints: True,
-        FBXProperty.FBXExportInputConnections: False,
-        FBXProperty.FBXExportCameras: False,
-        FBXProperty.FBXExportLights: False,
-        FBXProperty.FBXExportGenerateLog: False,
-    }
-
-    custom_properties = {
-        'Export|IncludeGrp|Animation': '0',
-    }
-
-    def __init__(self):
-        super(RigExportPreset, self).__init__(self.fbx_properties, self.custom_properties)
-
-
-class AnimationExportPreset(FBXPreset):
-    fbx_properties = {
-        FBXProperty.FBXExportBakeComplexAnimation: True,
-        FBXProperty.FBXExportBakeComplexStart: 1,
-        FBXProperty.FBXExportBakeComplexEnd: 100,
-        FBXProperty.FBXExportColladaFrameRate: 25.0,
-        FBXProperty.FBXExportInputConnections: False,
-        FBXProperty.FBXExportCameras: False,
-        FBXProperty.FBXExportLights: False,
-    }
-    custom_properties = {
-        'Export|AdvOptGrp|UI|ShowWarningsManager': '0'
-    }
-
-    def __init__(self, start_end: Optional[Sequence[float]] = None):
-        super(AnimationExportPreset, self).__init__(self.fbx_properties, self.custom_properties)
-
-        if start_end and len(start_end) == 2:
-            start, end = start_end
-            self.fbx_properties[FBXProperty.FBXExportBakeComplexStart] = start
-            self.fbx_properties[FBXProperty.FBXExportBakeComplexEnd] = end

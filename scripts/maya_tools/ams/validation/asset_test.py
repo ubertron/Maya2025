@@ -13,8 +13,3 @@ class AssetTest(ABC):
     @abstractmethod
     def test(cls, asset: Asset) -> TestResult:
         pass
-
-    @classmethod
-    @abstractmethod
-    def fix_script(cls):
-        pass

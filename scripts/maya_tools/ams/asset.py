@@ -5,6 +5,7 @@ from typing import Sequence
 
 from core.core_enums import FileExtension, AssetType, ResourceType, Platform, Engine
 from maya_tools.ams.project_utils import ProjectDefinition, load_project_definition
+# from maya_tools.ams.asset_metadata import load_asset_metadata, AssetMetadata
 from maya_tools.ams.resource import Resource
 from maya_tools.ams.ams_enums import ItemStatus
 
@@ -44,9 +45,10 @@ class Asset:
     def status(self) -> ItemStatus:
         if self.scene_resource.status is ItemStatus.export:
             return ItemStatus.export
-
-        if next((x for x in self.animation_resources if x.status is ItemStatus.export), None):
+        elif next((x for x in self.animation_resources if x.status is ItemStatus.export), None):
             return ItemStatus.export
+        elif next((x for x in self.animation_resources if x.status is ItemStatus.update), None):
+            return ItemStatus.update
 
         return ItemStatus.exported
 
@@ -104,16 +106,36 @@ class Asset:
     def animation_resources(self) -> list[Resource]:
         resources = []
 
-        for animation in self.animation_paths:
-            animation_export_path = self.get_animation_export_path(animation_name=animation.stem)
-            status = ItemStatus.exported if animation_export_path.exists() else ItemStatus.export
-            resource = Resource(name=animation.stem, scene_extension=FileExtension.mb,
+        for animation_path in self.animation_paths:
+            status = self.get_animation_item_status(animation=animation_path.stem)
+            resource = Resource(name=animation_path.stem, scene_extension=FileExtension.mb,
                                 export_extension=FileExtension.fbx, resource_type=ResourceType.animation,
                                 status=status)
             resources.append(resource)
 
         resources.sort(key=lambda x: x.name.lower())
+
         return resources
+
+    def get_animation_item_status(self, animation: str) -> ItemStatus:
+        """
+        Establish the ItemStatus of an animation
+        :param animation:
+        :return:
+        """
+        animation_export_path = self.get_animation_export_path(animation_name=animation)
+        asset_metadata = self.metadata
+
+        if animation_export_path.exists() and asset_metadata:
+            rig_hash = asset_metadata.rig_hash
+            animation_hash = asset_metadata.animation_hash_dict.get(animation)
+
+            if animation_hash:
+                return ItemStatus.exported if animation_hash == rig_hash else ItemStatus.update
+            else:
+                return ItemStatus.export
+        else:
+            return ItemStatus.export
 
     def get_animation_resource_by_name(self, name: str) -> Resource or None:
         """
@@ -139,6 +161,12 @@ class Asset:
     def metadata_path(self) -> Path:
         return self.source_art_folder.joinpath(f'{self.name}{FileExtension.json.value}')
 
+    @property
+    def metadata(self) -> object or None:
+        from maya_tools.ams.asset_metadata import load_asset_metadata
+
+        return load_asset_metadata(self.metadata_path) if self.metadata_path.exists else None
+
 
 if __name__ == '__main__':
     animation_sandbox: Path = Path.home().joinpath('Dropbox/Projects/Unity/AnimationSandbox')
@@ -146,9 +174,7 @@ if __name__ == '__main__':
     clairee_asset = Asset(name='clairee', asset_type=AssetType.character, project=project_definition)
     print(clairee_asset.metadata_path)
     print(clairee_asset.get_animation_export_path(animation_name='clairee_walk'))
-
-    for x in clairee_asset.animation_resources:
-        print(x)
+    print('\n'.join(str(anim_resource) for anim_resource in clairee_asset.animation_resources))
     # print(project_definition)
     # print(clairee_asset.scene_resource)
     # print('\n'.join(str(x) for x in clairee_asset.animation_resources))
