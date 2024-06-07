@@ -24,7 +24,7 @@ class Asset:
         :param name:
         :param asset_type:
         :param project:
-        :param schema: Optional asset subcategory subsequent to AssetType
+        :param schema: Optional asset subcategory after AssetType
         """
         self.name = name
         self.asset_type: AssetType = asset_type
@@ -33,7 +33,7 @@ class Asset:
 
     def __repr__(self):
         info = f'Name: {self.name} [{self.asset_type.name}]\nPath: {self.source_art_folder}'
-        info += f'\nScene File: {self.scene_file_path.name} Exists? {self.scene_file_path.exists()}\nAnimations:'
+        info += f'\nScene File: {self.scene_file_path.name}\nAnimations:'
 
         if len(self.animations):
             info += '\n- ' + '\n- '.join([str(x) for x in self.animations])

@@ -77,6 +77,7 @@ class CharacterExporter(GenericWidget):
         """
         Event for refresh_button
         """
+        panel_states = self.panel_states
         self.scroll_widget.clear_layout()
         self.scroll_widget.add_widget(self.info_panel)
         self.characters = []
@@ -104,6 +105,25 @@ class CharacterExporter(GenericWidget):
             self.scroll_widget.add_widget(panel)
 
         self.scroll_widget.add_stretch()
+        self.restore_panel_states(state_dict=panel_states)
+
+    @property
+    def panel_widgets(self) -> list[PanelWidget]:
+        return [x for x in self.scroll_widget.child_widgets if type(x) is PanelWidget]
+
+    @property
+    def panel_states(self) -> dict:
+        return {x.windowTitle().split(' [')[0]: x.active for x in self.panel_widgets}
+
+    def restore_panel_states(self, state_dict: dict):
+        """
+        Set the state of the panel widgets
+        :param state_dict:
+        """
+        for title, value in state_dict.items():
+            panel_widget = next((x for x in self.panel_widgets if x.windowTitle().split(' [')[0] == title), None)
+            if panel_widget is not None and value:
+                panel_widget.toggle_active()
 
 
 class CharacterExportWidget(GenericWidget):
@@ -151,6 +171,16 @@ class CharacterExportWidget(GenericWidget):
         self.export_rig_button.setEnabled(is_using_maya_python())
         self.export_animations_button.setEnabled(is_using_maya_python() and len(self.asset.animations) > 0)
         self.metadata_button.setEnabled(self.asset.metadata_path.exists())
+
+    def update_panel_header(self):
+        """
+        Change the name of the parent panel
+        self.panel_widget property must be set prior to using this
+        """
+        assert self.panel_widget is not None, 'Set the panel_widget property'
+        panel_label = f'{self.asset.name} [{self.asset.status.name}]'
+        self.panel_widget.set_panel_header(panel_label)
+        self.panel_widget.inactive_style = 'QLabel {color:rgb' + str(self.asset.status.value) + '};'
 
     def init_asset_grid(self):
         """
@@ -270,6 +300,7 @@ class CharacterExportWidget(GenericWidget):
                 updated_resource = self.asset.get_animation_resource_by_name(resource.name)
                 self.set_component(resource=updated_resource)
                 self.update_panel_header()
+                self.update_button_states()
         else:
             self.set_info('Use Export Manager in Maya to open scene')
 
@@ -332,16 +363,6 @@ class CharacterExportWidget(GenericWidget):
             label.clicked.connect(partial(self.context_menu, self.asset, resource))
             self.asset_grid.add_label(text=f'[{resource.resource_type.name}]', row=row, column=1)
             self.asset_grid.add_label(status_style.name, row=row, column=2, style=style_str, nice=True)
-
-    def update_panel_header(self):
-        """
-        Change the name of the parent panel
-        self.panel_widget property must be set prior to using this
-        """
-        assert self.panel_widget is not None, 'Set the panel_widget property'
-        panel_label = f'{self.asset.name} [{self.asset.status.name}]'
-        self.panel_widget.set_panel_header(panel_label)
-        self.panel_widget.inactive_style = 'QLabel {color:rgb' + str(self.asset.status.value) + '};'
 
     def context_menu(self, *args):
         """

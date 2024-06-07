@@ -2,7 +2,6 @@ from pathlib import Path
 from PySide6.QtWidgets import QFileDialog, QLabel, QPushButton, QSizePolicy, QTabWidget, QProgressBar
 from PySide6.QtCore import QSettings, Qt
 
-
 from widgets.generic_widget import GenericWidget
 from core import DEVELOPER
 from core.core_enums import Alignment
@@ -44,7 +43,6 @@ class ExportManager(GenericWidget):
 
     def setup_ui(self):
         self.progress = 0
-        self.info = f'Welcome to {self.project_root.name}' if self.project_root else 'Please set the project.'
 
     def refresh(self):
         self.character_exporter.refresh_button_clicked()
@@ -55,7 +53,6 @@ class ExportManager(GenericWidget):
 
     @progress.setter
     def progress(self, value):
-        print(f'Value set to {value}')
         self.progress_bar.setVisible(value > 0)
         self.progress_bar.setValue(value)
 
@@ -103,6 +100,7 @@ class ExportManager(GenericWidget):
     @project.setter
     def project(self, project_definition: ProjectDefinition or None):
         self._project = project_definition
+        self.info = f'Welcome to {project_definition.name}.' if project_definition else 'Please set the project.'
 
 
 if __name__ == '__main__':

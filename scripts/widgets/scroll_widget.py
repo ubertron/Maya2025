@@ -42,7 +42,7 @@ class ScrollWidget(GenericWidget):
         if event:
             button.clicked.connect(event)
 
-        return self.widget.addWidget(button)
+        return self.widget.add_widget(button)
 
     def add_label(self, text: str = '', center_align: bool = True) -> QLabel:
         """
@@ -76,12 +76,17 @@ class ScrollWidget(GenericWidget):
     def add_spacing(self, value: int):
         self.widget.add_spacing(value)
 
+    @property
+    def child_widgets(self) -> list[QWidget]:
+        return [self.widget.layout().itemAt(i).widget() for i in range(self.widget.layout().count())]
+
 
 class TestScrollWidget(ScrollWidget):
     def __init__(self):
         super(TestScrollWidget, self).__init__(title='Test Scroll Widget')
         names = [str(i) for i in range(50)]
         self.add_label(text='\n'.join(names))
+        self.add_label(text='Button')
 
 
 if __name__ == '__main__':
@@ -91,4 +96,5 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     test_widget = TestScrollWidget()
     test_widget.show()
+    print(test_widget.child_widgets)
     sys.exit(app.exec())
