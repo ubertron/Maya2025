@@ -13,7 +13,7 @@ class State:
         self.component_mode = get_component_mode()
         self.selection = cmds.ls(sl=True)
 
-        if self.object_mode:
+        if self.is_object_mode:
             self.object_selection = cmds.ls(sl=True)
             self.component_selection = []
         else:
@@ -23,7 +23,13 @@ class State:
             set_component_mode(self.component_mode)
             cmds.hilite(self.object_selection)
 
+    def __repr__(self) -> str:
+        return f'Component mode: {self.component_mode.name}\nSelection: {str(self.object_selection)}'
+
     def restore(self):
+        """
+        Set the selection and component mode as stored on init
+        """
         if self.object_selection:
             cmds.select(self.object_selection, noExpand=True)
             set_component_mode(self.component_mode)
@@ -31,15 +37,22 @@ class State:
             set_component_mode(ComponentType.object)
             cmds.select(clear=True)
 
-        if not self.object_mode:
+        if self.is_component_mode:
             cmds.select(self.component_selection)
 
     @property
-    def object_mode(self):
+    def is_object_mode(self) -> bool:
         return self.component_mode == ComponentType.object
 
+    @property
+    def is_component_mode(self) -> bool:
+        return not self.is_object_mode
+
     def remove_objects(self, objects):
-        # Sometimes necessary as cmds.objExists check causes an exception
+        """
+        Sometimes necessary as cmds.objExists check causes an exception
+        :param objects:
+        """
         for item in [objects]:
             if item in self.object_selection:
                 self.object_selection.remove(item)
@@ -83,6 +96,41 @@ def set_component_mode(component_type=ComponentType.object):
             cmds.selectType(polymeshUV=True)
         else:
             cmds.warning('Unknown component type')
+
+
+def set_component_mode_to_vertex():
+    """
+    Set the component mode to vertex mode
+    """
+    set_component_mode(ComponentType.vertex)
+
+
+def set_component_mode_to_edge():
+    """
+    Set the component mode to edge mode
+    """
+    set_component_mode(ComponentType.edge)
+
+
+def set_component_mode_to_face():
+    """
+    Set the component mode to face mode
+    """
+    set_component_mode(ComponentType.face)
+
+
+def set_component_mode_to_object():
+    """
+    Set the component mode to object mode
+    """
+    set_component_mode(ComponentType.object)
+
+
+def set_component_mode_to_uv():
+    """
+    Set the component mode to uv mode
+    """
+    set_component_mode(ComponentType.uv)
 
 
 def select_components(transform, components, component_type=ComponentType.face, hilite=True):
@@ -300,3 +348,12 @@ def rename_transforms(transforms: Optional[list] = None, token: str = "node",
         name_list.append(cmds.rename(x, f"{token}{str(idx + start).zfill(padding)}"))
 
     return name_list
+
+
+def get_type_from_transform(transform: str):
+    """
+    Gets the type of the shape connected to a transform
+    :param transform:
+    :return:
+    """
+    return cmds.objectType(get_shape_from_transform(transform=transform))

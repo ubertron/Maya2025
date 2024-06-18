@@ -1,3 +1,5 @@
 # Requirements for standalone only
+numpy
 pillow
+pyperclip
 PySide6

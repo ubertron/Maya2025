@@ -34,7 +34,7 @@ def new_scene():
     """
     Create a new scene in Maya
     """
-    cmds.system.newFile(force=True)
+    cmds.file(newFile=True, force=True)
 
 
 def import_model(import_path: Path):

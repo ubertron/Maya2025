@@ -129,7 +129,6 @@ def setup_preferences():
     """
     logging.info('>>> Setting Maya preferences')
     cmds.currentUnit(linear='meter')
-
     grid_size = MAYA_CONFIG.get(section=PREFERENCES_KEY, option='GRID_SIZE', default=3)
     grid_spacing = MAYA_CONFIG.get(section=PREFERENCES_KEY, option='GRID_SPACING', default=1.0)
     divisions = MAYA_CONFIG.get(section=PREFERENCES_KEY, option='DIVISIONS', default=2)

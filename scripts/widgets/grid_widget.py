@@ -1,8 +1,14 @@
 import enum
+import platform
 
-from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QPushButton, QSpacerItem
+from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QPushButton, QSpacerItem, QMainWindow
 from PySide6.QtCore import Qt
 from typing import Callable, Optional
+from shiboken6 import wrapInstance
+
+from core.environment_utils import is_using_maya_python
+
+DARWIN_STR = 'Darwin'
 
 
 class GridWidget(QWidget):
@@ -13,6 +19,7 @@ class GridWidget(QWidget):
         layout.setContentsMargins(margin, margin, margin, margin)
         layout.setSpacing(spacing)
         self.setLayout(layout)
+        self._init_maya_properties()
 
     @property
     def row_count(self) -> int:
@@ -185,6 +192,16 @@ class GridWidget(QWidget):
                 self.layout().takeAt(i)
             else:
                 item.widget().setParent(None)
+
+    def _init_maya_properties(self):
+        """
+        Initializes widget properties for Maya
+        """
+        if is_using_maya_python():
+            from maya import OpenMayaUI
+            self.mayaMainWindow = wrapInstance(int(OpenMayaUI.MQtUtil.mainWindow()), QMainWindow)
+            self.setWindowFlags(Qt.Window)
+            self.setWindowFlags(Qt.Tool if platform.system() == DARWIN_STR else Qt.Window)
 
 
 class GridWidgetTest(GridWidget):

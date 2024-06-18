@@ -86,7 +86,7 @@ class ExportManager(GenericWidget):
             path = Path(value)
             self._project_root = path
             self.project = load_project_definition(project_root=path)
-            self.project_label.setText(str(self.project))
+            self.project_label.setText(f'Project: {str(self.project) if self.project else "None"}')
             self.settings.setValue(self.project_key, path.as_posix())
         else:
             self._project_root = None
