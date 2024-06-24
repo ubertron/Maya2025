@@ -5,9 +5,10 @@ import maya.api.OpenMaya as om
 from typing import Optional, Sequence, Union
 
 from core.core_enums import ComponentType
-from core.point_classes import Point3
+from core.point_classes import Point3, Point3Pair, NEGATIVE_Y_AXIS
+from core.math_funcs import cross_product, dot_product, normalize_vector, degrees_to_radians
 from maya_tools.scene_utils import message_script
-from maya_tools.node_utils import State, set_component_mode, get_component_mode, get_type_from_transform
+from maya_tools.node_utils import State, set_component_mode, get_component_mode, get_type_from_transform, restore_rotation
 
 
 def get_transforms(node: str = '', single: bool = True) -> str or list[str] or None:
@@ -139,7 +140,7 @@ def get_vertex_face_list(transform: str):
     return out
 
 
-def create_cube(name: Optional[str] = None, size: int = 1, divisions: int = 1) -> str:
+def create_cube(name: Optional[str] = None, size: float = 1, divisions: int = 1) -> str:
     """
     Mirrors geometry along an axis
     :param name: str
@@ -238,33 +239,48 @@ def get_faces_by_vert_count(transform: Optional[str] = None, select: bool = Fals
     result = vertex_dict[face_type]
 
     if select and len(result):
-        select_faces(transform=transform, vertices=result)
+        select_faces(transform=transform, faces=result)
     else:
         return vertex_dict[return_type]
 
 
-def select_faces(transform: str, vertices: list[int]):
+def select_faces(transform: str, faces: list[int]):
     """
     Select faces on a mesh
     :param transform:
-    :param vertices:
+    :param faces:
     """
-    face_objects = [f'{transform}.f[{x}]' for x in vertices]
+    face_objects = [f'{transform}.f[{x}]' for x in faces]
     cmds.select(face_objects)
     cmds.hilite(transform)
     cmds.selectType(facet=True)
 
 
-def set_edge_softness(node_selection: Union[str, list[str]], angle: float = 30):
+def set_edge_softness(nodes: Union[str, list[str]], angle: float = 30):
     """
     Set
-    :param node_selection:
+    :param nodes:
     :param angle:
     """
     state = State()
-    cmds.select(node_selection)
+    cmds.select(nodes)
     cmds.polySoftEdge(angle=angle)
     state.restore()
+
+
+def get_component_type_tag(component_type: ComponentType) -> str or None:
+    """
+    Gets the tag for a component Type
+    :param component_type:
+    :return:
+    """
+    component_tag = {
+        ComponentType.edge: 'e',
+        ComponentType.vertex: 'vtx',
+        ComponentType.face: 'f'
+    }
+
+    return component_tag.get(component_type)
 
 
 def get_component_indices(component_list: list[str], component_type: ComponentType = ComponentType.edge):
@@ -274,14 +290,20 @@ def get_component_indices(component_list: list[str], component_type: ComponentTy
     :type component_type:
     :return:
     """
-    component = {
-        ComponentType.edge: 'e',
-        ComponentType.vertex: 'vtx',
-        ComponentType.face: 'f'
-    }
-
     flat_list = cmds.ls(component_list, flatten=True)
-    return [x.split(f'.{component[component_type]}[')[1].split(']')[0] for x in flat_list]
+
+    return [x.split(f'.{get_component_type_tag(component_type)}[')[1].split(']')[0] for x in flat_list]
+
+
+def get_component_list(transform: str, indices: list[int], component_type: ComponentType = ComponentType.face):
+    """
+    Get a component list from a list of indices
+    :param transform:
+    :param indices:
+    :param component_type:
+    :return:
+    """
+    return [f'{transform}.{get_component_type_tag(component_type)}[{x}]' for x in indices]
 
 
 def get_open_edges(transform: str, select=False):
@@ -325,6 +347,13 @@ def toggle_xray(transforms: Optional[Sequence[str]] = None):
         cmds.displaySurface(item, xRay=(not cmds.displaySurface(item, xRay=True, query=True)[0]))
 
 
+def create_platonic_sphere(name: str, diameter: float, primitive: int = 2, subdivisions: int = 3):
+    sphere = cmds.polyPlatonic(radius=diameter / 2, primitive=primitive, subdivisionMode=0,
+                               subdivisions=subdivisions, sphericalInflation=1)[0]
+
+    return cmds.rename(sphere, name)
+
+
 def create_hemispheroid(name: str = 'hemispheroid', diameter: float = 1.0, height: float = 0.5, primitive: int = 2,
                         subdivisions: int = 3, base: bool = True, select: bool = True,
                         construction_history: bool = True):
@@ -340,10 +369,7 @@ def create_hemispheroid(name: str = 'hemispheroid', diameter: float = 1.0, heigh
     :param construction_history:
     :return:
     """
-    hemispheroid = cmds.polyPlatonic(radius=diameter / 2, primitive=primitive, subdivisionMode=0,
-                                     subdivisions=subdivisions, sphericalInflation=1)[0]
-    cmds.delete(hemispheroid, ch=True)
-    hemispheroid = cmds.rename(hemispheroid, name)
+    hemispheroid = create_platonic_sphere(name=name, diameter=diameter, primitive=primitive, subdivisions=subdivisions)
     cmds.setAttr(f'{hemispheroid}.scaleY', height * 2.0 / diameter)
     cmds.makeIdentity(hemispheroid, apply=True, scale=True)
 
@@ -357,7 +383,7 @@ def create_hemispheroid(name: str = 'hemispheroid', diameter: float = 1.0, heigh
     # create base
     if base:
         get_open_edges(hemispheroid, select=True)
-        cmds.polyExtrudeEdge(cmds.ls(sl=True), localTranslateZ=-0.1)
+        cmds.polyExtrudeEdge(cmds.ls(sl=True), scaleX=0.0, scaleZ=0.0)
         cmds.move(0, cmds.ls(sl=True), moveY=True, absolute=True)
         verts = cmds.polyListComponentConversion(cmds.ls(sl=True), fromEdge=True, toVertex=True)
         cmds.polyMergeVertex(verts, distance=precision_to_threshold(diameter))
@@ -373,3 +399,111 @@ def create_hemispheroid(name: str = 'hemispheroid', diameter: float = 1.0, heigh
         cmds.select(clear=True)
 
     return hemispheroid
+
+
+def get_faces_by_axis(transform: str, axis: Point3, tolerance_angle: float = 0.05) -> list[int]:
+    """
+    Gets the ids of faces that are facing downwards
+    Increase the tolerance to pick up angled faces
+    The angle between the down vector and the tolerance is arccos(down vector . tolerance vector)
+    :param transform:
+    :param axis:
+    :param tolerance_angle:
+    :return:
+    """
+    normals = get_face_normals(transform)
+    tolerance = math.cos(degrees_to_radians(tolerance_angle))
+    low, high = tolerance, 2 - tolerance
+
+    return [idx for idx, normal in enumerate(normals) if low < dot_product(normal, axis) < high]
+
+
+def get_face_normals(transform: str) -> list[Point3]:
+    """
+    Get all the face normals of a transform
+    :param transform:
+    :return:
+    """
+    rotation = Point3(*cmds.getAttr(f'{transform}.rotate')[0])
+
+    if rotation != Point3(0, 0, 0):
+        cmds.makeIdentity(transform, apply=True, rotate=True)
+
+    poly_info = cmds.polyInfo(transform, faceNormals=True)
+    result = [[float(i) for i in item.split(': ')[1].split('\n')[0].split(' ')] for item in poly_info]
+
+    if rotation != Point3(0, 0, 0):
+        restore_rotation(transform=transform, value=rotation)
+
+    return [normalize_vector(Point3(*x)) for x in result]
+
+
+def get_face_normal(transform: str, face_id: int) -> Point3:
+    """
+    Get the normal vector of a face
+    :param transform:
+    :param face_id:
+    :return:
+    """
+    rotation = Point3(*cmds.getAttr(f'{transform}.rotate')[0])
+
+    if rotation != Point3(0, 0, 0):
+        cmds.makeIdentity(transform, apply=True, rotate=True)
+
+    normal = cmds.polyInfo(f'{transform}.f[{face_id}]', faceNormals=True)[0]
+    values = [float(x) for x in normal.split(': ')[1].split('\n')[0].split(' ')]
+
+    if rotation != Point3(0, 0, 0):
+        restore_rotation(transform=transform, value=rotation)
+
+    return Point3(*values)
+
+
+def get_vertex_positions_from_face(transform: str, face_id: int) -> dict[int, Point3]:
+    """
+    Get the positions of the vertices from a face
+    :param transform:
+    :param face_id:
+    :return:
+    """
+    vertices = cmds.polyListComponentConversion(f'{transform}.f[{face_id}]', fromFace=True, toVertex=True)
+    vertex_ids = get_ids_from_component_list(component_list=vertices, component_type=ComponentType.vertex)
+
+    return {i: get_vertex_position(transform=transform, vertex_id=i) for i in vertex_ids}
+
+
+def get_ids_from_component_list(component_list: Union[str, list], component_type: ComponentType):
+    """
+    Extracts the component ids from a list of component transforms
+    :param component_list:
+    :param component_type:
+    :return:
+    """
+    component = {
+        ComponentType.vertex: '.vtx[',
+        ComponentType.face: '.f[',
+        ComponentType.edge: '.e['
+    }[component_type]
+
+    return [int(x.split(component)[1].split(']')[0]) for x in cmds.ls(component_list, flatten=True)]
+
+
+def delete_faces(transform: str, faces: list[int]):
+    """
+    Delete a bunch of faces
+    :param transform:
+    :param faces:
+    """
+    cmds.delete(get_component_list(transform=transform, indices=faces, component_type=ComponentType.face))
+
+
+def delete_down_facing_faces(transform: str, tolerance_angle: float = 0.05):
+    """
+    Convenience function to delete down-facing faces
+    :param transform:
+    :param tolerance_angle:
+    """
+    down_facing = get_faces_by_axis(transform=transform, axis=NEGATIVE_Y_AXIS, tolerance_angle=tolerance_angle)
+
+    if down_facing:
+        delete_faces(transform=transform, faces=down_facing)

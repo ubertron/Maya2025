@@ -32,7 +32,7 @@ def place_locators_at_selected_vertices(size: float = 0.2):
         cmds.warning('Please select some vertices on a mesh.')
 
 
-def create_locator(position: Point3,  size: float = 0.2, name: str = '') -> str:
+def create_locator(position: Point3=Point3(0.0, 0.0, 0.0),  size: float = 0.2, name: str = '') -> str:
     """
     Create a space locator at a position
     :param position:

@@ -1,18 +1,19 @@
-import math
-
 from dataclasses import dataclass
 
-from core.math_funcs import interpolate_linear, get_midpoint, cross_product, vector_to_euler_angles, get_vector, \
-    radians_to_degrees, get_normal_vector
-from core.point_classes import Point3, Point2, POINT3_ORIGIN, POINT2_ORIGIN, Point3Pair, Point2Pair
+from core.math_funcs import interpolate_linear, get_midpoint, vector_to_euler_angles, get_normal_vector, \
+    get_point_normal_angle_on_ellipse, get_point_position_on_ellipse
+from core.point_classes import Point3, Point2, POINT3_ORIGIN, POINT2_ORIGIN, Point3Pair, Z_AXIS, Y_AXIS
 from core.environment_utils import is_using_maya_python
+from core.core_enums import ComponentType
 
 if is_using_maya_python():
     from maya import cmds
     from maya_tools.curve_utils import get_cvs, set_cv, create_ellipse, create_polygon_loft_from_curves
-    from maya_tools.geometry_utils import merge_vertices, set_edge_softness, get_vertex_positions, \
-        get_vertex_face_list, select_faces, get_open_edges, create_hemispheroid
-    from maya_tools.utilities.helpers import create_locator
+    from maya_tools.geometry_utils import merge_vertices, set_edge_softness, get_open_edges, create_hemispheroid, \
+        create_platonic_sphere, precision_to_threshold, delete_down_facing_faces, select_faces, get_faces_by_axis, \
+        get_component_list, get_component_indices
+    from maya_tools.helpers import create_locator
+    from maya_tools.node_utils import pivot_to_base, translate, rotate, scale, set_pivot, delete_history
 
 
 @dataclass
@@ -41,6 +42,16 @@ class DalekDimensions:
     orb_diameter: float
     orb_height: float
     num_orbs: int
+    face_plate_angle: float
+    eye_stalk_length: float
+    eye_stalk_diameter: float
+    eye_diameter: float
+    eye_depth: float
+    energy_dispenser_base_radius: float
+    energy_dispenser_base_height: float
+    energy_dispenser_radius: float
+    energy_dispenser_height: float
+    energy_dispenser_angle: float
 
     def __post_init__(self):
         # Must have at least 1 fin
@@ -190,6 +201,10 @@ class DalekDimensions:
     def head_position(self) -> Point3:
         return Point3(0, self.neck_position.y + self.neck_height, self.lateral_offset)
 
+    @property
+    def head_radius_pair(self) -> Point2:
+        return Point2(self.head_diameter / 2, self.head_height)
+
 
 DEFAULT_DIMENSIONS: DalekDimensions = DalekDimensions(
         base_height=0.15,
@@ -216,12 +231,26 @@ DEFAULT_DIMENSIONS: DalekDimensions = DalekDimensions(
         orb_diameter=0.15,
         orb_height=0.05,
         num_orbs=4,
+        face_plate_angle=8,
+        eye_stalk_length=0.28,
+        eye_stalk_diameter=0.035,
+        eye_diameter=0.125,
+        eye_depth=0.125,
+        energy_dispenser_base_radius=0.05,
+        energy_dispenser_base_height=0.03,
+        energy_dispenser_radius=0.04,
+        energy_dispenser_height=0.08,
+        energy_dispenser_angle=30,
     )
 
 
 class DalekBuilder:
     def __init__(self, dimensions: DalekDimensions = DEFAULT_DIMENSIONS):
         self.dimensions = dimensions
+
+    @property
+    def curves(self) -> list[str]:
+        return cmds.listRelatives(self.curve_group, children=True)
 
     def add_curve(self, name: str, size: Point2, position: Point3, lateral_offset: bool = False,
                   modify_skirt: bool = False) -> str:
@@ -236,6 +265,20 @@ class DalekBuilder:
             self.modify_skirt_curve(skirt_curve=curve)
 
         return curve
+
+    def modify_skirt_curve(self, skirt_curve: str):
+        """
+        Sets every other cv to the midpoint of its neighbours
+        :param skirt_curve:
+        """
+        cvs = get_cvs(skirt_curve, local=True)
+
+        for i in range(self.dimensions.num_sections):
+            a_id = i * 2
+            middle_id = i * 2 + 1
+            b_id = (i * 2 + 2) % (self.dimensions.num_sections * 2)
+            midpoint = get_midpoint(points=(cvs[a_id], cvs[b_id]))
+            set_cv(transform=skirt_curve, cv_id=middle_id, position=midpoint)
 
     def apply_lateral_offset(self, transform: str):
         """
@@ -259,18 +302,24 @@ class DalekBuilder:
         self.geometry_group = cmds.group(name='geometry_group', empty=True)
         self.locator_group = cmds.group(name='locator_group', empty=True)
         self.orb_group = cmds.group(name='orb_group', empty=True)
+        self.head_group = cmds.group(name='head_group', empty=True)
+        translate(self.head_group, self.dimensions.head_position)
         cmds.parent(self.orb_group, self.geometry_group)
+        cmds.parent(self.head_group, self.geometry_group)
 
         self._create_body()
         self._create_head()
         self._create_orbs()
+        self._create_head_details()
+
         # cmds.hide(self.geometry_group)
-        # cmds.hide(self.curve_group)
+        cmds.hide(self.curve_group)
 
         if not cmds.listRelatives(self.locator_group, children=True):
             cmds.delete(self.locator_group)
 
-        cmds.select(clear=True)
+        # cmds.select(clear=True)
+        # cmds.select(self.energy_dispenser_base)
 
     def _create_body(self):
         """
@@ -310,9 +359,8 @@ class DalekBuilder:
 
         self.dalek_body, _ = create_polygon_loft_from_curves(name='dalek_body', curves=self.curves)
         merge_vertices(transform=self.dalek_body)
-        set_edge_softness(node_selection=self.dalek_body, angle=20)
+        set_edge_softness(nodes=self.dalek_body, angle=20)
         cmds.parent(self.dalek_body, self.geometry_group)
-
 
     def _create_head(self):
         """
@@ -322,11 +370,99 @@ class DalekBuilder:
         self.head = create_hemispheroid(diameter=self.dimensions.head_diameter, height=self.dimensions.head_height,
                                         primitive=2, subdivisions=3, name='dalek_head', construction_history=False)
 
+        # energy dispensers
+        self.energy_dispenser_0 = cmds.polyCylinder(radius=self.dimensions.energy_dispenser_base_radius,
+                                                    height=self.dimensions.energy_dispenser_base_height,
+                                                    subdivisionsAxis=12, name='energy_dispenser_0')[0]
+        delete_down_facing_faces(transform=self.energy_dispenser_0)
+        top_face = get_faces_by_axis(transform=self.energy_dispenser_0, axis=Y_AXIS)
+        face_component_list = get_component_list(transform=self.energy_dispenser_0, indices=top_face, component_type=ComponentType.face)
+        top_edges = cmds.polyListComponentConversion(face_component_list, fromFace=True, toEdge=True)
+        cmds.polyBevel(top_edges, offset=0.005)
+        top_face = get_faces_by_axis(transform=self.energy_dispenser_0, axis=Y_AXIS)
+        select_faces(transform=self.energy_dispenser_0, faces=top_face)
+        scale_factor = self.dimensions.energy_dispenser_radius / self.dimensions.energy_dispenser_base_radius
+        cmds.polyExtrudeFacet(scaleX=scale_factor, scaleZ=scale_factor)
+        taper = 0.75
+        cmds.polyExtrudeFacet(localTranslateZ=self.dimensions.energy_dispenser_height, scaleX=taper, scaleZ=taper)
+        top_edges = cmds.polyListComponentConversion(cmds.ls(sl=True), fromFace=True, toEdge=True)
+        cmds.polyBevel(top_edges, offset=0.005)
+        set_edge_softness(self.energy_dispenser_0, angle=40)
+
+        self.energy_dispenser_1 = cmds.duplicate(self.energy_dispenser_0, name='energy_dispenser_1')[0]
+        position: Point2 = get_point_position_on_ellipse(degrees=self.dimensions.energy_dispenser_angle, ellipse_radius_pair=self.dimensions.head_radius_pair)
+        # angle: float = get_point_normal_angle_on_ellipse(point=position, ellipse_radius_pair=self.dimensions.head_radius_pair)
+        angle = 45
+
+        translate(self.energy_dispenser_0, value=position)
+        rotate(self.energy_dispenser_0, value=Point3(0, 0, -angle))
+        translate(self.energy_dispenser_1, value=Point2(-position.x, position.y))
+        rotate(self.energy_dispenser_1, value=Point3(0, 0, angle))
+
+        cmds.parent(self.energy_dispenser_0, self.energy_dispenser_1, self.head)
+
         # position on top of dalek
         cmds.setAttr(f'{self.head}.translate', *self.dimensions.head_position.values, type='float3')
 
         # parent to geometry group
-        cmds.parent(self.head, self.geometry_group)
+        cmds.parent(self.head, self.head_group)
+
+    def _create_head_details(self):
+        depth_coefficient = 0.25
+        rim = 0.01
+        face_plate_width = self.dimensions.head_diameter * 0.5
+        face_plate_height = self.dimensions.head_height * 0.7
+        face_plate_depth = self.dimensions.head_diameter * depth_coefficient
+        capacitor_z_position = 0.5 * (self.dimensions.eye_stalk_length + face_plate_depth * 0.5)
+        face_plate_position = self.dimensions.head_position
+        face_plate_position.z += self.dimensions.head_diameter * 0.5 - depth_coefficient * 0.5 * self.dimensions.head_diameter + rim
+        eye_stalk_position = Point3(0, face_plate_position.y + face_plate_height * 0.5, face_plate_position.z)
+
+        # face plate
+        self.face_plate = cmds.polyCube(width=face_plate_width, height=face_plate_height, depth=face_plate_depth,
+                                        subdivisionsX=1, subdivisionsY=1, subdivisionsZ=1, name='face_plate')[0]
+        pivot_to_base(self.face_plate, reset=True)
+        translate(nodes=self.face_plate, value=face_plate_position)
+        set_pivot(nodes=self.face_plate, value=self.dimensions.head_position)
+        cmds.delete(f'{self.face_plate}.f[2]')
+        cmds.select(f'{self.face_plate}.f[0]')
+        cmds.polyExtrudeFacet(localScaleX=self.dimensions.eye_stalk_diameter / face_plate_width, localScaleY=0.6)
+        cmds.polyExtrudeFacet(localTranslateZ=-0.015)
+        scale(nodes=f'{self.face_plate}.f[1]', value=Point3(0.6, 1, 1), absolute=False)
+        cmds.parent(self.face_plate, self.head_group)
+
+        # eyes
+        self.eye_stalk_group = cmds.group(name='eye_stalk_group', empty=True)
+        self.eye_stalk = cmds.polyCylinder(axis=Z_AXIS.list, radius=self.dimensions.eye_stalk_diameter * 0.5, height=self.dimensions.eye_stalk_length, subdivisionsAxis=7, name='eye_stalk')[0]
+        set_edge_softness(nodes=self.eye_stalk, angle=80)
+        translate(self.eye_stalk, Point3(0, 0, self.dimensions.eye_stalk_length * 0.5))
+        cmds.parent(self.eye_stalk, self.eye_stalk_group)
+
+        self.eye_capacitor = create_platonic_sphere(name='eye_capacitor', diameter=self.dimensions.eye_stalk_diameter * 3.5, subdivisions=2)
+        translate(nodes=self.eye_capacitor, value=(Point3(0, 0, capacitor_z_position)))
+        scale(nodes=self.eye_capacitor, value=Point3(1, 1, 1.25))
+        cmds.parent(self.eye_capacitor, self.eye_stalk_group)
+
+        self.eye = create_hemispheroid(name='eye', diameter=self.dimensions.eye_diameter, height=self.dimensions.eye_depth * 0.5, subdivisions=2, base=False)
+        rotate(self.eye, Point3(270, 0, 0))
+        translate(self.eye, Point3(0, 0, self.dimensions.eye_stalk_length + self.dimensions.eye_depth * 0.45))
+        get_open_edges(self.eye, select=True)
+        vertices = cmds.polyListComponentConversion(cmds.ls(sl=True), fromEdge=True, toVertex=True)
+        cmds.polyCircularize(vertices, evenlyDistribute=True)
+        get_open_edges(self.eye, select=True)
+        cmds.polyExtrudeEdge(cmds.ls(sl=True), translateZ=self.dimensions.eye_depth * 0.5)
+        cmds.polyExtrudeEdge(cmds.ls(sl=True), localTranslateY=rim, localTranslateZ=-rim)
+        cmds.polyExtrudeEdge(cmds.ls(sl=True), scaleX=0.6, scaleY=0.6)
+        cmds.polyExtrudeEdge(cmds.ls(sl=True), localTranslateY=rim, localTranslateZ=-rim)
+        cmds.polyExtrudeEdge(cmds.ls(sl=True), scaleX=0.0, scaleY=0.0, localTranslateZ=rim * 0.5)
+        cmds.select(cmds.polyListComponentConversion(cmds.ls(sl=True), fromEdge=True, toVertex=True))
+        cmds.polyMergeVertex(cmds.ls(sl=True), distance=precision_to_threshold(0.1))
+        delete_history(self.eye)
+        cmds.parent(self.eye, self.eye_stalk_group)
+        translate(self.eye_stalk_group, eye_stalk_position)
+        cmds.parent(self.eye_stalk_group, self.face_plate)
+
+        rotate(nodes=self.face_plate, value=Point3(-self.dimensions.face_plate_angle, 0, 0), absolute=True)
 
     def _create_orbs(self, locators: bool = False):
         """
@@ -372,28 +508,10 @@ class DalekBuilder:
         orb = create_hemispheroid(name=name, diameter=self.dimensions.orb_diameter,
                                   height=self.dimensions.orb_height, subdivisions=2, base=False, select=False,
                                   construction_history=False)
-        set_edge_softness(node_selection=orb, angle=60)
+        set_edge_softness(nodes=orb, angle=60)
         cmds.setAttr(f'{orb}.rotate', *rotation.values, type='float3')
         cmds.setAttr(f'{orb}.translate', *position.values, type='float3')
         cmds.parent(orb, self.orb_group)
-
-    @property
-    def curves(self) -> list[str]:
-        return cmds.listRelatives(self.curve_group, children=True)
-
-    def modify_skirt_curve(self, skirt_curve: str):
-        """
-        Sets every other cv to the midpoint of its neighbours
-        :param skirt_curve:
-        """
-        cvs = get_cvs(skirt_curve, local=True)
-
-        for i in range(self.dimensions.num_sections):
-            a_id = i * 2
-            middle_id = i * 2 + 1
-            b_id = (i * 2 + 2) % (self.dimensions.num_sections * 2)
-            midpoint = get_midpoint(points=(cvs[a_id], cvs[b_id]))
-            set_cv(transform=skirt_curve, cv_id=middle_id, position=midpoint)
 
 
 if __name__ == '__main__':

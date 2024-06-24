@@ -189,7 +189,46 @@ def flatten_matrix(matrix: np.array):
     return [x for y in matrix for x in y]
 
 
-if __name__ == '__main__':
-    vector0 = Point3(0.2, 0.3, 0)
-    vector1 = Point3(1, 0, 0)
-    print(radians_to_degrees(angle_between_two_vectors(vector0, vector1)))
+def get_point_position_on_ellipse(degrees: float, ellipse_radius_pair: Point2) -> Point2:
+    """
+    Get the position of a point on an ellipse
+    :param degrees:
+    :param ellipse_radius_pair:
+    :return:
+    """
+    degrees = degrees % 360
+    x_size, y_size, = ellipse_radius_pair.list
+
+    if degrees == 0:
+        return Point2(x_size, 0)
+
+    radians = degrees_to_radians(degrees)
+    tan_theta_squared = math.tan(radians) ** 2
+    x_value = x_size * y_size / (math.sqrt(y_size ** 2 + x_size ** 2 * tan_theta_squared))
+    y_value = x_size * y_size / (math.sqrt(x_size ** 2 + (y_size ** 2 / tan_theta_squared)))
+
+    if math.pi/2 < radians < 3 * math.pi/2:
+        x_value = - x_value
+
+    if math.pi < radians < 2 * math.pi:
+        y_value = - y_value
+
+    return Point2(x_value, y_value)
+
+
+def get_point_normal_angle_on_ellipse(point: Point2, ellipse_radius_pair: Point2):
+    """
+    theta = atan2(2y/semiminorradius, x/semimajorradius)
+    :param point:
+    :param ellipse_radius_pair:
+    :return:
+    """
+    radians = math.atan2(2 * point.y / ellipse_radius_pair.y, point.x / ellipse_radius_pair.x)
+
+    return radians_to_degrees(radians)
+
+
+# if __name__ == '__main__':
+    # vector0 = Point3(0.2, 0.3, 0)
+    # vector1 = Point3(1, 0, 0)
+    # print(radians_to_degrees(angle_between_two_vectors(vector0, vector1)))

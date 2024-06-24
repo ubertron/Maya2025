@@ -1,6 +1,7 @@
 from maya import cmds
-from typing import Optional
+from typing import Optional, Union
 
+from core.point_classes import Point2, Point3
 from core.core_enums import ComponentType, Attr, DataType
 from maya_tools.maya_enums import ObjectType
 
@@ -357,3 +358,48 @@ def get_type_from_transform(transform: str):
     :return:
     """
     return cmds.objectType(get_shape_from_transform(transform=transform))
+
+
+def translate(nodes: Union[str, list[str]], value: Point3, absolute: bool = True):
+    cmds.move(*value.values, nodes, absolute=absolute)
+
+
+def rotate(nodes: Union[str, list[str]], value: Point3, absolute: bool = True):
+    cmds.rotate(*value.values, nodes, absolute=absolute)
+
+
+def scale(nodes: Union[str, list[str]], value: Point3, absolute: bool = True):
+    cmds.scale(*value.values, nodes, absolute=absolute)
+
+
+def restore_rotation(transform: str, value: Point3):
+    """
+    Set the rotation value of a transform without rotating the object itself
+    :param transform:
+    :param value:
+    """
+    rotate(transform, Point3(*[-x for x in value.values]))
+    cmds.makeIdentity(transform, apply=True, rotate=True)
+    rotate(transform, value)
+
+
+def set_pivot(nodes: Union[str, list[str]], value: Point3, reset: bool = False):
+    for node in cmds.ls(nodes):
+        cmds.xform(node, worldSpace=True, pivots=value.values)
+
+    if reset:
+        reset_pivot(nodes)
+
+
+def place_transform_on_ellipse(transform: str, angle: float, ellipse_radius_pair: Point2):
+    """
+    Translates a transform to an ellipse along the X-Y axes.
+    Rotates to match the normal of the ellipse.
+    :param transform:
+    :param angle:
+    :param ellipse_radius_pair:
+    """
+    position = math_funcs.get_point_position_on_ellipse(degrees=angle, ellipse_radius_pair=ellipse_radius_pair)
+    angle = math_funcs.get_point_normal_angle_on_ellipse(point=position, ellipse_radius_pair=ellipse_radius_pair)
+    node_utils.translate(transform, Point3(*position.values, 0))
+    node_utils.rotate(transform, Point3(0, 0, angle))
