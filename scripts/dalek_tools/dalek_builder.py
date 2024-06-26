@@ -1,17 +1,19 @@
+import pyperclip
 from dataclasses import dataclass
 
 from core.math_funcs import interpolate_linear, get_midpoint, vector_to_euler_angles, get_normal_vector, \
     get_point_normal_angle_on_ellipse, get_point_position_on_ellipse
 from core.point_classes import Point3, Point2, POINT3_ORIGIN, POINT2_ORIGIN, Point3Pair, Z_AXIS, Y_AXIS
 from core.environment_utils import is_using_maya_python
-from core.core_enums import ComponentType
+from core.core_enums import ComponentType, Axis
 
 if is_using_maya_python():
     from maya import cmds
     from maya_tools.curve_utils import get_cvs, set_cv, create_ellipse, create_polygon_loft_from_curves
     from maya_tools.geometry_utils import merge_vertices, set_edge_softness, get_open_edges, create_hemispheroid, \
         create_platonic_sphere, precision_to_threshold, delete_down_facing_faces, select_faces, get_faces_by_axis, \
-        get_component_list, get_component_indices
+        get_component_list, get_component_indices, get_vertices_from_face, delete_faces, get_edges_from_face, \
+        select_edges, find_faces_within_y_threshold, filter_face_list_by_face_normal, slice_faces, get_face_above
     from maya_tools.helpers import create_locator
     from maya_tools.node_utils import pivot_to_base, translate, rotate, scale, set_pivot, delete_history
 
@@ -36,6 +38,8 @@ class DalekDimensions:
     fin_height: float
     fin_diameter: float
     fin_slant: float
+    rib_height: float
+    rib_inset: float
     neck_taper: float
     head_diameter: float
     head_height: float
@@ -158,6 +162,14 @@ class DalekDimensions:
         return Point3(0, self.core_top_height, 0)
 
     @property
+    def core_center(self) -> Point3:
+        midpoint = get_midpoint([self.core_top_position, self.core_bottom_position])
+        shifted_z = self.interpolate_lateral_offset(midpoint.y)
+        midpoint.z = shifted_z
+
+        return midpoint
+
+    @property
     def core_top_size(self) -> Point2:
         return Point2(self.core_top_diameter, self.core_top_diameter)
 
@@ -225,6 +237,8 @@ DEFAULT_DIMENSIONS: DalekDimensions = DalekDimensions(
         fin_height=0.02,
         fin_diameter=0.71,
         fin_slant=0.5,
+        rib_height=0.02,
+        rib_inset=0.01,
         neck_taper=0.125,
         head_diameter=0.61,
         head_height=0.25,
@@ -358,6 +372,27 @@ class DalekBuilder:
             self.neck_curves.extend([fin_base, fin_top, neck_bottom, neck_top])
 
         self.dalek_body, _ = create_polygon_loft_from_curves(name='dalek_body', curves=self.curves)
+
+        # Add Core Detail
+        face_list = find_faces_within_y_threshold(transform=self.dalek_body, y_value=self.dimensions.core_center.y,
+                                                  threshold=0.01)
+        # Discount faces that are facing forward
+        front_core_faces = filter_face_list_by_face_normal(transform=self.dalek_body, faces=face_list, axis=Z_AXIS, threshold=0.25)
+        side_core_faces = [x for x in face_list if x not in front_core_faces]
+        select_faces(transform=self.dalek_body, faces=side_core_faces)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), keepFacesTogether=False, offset=self.dimensions.rib_inset)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), localTranslateZ=self.dimensions.rib_height)
+
+        # Slice core through middle
+        slice_faces(transform=self.dalek_body, position=self.dimensions.core_center, axis=Axis.y)
+
+        # The top edges of the front_core_faces are the new faces - get the face ids
+        upper_faces = [get_face_above(transform=self.dalek_body, face_id=face_id) for face_id in front_core_faces]
+        select_faces(transform=self.dalek_body, faces=upper_faces)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), keepFacesTogether=False, offset=self.dimensions.rib_inset)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), localTranslateZ=self.dimensions.rib_height)
+
+        # Clean up mesh
         merge_vertices(transform=self.dalek_body)
         set_edge_softness(nodes=self.dalek_body, angle=20)
         cmds.parent(self.dalek_body, self.geometry_group)
@@ -387,22 +422,28 @@ class DalekBuilder:
         cmds.polyExtrudeFacet(localTranslateZ=self.dimensions.energy_dispenser_height, scaleX=taper, scaleZ=taper)
         top_edges = cmds.polyListComponentConversion(cmds.ls(sl=True), fromFace=True, toEdge=True)
         cmds.polyBevel(top_edges, offset=0.005)
+        up_faces = get_faces_by_axis(transform=self.energy_dispenser_0, axis=Y_AXIS)
+        top_face = next(face for face in up_faces if len(get_vertices_from_face(transform=self.energy_dispenser_0, face_id=face)) > 4)
+        edge_components = get_edges_from_face(transform=self.energy_dispenser_0, face_id=top_face, as_components=True)
+        delete_faces(transform=self.energy_dispenser_0, faces=top_face)
+        cmds.select(edge_components)
+        cmds.polyExtrudeEdge(edge_components, scaleX=0.0, scaleZ=0.0)
+        open_top_vertices = cmds.polyListComponentConversion(cmds.ls(sl=True), fromEdge=True, toVertex=True)
+        cmds.polyMergeVertex(open_top_vertices, distance=0.01)
         set_edge_softness(self.energy_dispenser_0, angle=40)
-
         self.energy_dispenser_1 = cmds.duplicate(self.energy_dispenser_0, name='energy_dispenser_1')[0]
+
+        # energy dispenser transformations
         position: Point2 = get_point_position_on_ellipse(degrees=self.dimensions.energy_dispenser_angle, ellipse_radius_pair=self.dimensions.head_radius_pair)
-        # angle: float = get_point_normal_angle_on_ellipse(point=position, ellipse_radius_pair=self.dimensions.head_radius_pair)
-        angle = 45
-
+        angle: float = get_point_normal_angle_on_ellipse(point=position, ellipse_radius_pair=self.dimensions.head_radius_pair)
         translate(self.energy_dispenser_0, value=position)
-        rotate(self.energy_dispenser_0, value=Point3(0, 0, -angle))
+        rotate(self.energy_dispenser_0, value=Point3(0, 0, angle))
         translate(self.energy_dispenser_1, value=Point2(-position.x, position.y))
-        rotate(self.energy_dispenser_1, value=Point3(0, 0, angle))
-
+        rotate(self.energy_dispenser_1, value=Point3(0, 0, -angle))
         cmds.parent(self.energy_dispenser_0, self.energy_dispenser_1, self.head)
 
-        # position on top of dalek
-        cmds.setAttr(f'{self.head}.translate', *self.dimensions.head_position.values, type='float3')
+        # position head on top of dalek
+        translate(nodes=self.head, value=self.dimensions.head_position)
 
         # parent to geometry group
         cmds.parent(self.head, self.head_group)

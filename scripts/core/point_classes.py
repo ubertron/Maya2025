@@ -48,6 +48,15 @@ class Point3:
     def magnitude(self) -> float:
         return math.sqrt(sum(self.values[i] ** 2 for i in range(3)))
 
+    def within_y_threshold(self, y_value: float, threshold: float = 0.01) -> bool:
+        """
+        Returns true if the y-values fit within threshold
+        :param y_value:
+        :param threshold:
+        :return:
+        """
+        return abs(y_value - self.y) <= threshold
+
 
 @dataclass
 class Point2Pair:

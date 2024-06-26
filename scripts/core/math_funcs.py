@@ -223,9 +223,10 @@ def get_point_normal_angle_on_ellipse(point: Point2, ellipse_radius_pair: Point2
     :param ellipse_radius_pair:
     :return:
     """
-    radians = math.atan2(2 * point.y / ellipse_radius_pair.y, point.x / ellipse_radius_pair.x)
+    radians = math.atan2(-(ellipse_radius_pair.y ** 2) * point.x, (ellipse_radius_pair.x ** 2 * point.y))
 
     return radians_to_degrees(radians)
+
 
 
 # if __name__ == '__main__':
