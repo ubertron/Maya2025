@@ -361,15 +361,60 @@ def get_type_from_transform(transform: str):
 
 
 def translate(nodes: Union[str, list[str]], value: Point3, absolute: bool = True):
+    """
+    Set the translation of passed nodes
+    :param nodes:
+    :param value:
+    :param absolute:
+    """
     cmds.move(*value.values, nodes, absolute=absolute)
 
 
 def rotate(nodes: Union[str, list[str]], value: Point3, absolute: bool = True):
+    """
+    Set the rotation of passed nodes
+    :param nodes:
+    :param value:
+    :param absolute:
+    """
     cmds.rotate(*value.values, nodes, absolute=absolute)
 
 
 def scale(nodes: Union[str, list[str]], value: Point3, absolute: bool = True):
+    """
+    Set the scale of passed nodes
+    :param nodes:
+    :param value:
+    :param absolute:
+    """
     cmds.scale(*value.values, nodes, absolute=absolute)
+
+
+def get_translation(transform: str) -> Point3:
+    """
+    Get the translation of a transform
+    :param transform:
+    :return:
+    """
+    return Point3(*cmds.getAttr(f'{transform}.translate')[0])
+
+
+def get_rotation(transform: str) -> Point3:
+    """
+    Get the rotation of a transform
+    :param transform:
+    :return:
+    """
+    return Point3(*cmds.getAttr(f'{transform}.rotate')[0])
+
+
+def get_scale(transform: str) -> Point3:
+    """
+    Get the scale of a transform
+    :param transform:
+    :return:
+    """
+    return Point3(*cmds.getAttr(f'{transform}.scale')[0])
 
 
 def restore_rotation(transform: str, value: Point3):

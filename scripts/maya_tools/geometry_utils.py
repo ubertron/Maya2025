@@ -4,10 +4,11 @@ import pyperclip
 from maya import cmds
 import maya.api.OpenMaya as om
 from typing import Optional, Sequence, Union
+from dataclasses import dataclass
 
 from core.core_enums import ComponentType, Axis
 from core.point_classes import Point3, Point3Pair, NEGATIVE_Y_AXIS, POINT3_ORIGIN
-from core.math_funcs import cross_product, dot_product, normalize_vector, degrees_to_radians
+from core.math_funcs import cross_product, dot_product, normalize_vector, degrees_to_radians, get_midpoint
 from maya_tools.scene_utils import message_script
 from maya_tools.node_utils import State, set_component_mode, get_component_mode, get_type_from_transform, restore_rotation
 
@@ -48,13 +49,13 @@ def get_selected_vertices(node: str = '') -> list[int] or None:
     return get_selected_components(node=node, component_type=ComponentType.vertex)
 
 
-def get_selected_faces(node: str = '') -> list[int] or None:
+def get_selected_faces(transform: str = '') -> list[int] or None:
     """
     Gets a list of the face ids, or None if node not found
-    :param node:
+    :param transform:
     :return:
     """
-    return get_selected_components(node=node, component_type=ComponentType.face)
+    return get_selected_components(node=transform, component_type=ComponentType.face)
 
 
 def get_selected_components(node: str = '', component_type: ComponentType = ComponentType.face) -> list[int] or None:
@@ -119,7 +120,7 @@ def get_face_positions(transform: str) -> list[Point3]:
     """
     num_faces = cmds.polyEvaluate(transform, face=True)
 
-    return [get_face_position(transform=transform, face_id=i)  for i in range(num_faces)]
+    return [get_face_position(transform=transform, face_id=i) for i in range(num_faces)]
 
 
 def get_face_position(transform: str, face_id: int) -> Point3:
@@ -143,7 +144,7 @@ def get_face_position(transform: str, face_id: int) -> Point3:
     return Point3(c[0], c[1], c[2])
 
 
-def get_vertex_face_list(transform: str):
+def get_vertex_face_list(transform: str) -> list[list[int]]:
     """
     Get a list of vertices by face
     :param transform:
@@ -669,7 +670,6 @@ def get_face_above(transform: str, face_id: int) -> int or None:
     :return:
     """
     edges = get_edges_from_face(transform=transform, face_id=face_id)
-    print(face_id, edges)
     vertex_list = get_vertices_from_face(transform=transform, face_id=face_id)
     vertex_positions = {vertex_id: get_vertex_position(transform=transform, vertex_id=vertex_id) for vertex_id in vertex_list}
     edge_heights = {}
@@ -684,3 +684,61 @@ def get_face_above(transform: str, face_id: int) -> int or None:
     faces.remove(face_id)
 
     return faces[0] if faces else None
+
+
+def group_geometry_shells(transform: str, faces: Sequence[int]):
+    """
+    Groups faces in a list by poly shell
+    :param transform:
+    :param faces:
+    :return:
+    """
+    @dataclass
+    class IntListPair:
+        a: list[int]
+        b: list[int]
+
+    vertex_face_list = get_vertex_face_list(transform)
+    shells = [IntListPair([faces[0]], vertex_face_list[faces[0]])]
+
+    for face_id in faces[1:]:
+        match_found = False
+        set1 = set(vertex_face_list[face_id])
+
+        for shell in shells:
+            set2 = set(shell.b)
+
+            if len(set1.intersection(set2)):
+                shell.a.append(face_id)
+                shell.b.extend(vertex_face_list[face_id])
+                match_found = True
+
+        if not match_found:
+            shells.append(IntListPair([face_id], vertex_face_list[face_id]))
+
+    return [x.a for x in shells]
+
+
+def get_vertices_from_faces(transform: str, faces: Sequence[int]) -> list[int]:
+    """
+    Convert a face list to a vertex list
+    :param transform:
+    :param faces:
+    :return:
+    """
+    face_components = get_component_list(transform=transform, indices=faces, component_type=ComponentType.face)
+    vertex_components = cmds.polyListComponentConversion(face_components, fromFace=True, toVertex=True)
+    return get_component_indices(vertex_components, component_type=ComponentType.vertex)
+
+
+def get_midpoint_from_faces(transform: str, faces: Sequence[int]) -> Point3:
+    """
+    Finds the center of a set of faces
+    :param transform:
+    :param faces:
+    :return:
+    """
+    vertices = get_vertices_from_faces(transform=transform, faces=faces)
+    vertex_positions = [get_vertex_position(transform=transform, vertex_id=vertex) for vertex in vertices]
+
+    return get_midpoint(points=vertex_positions)

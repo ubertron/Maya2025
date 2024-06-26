@@ -13,9 +13,11 @@ if is_using_maya_python():
     from maya_tools.geometry_utils import merge_vertices, set_edge_softness, get_open_edges, create_hemispheroid, \
         create_platonic_sphere, precision_to_threshold, delete_down_facing_faces, select_faces, get_faces_by_axis, \
         get_component_list, get_component_indices, get_vertices_from_face, delete_faces, get_edges_from_face, \
-        select_edges, find_faces_within_y_threshold, filter_face_list_by_face_normal, slice_faces, get_face_above
+        select_edges, find_faces_within_y_threshold, filter_face_list_by_face_normal, slice_faces, get_face_above, \
+        group_geometry_shells, get_midpoint_from_faces
     from maya_tools.helpers import create_locator
-    from maya_tools.node_utils import pivot_to_base, translate, rotate, scale, set_pivot, delete_history
+    from maya_tools.node_utils import pivot_to_base, translate, rotate, scale, set_pivot, delete_history, \
+        get_translation
 
 
 @dataclass
@@ -40,6 +42,7 @@ class DalekDimensions:
     fin_slant: float
     rib_height: float
     rib_inset: float
+    rib_offset: float
     neck_taper: float
     head_diameter: float
     head_height: float
@@ -56,6 +59,7 @@ class DalekDimensions:
     energy_dispenser_radius: float
     energy_dispenser_height: float
     energy_dispenser_angle: float
+    weapon_joint_diameter: float
 
     def __post_init__(self):
         # Must have at least 1 fin
@@ -239,6 +243,7 @@ DEFAULT_DIMENSIONS: DalekDimensions = DalekDimensions(
         fin_slant=0.5,
         rib_height=0.02,
         rib_inset=0.01,
+        rib_offset=0.005,
         neck_taper=0.125,
         head_diameter=0.61,
         head_height=0.25,
@@ -255,6 +260,7 @@ DEFAULT_DIMENSIONS: DalekDimensions = DalekDimensions(
         energy_dispenser_radius=0.04,
         energy_dispenser_height=0.08,
         energy_dispenser_angle=30,
+        weapon_joint_diameter=0.125,
     )
 
 
@@ -270,7 +276,7 @@ class DalekBuilder:
                   modify_skirt: bool = False) -> str:
         curve = create_ellipse(name=name, size=size, sections=self.dimensions.num_sections * self.dimensions.subdivisions)
         cmds.parent(curve, self.curve_group)
-        cmds.setAttr(f'{curve}.translate', *position.values, type='float3')
+        translate(curve, value=position)
 
         if lateral_offset:
             self.apply_lateral_offset(transform=curve)
@@ -299,8 +305,9 @@ class DalekBuilder:
         Shifts the transform along the y-axis according to the lateral offset value for the height
         :param transform:
         """
-        lateral_offset = self.dimensions.interpolate_lateral_offset(cmds.getAttr(f'{transform}.translateY'))
-        cmds.setAttr(f'{transform}.translateZ', lateral_offset)
+        position = get_translation(transform=transform)
+        position.z = self.dimensions.interpolate_lateral_offset(get_translation(transform=transform).y)
+        translate(transform, value=position)
 
     def build(self):
         """
@@ -381,19 +388,59 @@ class DalekBuilder:
         side_core_faces = [x for x in face_list if x not in front_core_faces]
         select_faces(transform=self.dalek_body, faces=side_core_faces)
         cmds.polyExtrudeFacet(cmds.ls(sl=True), keepFacesTogether=False, offset=self.dimensions.rib_inset)
-        cmds.polyExtrudeFacet(cmds.ls(sl=True), localTranslateZ=self.dimensions.rib_height)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), localTranslateZ=self.dimensions.rib_height, offset=self.dimensions.rib_offset)
 
         # Slice core through middle
         slice_faces(transform=self.dalek_body, position=self.dimensions.core_center, axis=Axis.y)
 
         # The top edges of the front_core_faces are the new faces - get the face ids
         upper_faces = [get_face_above(transform=self.dalek_body, face_id=face_id) for face_id in front_core_faces]
-        select_faces(transform=self.dalek_body, faces=upper_faces)
+        upper_faces.sort()
+        lower_faces = [face for face in front_core_faces if face not in upper_faces]
+        lower_faces.sort()
+        num_upper_faces = len(upper_faces)
+
+        if num_upper_faces % 2 == 0:
+            upper_center_faces: list[int] = [upper_faces[num_upper_faces // 2 - 1], upper_faces[num_upper_faces // 2]]
+            lower_center_faces: list[int] = [lower_faces[num_upper_faces // 2 - 1], lower_faces[num_upper_faces // 2]]
+        else:
+            upper_center_faces: list[int] = [upper_faces[num_upper_faces // 2]]
+            lower_center_faces: list[int] = [lower_faces[num_upper_faces // 2]]
+
+        upper_outer_faces: list[int] = [face for face in upper_faces if face not in upper_center_faces]
+        lower_outer_faces: list[int] = [face for face in lower_faces if face not in lower_center_faces]
+
+        select_faces(transform=self.dalek_body, faces=upper_outer_faces)
         cmds.polyExtrudeFacet(cmds.ls(sl=True), keepFacesTogether=False, offset=self.dimensions.rib_inset)
-        cmds.polyExtrudeFacet(cmds.ls(sl=True), localTranslateZ=self.dimensions.rib_height)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), localTranslateZ=self.dimensions.rib_height, offset=self.dimensions.rib_offset)
+
+        select_faces(transform=self.dalek_body, faces=upper_center_faces)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), keepFacesTogether=True, offset=self.dimensions.rib_inset)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), localTranslateZ=self.dimensions.rib_height, offset=self.dimensions.rib_offset)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), offset=self.dimensions.rib_offset)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), localTranslateZ=-self.dimensions.rib_offset, offset=self.dimensions.rib_offset)
+
+        select_faces(transform=self.dalek_body, faces=lower_outer_faces)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), keepFacesTogether=True, offset=self.dimensions.rib_inset)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), keepFacesTogether=True, localTranslateZ=self.dimensions.rib_height * 2, offset=self.dimensions.rib_offset)
+
+        selected_faces = get_component_indices(component_list=cmds.ls(sl=True), component_type=ComponentType.face)
+        weapon_ports = group_geometry_shells(transform=self.dalek_body, faces=selected_faces)
+        mounting_points = [get_midpoint_from_faces(transform=self.dalek_body, faces=face_list) for face_list in weapon_ports]
+        mounting_points.sort(key=lambda x: x.x, reverse=True)
+        self.weapon_joint0 = create_platonic_sphere(name='weapon_joint0', diameter=self.dimensions.weapon_joint_diameter, subdivisions=2)
+        self.weapon_joint1 = create_platonic_sphere(name='weapon_joint1', diameter=self.dimensions.weapon_joint_diameter, subdivisions=2)
+        self.weapon0 = cmds.group(name='weapon0_group', empty=True)
+        self.weapon1 = cmds.group(name='weapon1_group', empty=True)
+        cmds.parent(self.weapon_joint0, self.weapon0)
+        cmds.parent(self.weapon_joint1, self.weapon1)
+        translate(self.weapon0, mounting_points[0])
+        translate(self.weapon1, mounting_points[1])
+        cmds.parent(self.weapon0, self.geometry_group)
+        cmds.parent(self.weapon1, self.geometry_group)
 
         # Clean up mesh
-        merge_vertices(transform=self.dalek_body)
+        merge_vertices(transform=self.dalek_body, threshold=0.001)
         set_edge_softness(nodes=self.dalek_body, angle=20)
         cmds.parent(self.dalek_body, self.geometry_group)
 
@@ -550,8 +597,8 @@ class DalekBuilder:
                                   height=self.dimensions.orb_height, subdivisions=2, base=False, select=False,
                                   construction_history=False)
         set_edge_softness(nodes=orb, angle=60)
-        cmds.setAttr(f'{orb}.rotate', *rotation.values, type='float3')
-        cmds.setAttr(f'{orb}.translate', *position.values, type='float3')
+        rotate(orb, value=rotation)
+        translate(orb, value=position)
         cmds.parent(orb, self.orb_group)
 
 
@@ -566,18 +613,3 @@ if __name__ == '__main__':
 
     if is_using_maya_python():
         dalek.build()
-
-    # interpolate_linear(Point2(10, 20), Point2(110, 120), 5)
-    # interpolate_linear(Point2(10, 20), Point2(110, 120),
-    # interpolate_linear(Point2(10, 20), Point2(110, 120), 15)
-    # interpolate_linear(Point2(10, 20), Point2(110, 120), 20)
-    # interpolate_linear(Point2(10, 20), Point2(110, 120), 25)
-    # print(f'skirt_top_position: {dalek_dimensions.skirt_top_position.y}')
-    # print(f'skirt_top_size: {dalek_dimensions.skirt_top_size}')
-    # print(f'core_bottom_position: {dalek_dimensions.core_bottom_position.y}')
-    # print(f'core_bottom_size: {dalek_dimensions.core_bottom_size}')
-    # print(0.15, dalek_dimensions.interpolate_size(0.15))
-    # print(0.95, dalek_dimensions.interpolate_size(0.95))
-    # print(1.05, dalek_dimensions.interpolate_size(1.05))
-    # print('1.05', dalek_dimensions.interpolate_lateral_offset(1.05))
-    # print(dalek_dimensions.num_fins)

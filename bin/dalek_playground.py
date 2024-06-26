@@ -16,4 +16,4 @@ for x in ('curve_group', 'geometry_group', 'locator_group', 'face_plate', 'dalek
         cmds.delete(cmds.ls(f'{x}*'))
 
 dalek_builder.DalekBuilder().build()
-cmds.select('')
+#cmds.select('')
