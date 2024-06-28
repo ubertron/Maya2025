@@ -10,7 +10,121 @@ from core.core_enums import ComponentType, Axis
 from core.point_classes import Point3, Point3Pair, NEGATIVE_Y_AXIS, POINT3_ORIGIN
 from core.math_funcs import cross_product, dot_product, normalize_vector, degrees_to_radians, get_midpoint
 from maya_tools.scene_utils import message_script
-from maya_tools.node_utils import State, set_component_mode, get_component_mode, get_type_from_transform, restore_rotation
+from maya_tools.node_utils import State, set_component_mode, get_component_mode, get_type_from_transform, \
+    restore_rotation
+
+
+def create_cube(name: Optional[str] = None, size: float = 1, divisions: int = 1) -> str:
+    """
+    Mirrors geometry along an axis
+    :param name: str
+    :param size: int
+    :param divisions: int
+    """
+    cube, _ = cmds.polyCube(
+        name=name if name else 'cube',
+        width=size, height=size, depth=size,
+        sx=divisions, sy=divisions, sz=divisions)
+
+    return cube
+
+
+def create_platonic_sphere(name: str, diameter: float, primitive: int = 2, subdivisions: int = 3):
+    sphere = cmds.polyPlatonic(radius=diameter / 2, primitive=primitive, subdivisionMode=0,
+                               subdivisions=subdivisions, sphericalInflation=1)[0]
+
+    return cmds.rename(sphere, name)
+
+
+def create_hemispheroid(name: str = 'hemispheroid', diameter: float = 1.0, height: float = 0.5, primitive: int = 2,
+                        subdivisions: int = 3, base: bool = True, select: bool = True,
+                        construction_history: bool = True):
+    """
+    Create a polygon hemispheroid
+    :param name:
+    :param diameter:
+    :param height:
+    :param primitive:
+    :param subdivisions:
+    :param base:
+    :param select:
+    :param construction_history:
+    :return:
+    """
+    hemispheroid = create_platonic_sphere(name=name, diameter=diameter, primitive=primitive, subdivisions=subdivisions)
+    cmds.setAttr(f'{hemispheroid}.scaleY', height * 2.0 / diameter)
+    cmds.makeIdentity(hemispheroid, apply=True, scale=True)
+
+    # delete faces below y = 0
+    verts_below_0 = [i for i, value in enumerate(get_vertex_positions(transform=hemispheroid)) if value.y < 0]
+    vert_list_by_face = get_vertex_face_list(transform=hemispheroid)
+    faces_below_0 = [i for i, verts in enumerate(vert_list_by_face) for v in verts if v in verts_below_0]
+    select_faces(hemispheroid, faces_below_0)
+    cmds.delete(cmds.ls(sl=True))
+
+    # create base
+    if base:
+        get_open_edges(hemispheroid, select=True)
+        cmds.polyExtrudeEdge(cmds.ls(sl=True), scaleX=0.0, scaleZ=0.0)
+        cmds.move(0, cmds.ls(sl=True), moveY=True, absolute=True)
+        verts = cmds.polyListComponentConversion(cmds.ls(sl=True), fromEdge=True, toVertex=True)
+        cmds.polyMergeVertex(verts, distance=precision_to_threshold(diameter))
+
+    if not construction_history:
+        cmds.delete(hemispheroid, ch=True)
+
+    set_component_mode(ComponentType.object)
+
+    if select:
+        cmds.select(hemispheroid)
+    else:
+        cmds.select(clear=True)
+
+    return hemispheroid
+
+
+def fix_cap(transform: str, face_id: int):
+    """
+    Converts an N-gon cylinder cap into a pole
+    :param transform:
+    :param face_id:
+    """
+    edges = get_edges_from_face(transform=transform, face_id=face_id)
+    delete_faces(transform=transform, faces=face_id)
+    select_edges(transform=transform, edges=edges)
+    cmds.polyExtrudeEdge(cmds.ls(sl=True), scaleX=0.0, scaleY=0.0, scaleZ=0.0)
+    vertex_components = cmds.polyListComponentConversion(cmds.ls(sl=True), fromEdge=True, toVertex=True)
+    vertex_ids = get_component_indices(vertex_components, component_type=ComponentType.vertex)
+    merge_vertices(transform=transform, vertices=vertex_ids)
+
+
+def get_perimeter_edges_from_faces(transform: str, faces: list[int]):
+    """
+    Gets a list of the edges that represent the perimeter af a group of specified faces
+    :param transform:
+    :param faces:
+    :return:
+    """
+    face_components = get_component_list(transform=transform, indices=faces)
+    all_edges = get_component_indices(cmds.polyListComponentConversion(face_components, fromFace=True, toEdge=True))
+    internal_edges = get_component_indices(
+        cmds.polyListComponentConversion(face_components, fromFace=True, toEdge=True, internal=True))
+
+    return [x for x in all_edges if x not in internal_edges]
+
+
+def get_faces_by_plane(transform: str, axis: Axis, value: float, threshold: float = 0.001):
+    """
+    Return a list of all the faces within a tolerance distance from an axial plane
+    :param transform:
+    :param axis:
+    :param value:
+    :param threshold:
+    :return:
+    """
+    face_centers = get_face_positions(transform)
+
+    return [i for i, position in enumerate(face_centers) if abs(position.values[axis.value] - value) < threshold]
 
 
 def get_transforms(node: str = '', single: bool = True) -> str or list[str] or None:
@@ -114,7 +228,7 @@ def get_vertex_position(transform: str, vertex_id: int) -> Point3:
 
 def get_face_positions(transform: str) -> list[Point3]:
     """
-     Get the position of faces in a transform
+    Get the position of faces in a transform
     :param transform:
     :return:
     """
@@ -172,21 +286,6 @@ def get_vertex_face_list(transform: str) -> list[list[int]]:
         cursor += count
 
     return out
-
-
-def create_cube(name: Optional[str] = None, size: float = 1, divisions: int = 1) -> str:
-    """
-    Mirrors geometry along an axis
-    :param name: str
-    :param size: int
-    :param divisions: int
-    """
-    cube, _ = cmds.polyCube(
-        name=name if name else 'cube',
-        width=size, height=size, depth=size,
-        sx=divisions,  sy=divisions, sz=divisions)
-
-    return cube
 
 
 def merge_vertices(transform: str, vertices: list[int] = (), threshold: float = 0.01) -> str:
@@ -395,60 +494,6 @@ def toggle_xray(transforms: Optional[Sequence[str]] = None):
         cmds.displaySurface(item, xRay=(not cmds.displaySurface(item, xRay=True, query=True)[0]))
 
 
-def create_platonic_sphere(name: str, diameter: float, primitive: int = 2, subdivisions: int = 3):
-    sphere = cmds.polyPlatonic(radius=diameter / 2, primitive=primitive, subdivisionMode=0,
-                               subdivisions=subdivisions, sphericalInflation=1)[0]
-
-    return cmds.rename(sphere, name)
-
-
-def create_hemispheroid(name: str = 'hemispheroid', diameter: float = 1.0, height: float = 0.5, primitive: int = 2,
-                        subdivisions: int = 3, base: bool = True, select: bool = True,
-                        construction_history: bool = True):
-    """
-    Create a polygon hemispheroid
-    :param name:
-    :param diameter:
-    :param height:
-    :param primitive:
-    :param subdivisions:
-    :param base:
-    :param select:
-    :param construction_history:
-    :return:
-    """
-    hemispheroid = create_platonic_sphere(name=name, diameter=diameter, primitive=primitive, subdivisions=subdivisions)
-    cmds.setAttr(f'{hemispheroid}.scaleY', height * 2.0 / diameter)
-    cmds.makeIdentity(hemispheroid, apply=True, scale=True)
-
-    # delete faces below y = 0
-    verts_below_0 = [i for i, value in enumerate(get_vertex_positions(transform=hemispheroid)) if value.y < 0]
-    vert_list_by_face = get_vertex_face_list(transform=hemispheroid)
-    faces_below_0 = [i for i, verts in enumerate(vert_list_by_face) for v in verts if v in verts_below_0]
-    select_faces(hemispheroid, faces_below_0)
-    cmds.delete(cmds.ls(sl=True))
-
-    # create base
-    if base:
-        get_open_edges(hemispheroid, select=True)
-        cmds.polyExtrudeEdge(cmds.ls(sl=True), scaleX=0.0, scaleZ=0.0)
-        cmds.move(0, cmds.ls(sl=True), moveY=True, absolute=True)
-        verts = cmds.polyListComponentConversion(cmds.ls(sl=True), fromEdge=True, toVertex=True)
-        cmds.polyMergeVertex(verts, distance=precision_to_threshold(diameter))
-
-    if not construction_history:
-        cmds.delete(hemispheroid, ch=True)
-
-    set_component_mode(ComponentType.object)
-
-    if select:
-        cmds.select(hemispheroid)
-    else:
-        cmds.select(clear=True)
-
-    return hemispheroid
-
-
 def get_faces_by_axis(transform: str, axis: Point3, tolerance_angle: float = 0.05) -> list[int]:
     """
     Gets the ids of faces that are facing downwards
@@ -611,20 +656,6 @@ def get_faces_from_edge(transform: str, edge_id: int, as_components: bool = Fals
     return faces if as_components else get_component_indices(component_list=faces, component_type=ComponentType.face)
 
 
-def find_faces_within_y_threshold(transform: str, y_value: float, threshold: float = 0.01):
-    """
-    Finds all the faces in a mesh close within a threshold to a y-value
-    :param transform:
-    :param y_value:
-    :param threshold:
-    :return:
-    """
-    face_positions = get_face_positions(transform=transform)
-
-    return [idx for idx, position in enumerate(face_positions) if position.within_y_threshold(y_value=y_value,
-                                                                                              threshold=threshold)]
-
-
 def filter_face_list_by_face_normal(transform: str, faces: list[int], axis: Point3, threshold: float):
     """
     Reduce a list of faces by the dot product between their face normal and an axis
@@ -671,7 +702,8 @@ def get_face_above(transform: str, face_id: int) -> int or None:
     """
     edges = get_edges_from_face(transform=transform, face_id=face_id)
     vertex_list = get_vertices_from_face(transform=transform, face_id=face_id)
-    vertex_positions = {vertex_id: get_vertex_position(transform=transform, vertex_id=vertex_id) for vertex_id in vertex_list}
+    vertex_positions = {vertex_id: get_vertex_position(transform=transform, vertex_id=vertex_id) for vertex_id in
+                        vertex_list}
     edge_heights = {}
 
     for edge in edges:
@@ -693,6 +725,7 @@ def group_geometry_shells(transform: str, faces: Sequence[int]):
     :param faces:
     :return:
     """
+
     @dataclass
     class IntListPair:
         a: list[int]
@@ -742,3 +775,17 @@ def get_midpoint_from_faces(transform: str, faces: Sequence[int]) -> Point3:
     vertex_positions = [get_vertex_position(transform=transform, vertex_id=vertex) for vertex in vertices]
 
     return get_midpoint(points=vertex_positions)
+
+
+def reverse_face_normals(transform: str, faces: list[int] or None = None):
+    """
+    Reverses the normals of specified faces
+    :param transform:
+    :param faces:
+    """
+    if faces:
+        component_list = get_component_list(transform=transform, indices=faces, component_type=ComponentType.face)
+    else:
+        component_list = f'{transform}.f[*]'
+
+    cmds.polyNormal(component_list, normalMode=3)

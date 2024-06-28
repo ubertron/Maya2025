@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from core.math_funcs import interpolate_linear, get_midpoint, vector_to_euler_angles, get_normal_vector, \
     get_point_normal_angle_on_ellipse, get_point_position_on_ellipse
-from core.point_classes import Point3, Point2, POINT3_ORIGIN, POINT2_ORIGIN, Point3Pair, Z_AXIS, Y_AXIS
+from core.point_classes import Point3, Point2, POINT3_ORIGIN, POINT2_ORIGIN, Point3Pair, Z_AXIS, Y_AXIS, NEGATIVE_Z_AXIS
 from core.environment_utils import is_using_maya_python
 from core.core_enums import ComponentType, Axis
 
@@ -13,11 +13,14 @@ if is_using_maya_python():
     from maya_tools.geometry_utils import merge_vertices, set_edge_softness, get_open_edges, create_hemispheroid, \
         create_platonic_sphere, precision_to_threshold, delete_down_facing_faces, select_faces, get_faces_by_axis, \
         get_component_list, get_component_indices, get_vertices_from_face, delete_faces, get_edges_from_face, \
-        select_edges, find_faces_within_y_threshold, filter_face_list_by_face_normal, slice_faces, get_face_above, \
-        group_geometry_shells, get_midpoint_from_faces
+        select_edges, filter_face_list_by_face_normal, slice_faces, get_face_above, \
+        group_geometry_shells, get_midpoint_from_faces, get_selected_faces, reverse_face_normals, fix_cap, \
+        get_faces_by_plane, get_perimeter_edges_from_faces
     from maya_tools.helpers import create_locator
     from maya_tools.node_utils import pivot_to_base, translate, rotate, scale, set_pivot, delete_history, \
         get_translation
+    from maya_tools.layer_utils import add_to_layer
+    from maya_tools.curve_utils import create_linear_spline
 
 
 @dataclass
@@ -60,6 +63,15 @@ class DalekDimensions:
     energy_dispenser_height: float
     energy_dispenser_angle: float
     weapon_joint_diameter: float
+    sucker_arm_length: float
+    sucker_arm_diameter: float
+    sucker_diameter: float
+    sucker_arm_angle: Point3
+    gun_arm_angle: Point3
+    gun_arm_length: float
+    rim: float
+    cage_bar_radius: float
+    num_cage_bars: int
 
     def __post_init__(self):
         # Must have at least 1 fin
@@ -221,6 +233,14 @@ class DalekDimensions:
     def head_radius_pair(self) -> Point2:
         return Point2(self.head_diameter / 2, self.head_height)
 
+    @property
+    def gun_barrel_length(self) -> float:
+        return max(self.gun_arm_length - 0.1865, 0.1)
+
+    @property
+    def cage_bar_length(self) -> float:
+        return self.gun_barrel_length - 0.0235
+
 
 DEFAULT_DIMENSIONS: DalekDimensions = DalekDimensions(
         base_height=0.15,
@@ -261,6 +281,15 @@ DEFAULT_DIMENSIONS: DalekDimensions = DalekDimensions(
         energy_dispenser_height=0.08,
         energy_dispenser_angle=30,
         weapon_joint_diameter=0.125,
+        sucker_arm_length=0.45,
+        sucker_arm_diameter=0.05,
+        sucker_diameter=0.175,
+        sucker_arm_angle=Point3(-15, -10, 0),
+        gun_arm_angle=Point3(-15, 10, 0),
+        gun_arm_length=0.5,
+        rim=0.01,
+        cage_bar_radius=0.005,
+        num_cage_bars=7,
     )
 
 
@@ -327,6 +356,7 @@ class DalekBuilder:
         translate(self.head_group, self.dimensions.head_position)
         cmds.parent(self.orb_group, self.geometry_group)
         cmds.parent(self.head_group, self.geometry_group)
+        add_to_layer(self.geometry_group, 'geometryLayer')
 
         self._create_body()
         self._create_head()
@@ -381,8 +411,8 @@ class DalekBuilder:
         self.dalek_body, _ = create_polygon_loft_from_curves(name='dalek_body', curves=self.curves)
 
         # Add Core Detail
-        face_list = find_faces_within_y_threshold(transform=self.dalek_body, y_value=self.dimensions.core_center.y,
-                                                  threshold=0.01)
+        face_list = get_faces_by_plane(transform=self.dalek_body, axis=Axis.y, value=self.dimensions.core_center.y, threshold=0.01)
+
         # Discount faces that are facing forward
         front_core_faces = filter_face_list_by_face_normal(transform=self.dalek_body, faces=face_list, axis=Z_AXIS, threshold=0.25)
         side_core_faces = [x for x in face_list if x not in front_core_faces]
@@ -424,9 +454,10 @@ class DalekBuilder:
         cmds.polyExtrudeFacet(cmds.ls(sl=True), keepFacesTogether=True, offset=self.dimensions.rib_inset)
         cmds.polyExtrudeFacet(cmds.ls(sl=True), keepFacesTogether=True, localTranslateZ=self.dimensions.rib_height * 2, offset=self.dimensions.rib_offset)
 
+        # Add Weapons
         selected_faces = get_component_indices(component_list=cmds.ls(sl=True), component_type=ComponentType.face)
-        weapon_ports = group_geometry_shells(transform=self.dalek_body, faces=selected_faces)
-        mounting_points = [get_midpoint_from_faces(transform=self.dalek_body, faces=face_list) for face_list in weapon_ports]
+        weapon_panel = group_geometry_shells(transform=self.dalek_body, faces=selected_faces)
+        mounting_points = [get_midpoint_from_faces(transform=self.dalek_body, faces=face_list) for face_list in weapon_panel]
         mounting_points.sort(key=lambda x: x.x, reverse=True)
         self.weapon_joint0 = create_platonic_sphere(name='weapon_joint0', diameter=self.dimensions.weapon_joint_diameter, subdivisions=2)
         self.weapon_joint1 = create_platonic_sphere(name='weapon_joint1', diameter=self.dimensions.weapon_joint_diameter, subdivisions=2)
@@ -434,8 +465,101 @@ class DalekBuilder:
         self.weapon1 = cmds.group(name='weapon1_group', empty=True)
         cmds.parent(self.weapon_joint0, self.weapon0)
         cmds.parent(self.weapon_joint1, self.weapon1)
+
+        # Gun
+        gun_arm_base_height = 0.075
+        self.gun_arm = cmds.polyCylinder(name='gun_arm', axis=Z_AXIS.values, subdivisionsAxis=12, height=gun_arm_base_height, radius=0.04)[0]
+        translate(self.gun_arm, Point3(0, 0, gun_arm_base_height * 0.5))
+        set_pivot(self.gun_arm, value=POINT3_ORIGIN, reset=True)
+        delete_faces(self.gun_arm, faces=get_faces_by_axis(self.gun_arm, axis=NEGATIVE_Z_AXIS))
+        select_faces(self.gun_arm, faces=get_faces_by_axis(self.gun_arm, axis=Z_AXIS))
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), translateZ=0.025, offset=0.0125)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), translateZ=0.015)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), translateZ=0.015, offset=0.0125)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), translateZ=self.dimensions.gun_barrel_length)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), translateZ=0.015, offset=-0.0125)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), translateZ=0.0075)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), translateZ=0.001, scaleX=0.8, scaleY=0.8)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), translateZ=0.01)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), translateZ=0.001, scaleX=1.25, scaleY=1.25)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), translateZ=0.0075)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), translateZ=0.005, offset=0.01)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), translateZ=0.0075)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), translateZ=0.002, offset=0.002)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), scaleX=0.5, scaleY=0.5)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), translateZ=-0.02)
+        cap = get_selected_faces(transform=self.gun_arm)[0]
+        fix_cap(transform=self.gun_arm, face_id=cap)
+        set_edge_softness(self.gun_arm, angle=35)
+
+        # Fix edges on some faces
+        smooth_faces = get_faces_by_plane(transform=self.gun_arm, axis=Axis.z, value=0.0875, threshold=0.001)
+        edges_to_fix = get_perimeter_edges_from_faces(transform=self.gun_arm, faces=smooth_faces)
+        set_edge_softness(get_component_list(transform=self.gun_arm, indices=edges_to_fix, component_type=ComponentType.edge), angle=20)
+
+        cmds.parent(self.gun_arm, self.weapon0)
+
+        # Build cage
+        cage_path_points = [Point3(0, 0.015, 0.12)]
+        cage_path_points.append(Point3Pair(cage_path_points[-1], Point3(0, 0.02, 0.02)).sum)
+        cage_path_points.append(Point3Pair(cage_path_points[-1], Point3(0, 0, self.dimensions.cage_bar_length)).sum)
+        cage_path_points.append(Point3Pair(cage_path_points[-1], Point3(0, -0.02, 0.02)).sum)
+        cage_path = create_linear_spline(name='cage_path', points=cage_path_points)
+        cage_profile = cmds.circle(name='cage_profile', degree=1, sections=5, radius=self.dimensions.cage_bar_radius,
+                                   normal=Y_AXIS.values)[0]
+        translate(cage_profile, cage_path_points[0])
+        cmds.parent(cage_profile, cage_path, self.curve_group)
+        rotate(cage_profile, Point3(225, 0, 0))
+        cage_bars = []
+        cage_bar_0 = cmds.extrude(cage_profile, cage_path, name='cage_bar_0', range=False, polygon=1, extrudeType=2,
+                                  useProfileNormal=1, reverseSurfaceIfPathReversed=1)[0]
+        cage_bars.append(cage_bar_0)
+        cmds.parent(cage_bar_0, self.weapon0)
+
+        for i in range(1, self.dimensions.num_cage_bars):
+            cage_bar = cmds.duplicate(cage_bar_0, name=f'cage_bar_{i}')[0]
+            cage_bars.append(cage_bar)
+            rotate(cage_bar, Point3(0, 0, i * 360 / self.dimensions.num_cage_bars))
+
+        # Sucker
+        self.sucker_arm = cmds.polyCylinder(name='sucker_arm', axis=Z_AXIS.values, subdivisionsAxis=8,
+                                            height=self.dimensions.sucker_arm_length * 0.5,
+                                            radius=self.dimensions.sucker_arm_diameter / 2)[0]
+        set_pivot(self.sucker_arm, value=Point3(0, 0, -self.dimensions.sucker_arm_length * 0.25), reset=True)
+        translate(self.sucker_arm, value=POINT3_ORIGIN)
+        delete_faces(self.sucker_arm, faces=get_faces_by_axis(self.sucker_arm, axis=NEGATIVE_Z_AXIS))
+        select_faces(self.sucker_arm, faces=get_faces_by_axis(self.sucker_arm, axis=Z_AXIS))
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), scaleX=0.5, scaleY=0.5, translateZ=self.dimensions.rim)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), translateZ=self.dimensions.sucker_arm_length * 0.3 - self.dimensions.rim)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), scaleX=1.2, scaleY=1.2)
+        cmds.polyExtrudeFacet(cmds.ls(sl=True), translateZ=self.dimensions.sucker_arm_length * 0.2)
+        delete_faces(self.sucker_arm, get_selected_faces(transform=self.sucker_arm))
+        set_edge_softness(self.sucker_arm, angle=60)
+
+        # Fix edges on some faces
+        smooth_faces = get_faces_by_plane(transform=self.sucker_arm, axis=Axis.z, value=(self.dimensions.sucker_arm_length + self.dimensions.rim) * 0.5, threshold=0.001)
+        edges_to_fix = get_perimeter_edges_from_faces(transform=self.sucker_arm, faces=smooth_faces)
+        set_edge_softness(get_component_list(transform=self.sucker_arm, indices=edges_to_fix, component_type=ComponentType.edge), angle=5)
+
+        cmds.parent(self.sucker_arm, self.weapon1)
+
+        self.sucker_head = create_hemispheroid(name='sucker_head', diameter=self.dimensions.sucker_diameter,
+                                               height=self.dimensions.sucker_diameter * 0.5,
+                                               subdivisions=2, base=False)
+        rotate(self.sucker_head, value=Point3(-90, 0, 0))
+        get_open_edges(self.sucker_head, select=True)
+        vertices = cmds.polyListComponentConversion(cmds.ls(sl=True), fromEdge=True, toVertex=True)
+        cmds.polyCircularize(vertices, evenlyDistribute=True)
+        cmds.polyExtrudeFacet(f'{self.sucker_head}.f[*]', localTranslateZ=-self.dimensions.rim)
+        reverse_face_normals(transform=self.sucker_head)
+        set_pivot(self.sucker_head, value=Point3(0, 0, -self.dimensions.sucker_diameter * 0.5 + self.dimensions.rim * 0.5), reset=True)
+        translate(self.sucker_head, value=Point3(0, 0, self.dimensions.sucker_arm_length))
+        cmds.parent(self.sucker_head, self.weapon1)
+
         translate(self.weapon0, mounting_points[0])
         translate(self.weapon1, mounting_points[1])
+        rotate(self.weapon0, value=self.dimensions.gun_arm_angle)
+        rotate(self.weapon1, value=self.dimensions.sucker_arm_angle)
         cmds.parent(self.weapon0, self.geometry_group)
         cmds.parent(self.weapon1, self.geometry_group)
 
@@ -471,12 +595,7 @@ class DalekBuilder:
         cmds.polyBevel(top_edges, offset=0.005)
         up_faces = get_faces_by_axis(transform=self.energy_dispenser_0, axis=Y_AXIS)
         top_face = next(face for face in up_faces if len(get_vertices_from_face(transform=self.energy_dispenser_0, face_id=face)) > 4)
-        edge_components = get_edges_from_face(transform=self.energy_dispenser_0, face_id=top_face, as_components=True)
-        delete_faces(transform=self.energy_dispenser_0, faces=top_face)
-        cmds.select(edge_components)
-        cmds.polyExtrudeEdge(edge_components, scaleX=0.0, scaleZ=0.0)
-        open_top_vertices = cmds.polyListComponentConversion(cmds.ls(sl=True), fromEdge=True, toVertex=True)
-        cmds.polyMergeVertex(open_top_vertices, distance=0.01)
+        fix_cap(transform=self.energy_dispenser_0, face_id=top_face)
         set_edge_softness(self.energy_dispenser_0, angle=40)
         self.energy_dispenser_1 = cmds.duplicate(self.energy_dispenser_0, name='energy_dispenser_1')[0]
 
@@ -497,7 +616,7 @@ class DalekBuilder:
 
     def _create_head_details(self):
         depth_coefficient = 0.25
-        rim = 0.01
+        rim = self.dimensions.rim
         face_plate_width = self.dimensions.head_diameter * 0.5
         face_plate_height = self.dimensions.head_height * 0.7
         face_plate_depth = self.dimensions.head_diameter * depth_coefficient

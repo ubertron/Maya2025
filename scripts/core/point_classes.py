@@ -33,6 +33,10 @@ class Point3:
         return f'[{self.x}, {self.y}, {self.z}]'
 
     @property
+    def compact_repr(self) -> str:
+        return f'x: {self.x:.2f}, y: {self.y:.2f}, z: {self.z:.2f}'
+
+    @property
     def volume(self) -> float:
         return self.x * self.y * self.z
 
@@ -93,9 +97,11 @@ class Point3Pair:
     def __repr__(self) -> str:
         info = f'Position: {self.a}, {self.b}\nLength: {self.length:.3f}\nDelta: {self.delta}'
         info += f'\nMidpoint: {self.midpoint}'
-        info += f'\nX Angle: {self.x_angle:.3f}'
-        info += f'\nY Angle: {self.y_angle:.3f}'
         return info
+
+    @property
+    def compact_repr(self) -> str:
+        return f'[{self.a.compact_repr}], [{self.b.compact_repr}]'
 
     @property
     def length(self) -> float:
@@ -111,6 +117,10 @@ class Point3Pair:
     @property
     def midpoint(self) -> Point3:
         return Point3(*[(self.a.values[i] + self.b.values[i]) / 2 for i in range(3)])
+
+    @property
+    def sum(self) -> Point3:
+        return Point3(self.a.x + self.b.x, self.a.y + self.b.y, self.a.z + self.b.z)
 
     def interpolate(self, value: float):
         """

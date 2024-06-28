@@ -92,3 +92,11 @@ class BillboardCreatorTool(GridWidget):
 
     def create_button_clicked(self):
         BillboardCreator(image_path=self.current_path, width=self.width).create()
+
+
+def launchBillboardCreator():
+    main_window_ptr = MQtUtil.mainWindow()
+    maya_main_window = wrapInstance(int(main_window_ptr), QWidget)
+    export_tool = next((x for x in maya_main_window.children() if type(x) is ExportTool), None)
+    export_tool.mode = mode if export_tool else ExportTool(mode=mode)
+    export_tool.show()

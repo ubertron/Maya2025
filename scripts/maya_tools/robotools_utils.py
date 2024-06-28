@@ -62,6 +62,7 @@ def setup_robotools_shelf():
     load_base_male = 'from maya_tools.character_utils import load_base_character\nload_base_character("male")'
     base_female_cmd = 'from maya_tools.character_utils import import_base_character\nimport_base_character("female")'
     load_base_female = 'from maya_tools.character_utils import load_base_character\nload_base_character("female")'
+    toggle_layer_shading = 'from maya_tools.layer_utils import toggle_current_layer_shading\ntoggle_current_layer_shading()'
     create_cube = 'from maya import cmds; cmds.polyCube(w=1, h=1, d=1, sx=1, sy=1, sz=1)'
     slice_cmd = 'from maya_tools.mirror_utils import slice_geometry\nslice_geometry()'
     mirror_cmd = 'from maya_tools.mirror_utils import mirror_geometry\nmirror_geometry()'
@@ -80,6 +81,7 @@ def setup_robotools_shelf():
     move_to_last = 'from maya_tools import node_utils; node_utils.move_to_last()'
     rename_nodes = 'from maya_tools import node_utils; node_utils.rename_nodes()'
     pivot_match = 'from maya_tools import node_utils; node_utils.match_pivot_to_last()'
+    dimensions = 'from maya_tools import helpers; helpers.get_dimensions(format_results=True, clipboard=True)'
 
     sm.add_label('Robotools v{}'.format(ROBOTOOLS_VERSION), bold=True)
     sm.add_shelf_button(label='About Robotools', icon=robonobo_icon, command=message_script(version_info))
@@ -94,6 +96,10 @@ def setup_robotools_shelf():
     sm.add_shelf_button(label='Import Base Female', icon=icon_path('base_female.png'), command=base_female_cmd)
     sm.add_shelf_button(label='Load Base Female', icon=script_icon, command=load_base_female, overlay_label='loadF')
     sm.add_separator()
+    sm.add_label('Display')
+    sm.add_shelf_button(label='Toggle Layer Shading', icon=script_icon, overlay_label='TgLSh', command=toggle_layer_shading)
+    sm.add_shelf_button(label='Get Dimensions', icon=script_icon, overlay_label='Dim', command=dimensions)
+    sm.add_separator()
     sm.add_label('Geometry')
     sm.add_shelf_button(label='Create Cube', overlay_label='Cube', icon=script_icon, command=create_cube)
     sm.add_shelf_button(label='Slice', icon=icon_path('slice.png'), command=slice_cmd)
@@ -103,10 +109,6 @@ def setup_robotools_shelf():
     sm.add_shelf_button(label='Select Triangles', overlay_label='Tris', icon=script_icon, command=select_triangles)
     sm.add_shelf_button(label='Select Ngons', overlay_label='Ngons', icon=script_icon, command=select_ngons)
     sm.add_shelf_button(label='Toggle Backface Culling', overlay_label='tBFC', icon=script_icon, command=backface_culling)
-    sm.add_shelf_button(label='Toggle Xray', overlay_label='tXRay', icon=script_icon, command=toggle_xray)
-    sm.add_separator()
-    sm.add_label('Shapes')
-    sm.add_shelf_button(label='Rebuild Curve From CV', overlay_label='Rbld', icon=script_icon, command=rebuild_curve)
     sm.add_separator()
     sm.add_label('Nodes')
     sm.add_shelf_button(label='Super Reset', overlay_label='SpRst', icon=script_icon, command=super_reset)
@@ -117,6 +119,10 @@ def setup_robotools_shelf():
     sm.add_shelf_button(label='Move To Last', overlay_label='>Last', icon=script_icon, command=move_to_last)
     sm.add_shelf_button(label='Rename Nodes', overlay_label='Rname', icon=script_icon, command=rename_nodes)
     sm.add_shelf_button(label='Pivot Match', overlay_label='PvtM', icon=script_icon, command=pivot_match)
+    sm.add_shelf_button(label='Toggle Xray', overlay_label='tXRay', icon=script_icon, command=toggle_xray)
+    sm.add_separator()
+    sm.add_label('Shapes')
+    sm.add_shelf_button(label='Rebuild Curve From CV', overlay_label='Rbld', icon=script_icon, command=rebuild_curve)
 
 
 def setup_plug_ins():

@@ -1,11 +1,16 @@
 import math
+import pyperclip
+
 from maya import cmds
+from typing import Optional
+
 from core.point_classes import Point3, Point3Pair
 from core.core_enums import ComponentType
 from maya_tools.geometry_utils import get_selected_vertices, get_transforms, get_vertex_position
 from maya_tools.curve_utils import get_cvs
 from maya_tools.node_utils import get_type_from_transform
 from maya_tools.node_utils import State, set_component_mode
+from maya_tools.display_utils import in_view_message
 
 
 def place_locators_at_selected_vertices(size: float = 0.2):
@@ -64,3 +69,83 @@ def get_distance_between_two_transforms(format_result: bool = True):
         return result
     else:
         cmds.warning('Please select two transforms.')
+
+
+def get_dimensions(transform: Optional[str] = None, format_results: bool = False,
+                   clipboard: bool = False) -> Point3 or None:
+    """
+    Calculate the dimensions of a transform
+    :param transform:
+    :param format_results:
+    :param clipboard:
+    """
+    if not transform:
+        transform = get_transforms(single=True)
+
+    if transform is None:
+        pm.warning('Pass one valid transform')
+    else:
+        dimensions = get_bounds(transform=transform).delta
+
+        if format_results:
+            in_view_message(f'{transform} dimensions: {dimensions.compact_repr}', persist_time=5000)
+
+        if clipboard:
+            pyperclip.copy(str(dimensions.values))
+
+        return dimensions
+
+
+def get_bounds(transform: Optional[str] = None, format_results: bool = False,
+               clipboard: bool = False) -> Point3Pair or None:
+    """
+    Get the minimum and maximum points of the bounds of a transform
+    :param transform:
+    :param format_results:
+    :param clipboard:
+    :return:
+    """
+    if not transform:
+        transform = get_transforms(single=True)
+
+    if transform is None:
+        pm.warning('Pass one valid transform')
+    else:
+        bounding_box = cmds.exactWorldBoundingBox(transform)
+        bounds = Point3Pair(Point3(*bounding_box[:3]), Point3(*bounding_box[3:]))
+
+        if format_results:
+            in_view_message(f'{transform} bounds: {bounds.compact_repr}', persist_time=5000)
+
+        if clipboard:
+            pyperclip.copy(str(bounds.values))
+
+        return bounds
+
+
+def get_midpoint(transform: Optional[str] = None, format_results: bool = False,
+                 clipboard: bool = False) -> Point3 or None:
+    """
+    Calculate the midpoint of a transform
+    :param transform:
+    :param format_results:
+    :param clipboard:
+    """
+    if not transform:
+        transform = get_transforms(single=True)
+
+    if transform is None:
+        pm.warning('Pass one valid transform')
+    else:
+        midpoint = get_bounds(transform=transform).midpoint
+
+        if format_results:
+            in_view_message(f'{transform} midpoint: {midpoint.compact_repr}', persist_time=5000)
+
+        if clipboard:
+            pyperclip.copy(str(midpoint.values))
+
+        return midpoint
+
+
+get_dimensions(format_results=True)

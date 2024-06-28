@@ -5,6 +5,7 @@ from core.point_classes import Point3, Point2
 from core.core_enums import Axis
 from maya_tools.node_utils import get_shape_from_transform, get_transform_from_shape
 from maya_tools.maya_enums import ObjectType
+from maya_tools.helpers import create_locator
 
 
 def get_cvs(transform: Optional[str] = None, debug: bool = False, local: bool=False) -> list[Point3]:
@@ -128,3 +129,16 @@ def create_polygon_loft_from_curves(name: str, curves: list[str], close_surface:
     geometry, loft_node = cmds.loft(curves, degree=1, polygon=1, close=close_surface, name=name)
 
     return geometry, loft_node
+
+
+def create_linear_spline(name: str, points: list[Point3]):
+    """
+    Creates a linear NURBS spline from a set of points
+    :param name:
+    :param points:
+    :return:
+    """
+    spline = cmds.curve(degree=1, point=[point.values for point in points], worldSpace=True)
+    result = cmds.rename(spline, name)
+
+    return result

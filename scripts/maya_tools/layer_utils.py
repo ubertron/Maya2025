@@ -87,7 +87,7 @@ def toggle_layer_shading(layer: str):
             layer = layer[0]
 
     if layer in get_all_display_layers():
-        cmds.setAttr(layer.shading, (1 - cmds.getAttr(layer.shading)))
+        cmds.setAttr(f'{layer}.shading', (1 - cmds.getAttr(f'{layer}.shading')))
     else:
         logging.info('Nope')
 

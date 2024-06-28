@@ -11,9 +11,9 @@ from maya_tools import scene_utils; reload(scene_utils)
 
 
 for x in ('curve_group', 'geometry_group', 'locator_group', 'face_plate', 'dalek_head',
-          'energy_dispenser', 'dalek_body'):
+          'energy_dispenser', 'dalek_body', 'sucker_head', 'gun_arm', 'weapon'):
     if cmds.objExists(f'{x}*'):
         cmds.delete(cmds.ls(f'{x}*'))
 
 dalek_builder.DalekBuilder().build()
-#cmds.select('')
+cmds.select('gun_arm')
