@@ -100,21 +100,34 @@ def rebuild_closed_curve_from_selected_cv(keep_original: bool = True) -> str or 
         cmds.warning(assert_message)
 
 
-def create_ellipse(name: str, size: Point2, axis: Axis = Axis.y, sections: int = 8) -> str:
+def create_ellipse(name: str, size: Point2, axis: Axis = Axis.y, sections: int = 8, history: bool = False) -> str:
     """
     Creates a single degree NURBS ellipse with a specific width and length
     :param name:
     :param size:
     :param axis:
     :param sections:
+    :param history:
     """
     normal = {Axis.x: (1, 0, 0), Axis.y: (0, 1, 0), Axis.z: (0, 0, 1)}
-    ellipse = cmds.circle(degree=1, sections=sections, radius=size.x/2, normal=normal[axis], name=name, ch=False)[0]
+    ellipse = cmds.circle(degree=1, sections=sections, radius=size.x/2, normal=normal[axis], name=name, ch=history)[0]
     scale_axis = {Axis.x: 'scaleY', Axis.y: 'scaleZ', Axis.z: 'scaleY'}
     cmds.setAttr(f'{ellipse}.{scale_axis[axis]}', size.y/size.x if size.x else 0)
     cmds.makeIdentity(ellipse, apply=True, scale=True)
 
     return ellipse
+
+
+def create_circle(name: str, radius: float, axis: Axis = Axis.y, sections: int = 8, history: bool = False) -> str:
+    """
+    Creates a single degree NURBS circle with a specific width and length
+    :param name:
+    :param radius:
+    :param axis:
+    :param sections:
+    :param history:
+    """
+    return create_ellipse(name=name, size=Point2(2 * radius, 2 * radius), axis=axis, sections=sections, history=history)
 
 
 def create_polygon_loft_from_curves(name: str, curves: list[str], close_surface: bool = False) -> tuple:

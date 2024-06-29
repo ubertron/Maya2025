@@ -11,7 +11,25 @@ from core.point_classes import Point3, Point3Pair, NEGATIVE_Y_AXIS, POINT3_ORIGI
 from core.math_funcs import cross_product, dot_product, normalize_vector, degrees_to_radians, get_midpoint
 from maya_tools.scene_utils import message_script
 from maya_tools.node_utils import State, set_component_mode, get_component_mode, get_type_from_transform, \
-    restore_rotation
+    restore_rotation, is_object_type, get_translation, set_pivot
+from maya_tools.maya_enums import ObjectType
+
+
+def combine(transforms: list[str], name: str = '', position: Optional[Point3] = None, parent: Optional[str] = None,
+            history: bool = False) -> str or None:
+    mesh_transforms = [x for x in transforms if cmds.objExists(x) and is_object_type(x, ObjectType.mesh)]
+
+    if len(mesh_transforms) > 1:
+        if not name:
+            name = mesh_transforms[-1]
+
+        position = position if position else POINT3_ORIGIN
+        parent = parent if parent else cmds.listRelatives(mesh_transforms[-1], parent=True)
+        result = cmds.polyUnite(mesh_transforms, name=name, constructionHistory=history)[0]
+        set_pivot(result, value=position, reset=True)
+        cmds.parent(result, parent)
+    else:
+        cmds.warning('Supply mesh nodes')
 
 
 def create_cube(name: Optional[str] = None, size: float = 1, divisions: int = 1) -> str:

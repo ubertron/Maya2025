@@ -83,7 +83,7 @@ def get_dimensions(transform: Optional[str] = None, format_results: bool = False
         transform = get_transforms(single=True)
 
     if transform is None:
-        pm.warning('Pass one valid transform')
+        cmds.warning(f'Pass one valid transform: {transform} [get_dimensions]')
     else:
         dimensions = get_bounds(transform=transform).delta
 
@@ -109,7 +109,7 @@ def get_bounds(transform: Optional[str] = None, format_results: bool = False,
         transform = get_transforms(single=True)
 
     if transform is None:
-        pm.warning('Pass one valid transform')
+        pm.warning(f'Pass one valid transform: {transform} [get_bounds]')
     else:
         bounding_box = cmds.exactWorldBoundingBox(transform)
         bounds = Point3Pair(Point3(*bounding_box[:3]), Point3(*bounding_box[3:]))
@@ -135,7 +135,7 @@ def get_midpoint(transform: Optional[str] = None, format_results: bool = False,
         transform = get_transforms(single=True)
 
     if transform is None:
-        pm.warning('Pass one valid transform')
+        pm.warning(f'Pass one valid transform: {transform} [get_midpoint]')
     else:
         midpoint = get_bounds(transform=transform).midpoint
 
@@ -146,6 +146,3 @@ def get_midpoint(transform: Optional[str] = None, format_results: bool = False,
             pyperclip.copy(str(midpoint.values))
 
         return midpoint
-
-
-get_dimensions(format_results=True)

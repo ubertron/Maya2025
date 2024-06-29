@@ -228,8 +228,5 @@ def get_point_normal_angle_on_ellipse(point: Point2, ellipse_radius_pair: Point2
     return radians_to_degrees(radians)
 
 
-
-# if __name__ == '__main__':
-    # vector0 = Point3(0.2, 0.3, 0)
-    # vector1 = Point3(1, 0, 0)
-    # print(radians_to_degrees(angle_between_two_vectors(vector0, vector1)))
+if __name__ == '__main__':
+    print(interpolate_linear(Point2(0, 1), output_range=Point2(0, 100), value=0.5))

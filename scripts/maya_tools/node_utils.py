@@ -301,8 +301,15 @@ def get_transform_from_shape(node, full_path=False):
     return node if cmds.nodeType(node) == 'transform' else cmds.listRelatives(node, fullPath=full_path, parent=True)[0]
 
 
-def is_node_type(obj, object_type: ObjectType):
-    shape = get_shapes_from_transform(obj)
+def is_object_type(transform: str, object_type: ObjectType):
+    """
+    Verifies an object type of a transform's corresponding shape node
+    :param transform:
+    :param object_type:
+    :return:
+    """
+    shape = get_shape_from_transform(transform)
+
     return cmds.objectType(shape) == object_type.name
 
 
