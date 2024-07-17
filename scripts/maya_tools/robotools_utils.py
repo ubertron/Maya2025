@@ -53,6 +53,7 @@ def setup_robotools_shelf():
     sm.create(select=True)
     sm.delete_buttons()
 
+    maya_cmds = 'from maya import cmds\n'
     version_info = 'Robotools Shelf Version {}: {}'.format(ROBOTOOLS_SHELF_VERSION, robotools_plug_in_path())
     robonobo_icon = icon_path('robonobo_32.png')
     script_icon = icon_path('script.png')
@@ -67,21 +68,23 @@ def setup_robotools_shelf():
     slice_cmd = 'from maya_tools.mirror_utils import slice_geometry\nslice_geometry()'
     mirror_cmd = 'from maya_tools.mirror_utils import mirror_geometry\nmirror_geometry()'
     quadrangulate = 'from maya import cmds\ncmds.polyQuad()'
-    merge_vertices = 'from maya_tools.geometry_utils import merge_vertices\nmerge_vertices()'
+    merge_vertices = f'{maya_cmds}from maya_tools.geometry_utils import merge_vertices\nmerge_vertices(cmds.ls(sl=True)[0])'
     select_triangles = 'from maya_tools import geometry_utils; geometry_utils.get_triangular_faces(select=True)'
     select_ngons = 'from maya_tools import geometry_utils; geometry_utils.get_ngons(select=True)'
     super_reset = 'from maya_tools import node_utils; node_utils.super_reset()'
     pivot_base = 'from maya_tools import node_utils; node_utils.pivot_to_base()'
     pivot_center = 'from maya_tools import node_utils; node_utils.pivot_to_center()'
     pivot_origin = 'from maya_tools import node_utils; node_utils.pivot_to_origin()'
-    backface_culling = 'from maya_tools.geometry_utils import toggle_backface_culling\ntoggle_backface_culling()'
-    toggle_xray = 'from maya_tools.geometry_utils import toggle_xray\ntoggle_xray()'
     rebuild_curve = 'from maya_tools import curve_utils; curve_utils.rebuild_closed_curve_from_selected_cv(False)'
     move_to_origin = 'from maya_tools import node_utils; node_utils.move_to_origin()'
     move_to_last = 'from maya_tools import node_utils; node_utils.move_to_last()'
     rename_nodes = 'from maya_tools import node_utils; node_utils.rename_nodes()'
     pivot_match = 'from maya_tools import node_utils; node_utils.match_pivot_to_last()'
     dimensions = 'from maya_tools import helpers; helpers.get_dimensions(format_results=True, clipboard=True)'
+    combine = f'{maya_cmds}from maya_tools.geometry_utils import combine\ncombine(cmds.ls(sl=True))'
+    backface_culling = 'from maya_tools.geometry_utils import toggle_backface_culling\ntoggle_backface_culling()'
+    toggle_transform_constraints = 'from maya_tools import display_utils\ndisplay_utils.toggle_transform_constraints()'
+    toggle_xray = 'from maya_tools.geometry_utils import toggle_xray\ntoggle_xray()'
 
     sm.add_label('Robotools v{}'.format(ROBOTOOLS_VERSION), bold=True)
     sm.add_shelf_button(label='About Robotools', icon=robonobo_icon, command=message_script(version_info))
@@ -99,6 +102,7 @@ def setup_robotools_shelf():
     sm.add_label('Display')
     sm.add_shelf_button(label='Toggle Layer Shading', icon=script_icon, overlay_label='TgLSh', command=toggle_layer_shading)
     sm.add_shelf_button(label='Get Dimensions', icon=script_icon, overlay_label='Dim', command=dimensions)
+    sm.add_shelf_button(label='Toggle Transform Constraints', icon=script_icon, overlay_label='TrCon', command=toggle_transform_constraints)
     sm.add_separator()
     sm.add_label('Geometry')
     sm.add_shelf_button(label='Create Cube', overlay_label='Cube', icon=script_icon, command=create_cube)
@@ -109,6 +113,8 @@ def setup_robotools_shelf():
     sm.add_shelf_button(label='Select Triangles', overlay_label='Tris', icon=script_icon, command=select_triangles)
     sm.add_shelf_button(label='Select Ngons', overlay_label='Ngons', icon=script_icon, command=select_ngons)
     sm.add_shelf_button(label='Toggle Backface Culling', overlay_label='tBFC', icon=script_icon, command=backface_culling)
+    sm.add_shelf_button(label='Combine', overlay_label='Cmbn', icon=script_icon, command=combine)
+
     sm.add_separator()
     sm.add_label('Nodes')
     sm.add_shelf_button(label='Super Reset', overlay_label='SpRst', icon=script_icon, command=super_reset)
@@ -134,7 +140,7 @@ def setup_preferences():
     Sets up Maya preferences
     """
     logging.info('>>> Setting Maya preferences')
-    cmds.currentUnit(linear='meter')
+    # cmds.currentUnit(linear='meter')
     grid_size = MAYA_CONFIG.get(section=PREFERENCES_KEY, option='GRID_SIZE', default=3)
     grid_spacing = MAYA_CONFIG.get(section=PREFERENCES_KEY, option='GRID_SPACING', default=1.0)
     divisions = MAYA_CONFIG.get(section=PREFERENCES_KEY, option='DIVISIONS', default=2)

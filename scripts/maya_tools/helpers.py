@@ -7,7 +7,6 @@ from typing import Optional
 from core.point_classes import Point3, Point3Pair
 from core.core_enums import ComponentType
 from maya_tools.geometry_utils import get_selected_vertices, get_transforms, get_vertex_position
-from maya_tools.curve_utils import get_cvs
 from maya_tools.node_utils import get_type_from_transform
 from maya_tools.node_utils import State, set_component_mode
 from maya_tools.display_utils import in_view_message
@@ -146,3 +145,5 @@ def get_midpoint(transform: Optional[str] = None, format_results: bool = False,
             pyperclip.copy(str(midpoint.values))
 
         return midpoint
+
+

@@ -3,3 +3,4 @@ numpy
 pillow
 pyperclip
 PySide6
+scipy

@@ -3,9 +3,11 @@ import math
 import logging
 import pyperclip
 
+from scipy.linalg import expm, norm
 from typing import Sequence, Optional
 
-from core.point_classes import Point2, Point3, Point3Pair, Y_AXIS, X_AXIS, Z_AXIS
+from core.point_classes import Point2, Point3, Point3Pair, Y_AXIS, X_AXIS, Z_AXIS, NEGATIVE_Y_AXIS, NEGATIVE_X_AXIS, \
+    NEGATIVE_Z_AXIS
 
 logging.basicConfig()
 logging.getLogger().setLevel(logging.DEBUG)
@@ -55,10 +57,9 @@ def normalize_vector(input_vector: Point3):
     return Point3(*result)
 
 
-def dot_product(vector_a: Point3, vector_b: Point3, normalize: bool = True) -> int:
+def dot_product(vector_a: Point3, vector_b: Point3, normalize: bool = False) -> int:
     """
     Returns an integer which indicates whether two vectors are parallel
-
     :param vector_a:
     :param vector_b:
     :param normalize:
@@ -88,7 +89,7 @@ def cross_product(vector_a: Point3, vector_b: Point3, normalize: bool = True):
     """
     The cross product a × b is defined as a vector c that is perpendicular (orthogonal) to both a and b,
     with a direction given by the right-hand rule and a magnitude equal to the area of the parallelogram that the
-    vectors span.
+    vectors span
     :param vector_a:
     :param vector_b:
     :param normalize:
@@ -154,27 +155,27 @@ def get_vector(point_a: Point3, point_b: Point3):
 
 
 def rotate_x(matrix, angle):
-    rotation_matrix = np.array([[1, 0, 0, 0],
+    _rotation_matrix = np.array([[1, 0, 0, 0],
                                 [0, np.cos(angle), np.sin(angle), 0],
                                 [0, -np.sin(angle), np.cos(angle), 0],
                                 [0, 0, 0, 1]])
-    return np.dot(rotation_matrix, matrix)
+    return np.dot(_rotation_matrix, matrix)
 
 
 def rotate_y(matrix, angle):
-    rotation_matrix = np.array([[np.cos(angle), 0, -np.sin(angle), 0],
+    _rotation_matrix = np.array([[np.cos(angle), 0, -np.sin(angle), 0],
                                 [0, 1, 0, 0],
                                 [np.sin(angle), 0, np.cos(angle), 0],
                                 [0, 0, 0, 1]])
-    return np.dot(rotation_matrix, matrix)
+    return np.dot(_rotation_matrix, matrix)
 
 
 def rotate_z(matrix, angle):
-    rotation_matrix = np.array([[np.cos(angle), -np.sin(angle), 0, 0],
+    _rotation_matrix = np.array([[np.cos(angle), -np.sin(angle), 0, 0],
                                 [np.sin(angle), np.cos(angle), 0, 0],
                                 [0, 0, 1, 0],
                                 [0, 0, 0, 1]])
-    return np.dot(rotation_matrix, matrix)
+    return np.dot(_rotation_matrix, matrix)
 
 
 def translation(matrix, value: Point3):
@@ -228,5 +229,106 @@ def get_point_normal_angle_on_ellipse(point: Point2, ellipse_radius_pair: Point2
     return radians_to_degrees(radians)
 
 
+def get_closest_position_on_line_to_point(point: Point3, line: Point3Pair) -> Point3:
+    """
+    Gets the closest position on a line to a point
+    :param point:
+    :param line:
+    :return:
+    """
+    normalized_vector = normalize_vector(line.delta)
+    point_vector = Point3Pair(line.a, point).delta
+    dp = dot_product(point_vector, normalized_vector, normalize=False)
+
+    return Point3Pair(line.a, normalized_vector.multiply(scalar=dp)).sum
+
+
+def get_average_normal_from_points(points: Sequence[Point3]) -> Point3:
+    """
+    Finds the normal of the plane fitting a set of arbitrary points
+    :param points:
+    :return:
+    """
+    point_np_array = np.empty([3, len(points)])
+
+    for i in range(len(points)):
+        for j in range(3):
+            point_np_array[j][i] = points[i].values[j]
+
+    # Subtract out the centroid and take the SVD
+    singular_value_decomposition = np.linalg.svd(point_np_array - np.mean(point_np_array, axis=1, keepdims=True))
+
+    # Extract the left singular vectors
+    left = singular_value_decomposition[0]
+    normal = Point3(*left[:, -1])
+
+    # Flip if the Y axis is pointing down
+    if dot_product(Y_AXIS, normal) < 0:
+        normal = rotate_vector(vector=normal, axis=X_AXIS, theta=np.pi)
+
+    return normal
+
+
+def rotation_matrix(axis: Point3, theta: float) -> np.array:
+    """
+    Return the rotation matrix associated with counterclockwise rotation about
+    the given axis by theta radians.
+    """
+    axis = np.asarray(np.array(axis.values))
+    axis = axis / math.sqrt(np.dot(axis, axis))
+    a = math.cos(theta / 2.0)
+    b, c, d = -axis * math.sin(theta / 2.0)
+    aa, bb, cc, dd = a * a, b * b, c * c, d * d
+    bc, ad, ac, ab, bd, cd = b * c, a * d, a * c, a * b, b * d, c * d
+
+    return np.array([[aa + bb - cc - dd, 2 * (bc + ad), 2 * (bd - ac)],
+                     [2 * (bc - ad), aa + cc - bb - dd, 2 * (cd + ab)],
+                     [2 * (bd + ac), 2 * (cd - ab), aa + dd - bb - cc]])
+
+
+def rotate_vector(vector: Point3, axis: Point3, theta: float, algorithm: int = 0) -> Point3:
+    """
+    Rotates a vector about an axis
+    Both versions work, choose the algorithm
+    :param vector:
+    :param axis:
+    :param theta:
+    :param algorithm:
+    :return:
+    """
+    if algorithm:
+        matrix = expm(np.cross(np.eye(3), np.array(axis.values)/norm(np.array(axis.values)) * theta))
+    else:
+        matrix = rotation_matrix(axis=axis, theta=theta)
+
+    rotated = np.dot(matrix, np.array(vector.values))
+
+    return Point3(*rotated)
+
+
+def project_point_onto_plane(plane_position: Point3, unit_normal_vector: Point3, point: Point3) -> Point3:
+    """
+    https://stackoverflow.com/questions/9605556/how-to-project-a-point-onto-a-plane-in-3d
+    :param plane_position:
+    :param unit_normal_vector:
+    :param point:
+    """
+    # Make a vector from your orig point to the point of interest
+    point_vector: Point3 = Point3Pair(plane_position, point).delta
+
+    # Take the dot product of that vector with the unit normal vector
+    # dist = vx*nx + vy*ny + vz*nz; dist = scalar distance from point to plane along the normal
+    scalar_distance = dot_product(point_vector, unit_normal_vector)
+
+    # Multiply the unit normal vector by the distance, and subtract that vector from your point
+    projection_vector = unit_normal_vector.multiply(scalar_distance)
+
+    return Point3Pair(projection_vector, point).delta
+
+
 if __name__ == '__main__':
-    print(interpolate_linear(Point2(0, 1), output_range=Point2(0, 100), value=0.5))
+    plane_pos: Point3 = Point3(0, 0, 0)
+    plane_normal: Point3 = Point3(0, 1, 0)
+    ref_point: Point3 = Point3(2, 1, 2)
+    projected = project_point_onto_plane(plane_position=plane_pos, unit_normal_vector=plane_normal, point=ref_point)
+    print(projected)

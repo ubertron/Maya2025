@@ -244,6 +244,20 @@ def get_vertex_position(transform: str, vertex_id: int) -> Point3:
     return Point3(*cmds.pointPosition(f'{transform}.{component_prefix}[{vertex_id}]', world=True))
 
 
+def set_vertex_position(transform: str, vert_id: int, position: Point3, relative=False):
+    """
+    Set the position of a vertex
+    :param transform:
+    :param vert_id:
+    :param position:
+    :param relative:
+    """
+    if relative:
+        cmds.xform(f'{transform}.vtx[{vert_id}]', relative=True, translation=position.values)
+    else:
+        cmds.xform(f'{transform}.vtx[{vert_id}]', worldSpace=True, translation=position.values)
+
+
 def get_face_positions(transform: str) -> list[Point3]:
     """
     Get the position of faces in a transform
@@ -306,7 +320,7 @@ def get_vertex_face_list(transform: str) -> list[list[int]]:
     return out
 
 
-def merge_vertices(transform: str, vertices: list[int] = (), threshold: float = 0.01) -> str:
+def merge_vertices(transform: str, vertices: list[int] = (), threshold: float = 0.0001) -> str:
     """
     Merge vertices
     @param transform:
@@ -397,6 +411,28 @@ def get_faces_by_vert_count(transform: Optional[str] = None, select: bool = Fals
         return vertex_dict[return_type]
 
 
+def select_vertices(transform: str, vertices: Sequence[int]):
+    """
+    Select vertices on a mesh
+    :param transform:
+    :param vertices:
+    """
+    cmds.select([f'{transform}.vtx[{vertex}]' for vertex in vertices])
+    cmds.hilite(transform)
+    cmds.selectType(vertex=True)
+
+
+def select_edges(transform: str, edges: Sequence[int]):
+    """
+    Select faces on a mesh
+    :param transform:
+    :param edges:
+    """
+    cmds.select([f'{transform}.e[{x}]' for x in edges])
+    cmds.hilite(transform)
+    cmds.selectType(facet=True)
+
+
 def select_faces(transform: str, faces: list[int]):
     """
     Select faces on a mesh
@@ -405,18 +441,6 @@ def select_faces(transform: str, faces: list[int]):
     """
     face_objects = [f'{transform}.f[{x}]' for x in faces]
     cmds.select(face_objects)
-    cmds.hilite(transform)
-    cmds.selectType(facet=True)
-
-
-def select_edges(transform: str, edges: list[int]):
-    """
-    Select faces on a mesh
-    :param transform:
-    :param edges:
-    """
-    edge_objects = [f'{transform}.e[{x}]' for x in edges]
-    cmds.select(edge_objects)
     cmds.hilite(transform)
     cmds.selectType(facet=True)
 
@@ -448,7 +472,7 @@ def get_component_type_tag(component_type: ComponentType) -> str or None:
     return component_tag.get(component_type)
 
 
-def get_component_indices(component_list: list[str], component_type: ComponentType = ComponentType.edge) -> list[int]:
+def get_component_indices(component_list: list[str], component_type: ComponentType) -> list[int]:
     """
     Converts a component list to indices
     :param component_list:
@@ -460,7 +484,7 @@ def get_component_indices(component_list: list[str], component_type: ComponentTy
     return [int(x.split(f'.{get_component_type_tag(component_type)}[')[1].split(']')[0]) for x in flat_list]
 
 
-def get_component_list(transform: str, indices: list[int], component_type: ComponentType = ComponentType.face):
+def get_component_list(transform: str, indices: list[int], component_type: ComponentType):
     """
     Get a component list from a list of indices
     :param transform:
@@ -526,7 +550,7 @@ def get_faces_by_axis(transform: str, axis: Point3, tolerance_angle: float = 0.0
     tolerance = math.cos(degrees_to_radians(tolerance_angle))
     low, high = tolerance, 2 - tolerance
 
-    return [idx for idx, normal in enumerate(normals) if low < dot_product(normal, axis) < high]
+    return [idx for idx, normal in enumerate(normals) if low < dot_product(normal, axis, normalize=True) < high]
 
 
 def get_face_normals(transform: str) -> list[Point3]:
@@ -687,7 +711,7 @@ def filter_face_list_by_face_normal(transform: str, faces: list[int], axis: Poin
 
     for face_id in faces:
         normal_vector = get_face_normal(transform=transform, face_id=face_id)
-        dp = dot_product(vector_a=axis, vector_b=normal_vector)
+        dp = dot_product(vector_a=axis, vector_b=normal_vector, normalize=True)
 
         if 1 - dp < threshold:
             filtered.append(face_id)

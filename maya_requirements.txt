@@ -3,4 +3,5 @@ numpy
 pillow
 pyperclip
 python-dotenv
+scipy
 Send2Trash

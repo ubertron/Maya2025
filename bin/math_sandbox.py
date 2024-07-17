@@ -1,62 +1,71 @@
+import numpy as np
+from random import uniform
 from importlib import reload
-from maya import cmds
+
+from core.point_classes import Point3, Y_AXIS
+from core.math_funcs import get_midpoint, vector_to_euler_angles, get_average_normal_from_points, dot_product
+from typing import Sequence
 
 
-from core import point_classes; reload(point_classes)
-from core import math_funcs; reload(math_funcs)
-from core.point_classes import *
-from core.math_funcs import *
+def test_func():
+    # generate some random test points
+    m = 40  # number of points
+    delta = 0.01  # size of random displacement
+    origin = np.random.rand(3, 1)  # random origin for the plane
+    basis = np.random.rand(3, 2)  # random basis vectors for the plane
+    coefficients = np.random.rand(2, m)  # random coefficients for points on the plane
 
-def test_func(auto_delete: bool = False):
-    label_a = 'locator_a'
-    label_b = 'locator_b'
-    position_a = (-2.0, 0.0, 0.0)
-    position_b = (0.0, 2.0, 0.0)
-    size=0.25
+    # generate random points on the plane and add random displacement
+    points = basis @ coefficients + np.tile(origin, (1, m)) + delta * np.random.rand(3, m)
+    # for point in points:
+    #     print(point)
 
-    if auto_delete and cmds.ls('locator*'):
-        cmds.delete(cmds.ls('locator*'))
-    
-    
-    if cmds.objExists(label_a):
-        locator_a = cmds.ls(label_a)[0]
-    else:
-        locator_a = cmds.polyCube(name=label_a, width=size, depth=size, height=size)[0]
-        cmds.setAttr(f'{locator_a}.translate', *position_a, type='float3')
-    
-    
-    if cmds.objExists(label_b):
-        locator_b = cmds.ls(label_b)[0]
-    else:
-        locator_b = cmds.polyCube(name='locator_b', width=size, depth=size, height=size)[0]
-        cmds.setAttr(f'{locator_b}.translate', *position_b, type='float3')
-    
-    
-    locator_a_point = Point3(*cmds.getAttr(f'{locator_a}.translate')[0])
-    locator_b_point = Point3(*cmds.getAttr(f'{locator_b}.translate')[0])
-    point_pair = Point3Pair(a=locator_a_point, b=locator_b_point)
-    
-    
-    print(point_pair)
-    print(point_pair.interpolate_position(0))
-    print(point_pair.interpolate_position(0.5))
-    print(point_pair.interpolate_position(1.0))
-    
-    if cmds.ls('test_sphere*'):
-        cmds.delete(cmds.ls('test_sphere*'))
-    
-    test_sphere = cmds.polySphere(radius=0.2, axis=(0, 1, 0), subdivisionsX=8, subdivisionsY=6, name='test_sphere')[0]
-    #cmds.setAttr(f'{test_sphere}.rotate', 90, 0, 0, type='float3')
-    #print(cmds.getAttr(test_sphere + ".worldMatrix"))
-    #matrix0 = rotate_x(IDENTITY_MATRIX, point_pair.x_angle)
-    #matrix1 = rotate_y(matrix0, point_pair.y_angle)
-    #cmds.xform(test_sphere, matrix=flatten_matrix(matrix0))
-    x_rotation = radians_to_degrees(point_pair.x_angle)
-    y_rotation = radians_to_degrees(point_pair.y_angle)
-    cmds.setAttr(f'{test_sphere}.rotate', x_rotation, y_rotation, 0, type='float3')
-    cmds.setAttr(f'{test_sphere}.translate', *point_pair.midpoint.values)
+    # now find the best-fitting plane for the test points
+
+    # subtract out the centroid and take the SVD
+    svd = np.linalg.svd(points - np.mean(points, axis=1, keepdims=True))
+
+    # Extract the left singular vectors
+    left = svd[0]
+    print(left[:, -1])
+
+
+def test_func_2():
+    num_points: int = 20
+    points = [Point3(uniform(-10, 10), uniform(-10, 10), uniform(-10, 10)) for _ in range(num_points)]
+    average_normal = get_average_normal_from_points(points=points)
+
+    euler_rotation = vector_to_euler_angles(average_normal)
+    print(f'Average normal is {average_normal}')
+    print(f'Euler rotation is {euler_rotation}')
+    print(f'Midpoint = {get_midpoint(points)}')
+    print(f'Y Axis DP is {dot_product(Y_AXIS, average_normal)}')
+
+
+def get_average_normal_from_points_(points: Sequence[Point3]) -> Point3:
+    """
+    Finds the average normal of the plane matching a set of arbitrary points
+    :param points:
+    :return:
+    """
+    point_np_array = np.empty([3, len(points)])
+
+    for i in range(len(points)):
+        for j in range(3):
+            point_np_array[j][i] = points[i].values[j]
+
+    for x in point_np_array:
+        print(x)
+
+    # Subtract out the centroid and take the SVD
+    singular_value_decomposition = np.linalg.svd(point_np_array - np.mean(point_np_array, axis=1, keepdims=True))
+
+    # Extract the left singular vectors
+    left = singular_value_decomposition[0]
+
+    return Point3(*left[:, -1])
 
 
 if __name__ == '__main__':
-    test_func(auto_delete=False)
-    
+    test_func_2()
+

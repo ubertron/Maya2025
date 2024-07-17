@@ -1,13 +1,15 @@
+import os
 from PIL import Image
 from pathlib import Path
 from maya import cmds
-from PySide6.QtWidgets import QDoubleSpinBox, QSizePolicy, QLineEdit, QFileDialog
+from maya.OpenMayaUI import MQtUtil
+from PySide6.QtWidgets import QDoubleSpinBox, QSizePolicy, QLineEdit, QFileDialog, QWidget
 from PySide6.QtGui import QImageReader
-import os
 
 from maya_tools.maya_enums import ObjectType
 from maya_tools.node_utils import pivot_to_base, move_to_origin
 from maya_tools.material_utils import apply_shader, lambert_file_texture_shader
+from shiboken6 import wrapInstance
 from widgets.grid_widget import GridWidget
 
 
@@ -97,6 +99,7 @@ class BillboardCreatorTool(GridWidget):
 def launchBillboardCreator():
     main_window_ptr = MQtUtil.mainWindow()
     maya_main_window = wrapInstance(int(main_window_ptr), QWidget)
-    export_tool = next((x for x in maya_main_window.children() if type(x) is ExportTool), None)
-    export_tool.mode = mode if export_tool else ExportTool(mode=mode)
-    export_tool.show()
+    tool = next((x for x in maya_main_window.children() if type(x) is BillboardCreatorTool), None)
+    if not tool:
+        tool = BillboardCreatorTool()
+    tool.show()

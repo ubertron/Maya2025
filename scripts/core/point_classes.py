@@ -1,4 +1,5 @@
 import math
+
 from dataclasses import dataclass
 
 
@@ -60,6 +61,17 @@ class Point3:
         :return:
         """
         return abs(y_value - self.y) <= threshold
+
+    def multiply(self, scalar: float):
+        """
+        Multiply vector by a scalar value
+        :param scalar:
+        :return:
+        """
+        return Point3(*[component * scalar for component in self.values])
+
+    def dot_product(self, point) -> float:
+        return sum(self.values[i] * point.values[i] for i in range(3))
 
 
 @dataclass
@@ -130,6 +142,10 @@ class Point3Pair:
         """
         return Point3(*[self.a.values[i] + value * self.delta.values[i] for i in range(3)])
 
+    @property
+    def dot_product(self):
+        return sum(self.a.values[i] * self.b.values[i] for i in range(3))
+
 
 POINT2_ORIGIN: Point2 = Point2(0.0, 0.0)
 POINT3_ORIGIN: Point3 = Point3(0.0, 0.0, 0.0)
@@ -139,3 +155,4 @@ Z_AXIS: Point3 = Point3(0.0, 0.0, 1.0)
 NEGATIVE_X_AXIS: Point3 = Point3(-1.0, 0.0, 0.0)
 NEGATIVE_Y_AXIS: Point3 = Point3(0.0, -1.0, 0.0)
 NEGATIVE_Z_AXIS: Point3 = Point3(0.0, 0.0, -1.0)
+

@@ -59,7 +59,7 @@ class State:
                 self.object_selection.remove(item)
 
 
-def get_component_mode():
+def get_component_mode() -> ComponentType:
     """
     Query the component mode
     @return:
@@ -254,7 +254,7 @@ def move_to_origin(transform=None):
         cmds.setAttr(f'{item}{Attr.translate.value}', 0, 0, 0, type=DataType.float3.name)
 
 
-def get_selected_transforms() -> list[str]:
+def get_selected_transforms(first_only: bool = False) -> list[str] or str:
     """
     Get a list of selected transform nodes
     This works if in component selection mode as well as object selection mode
@@ -265,7 +265,7 @@ def get_selected_transforms() -> list[str]:
     selection = cmds.ls(sl=True, tr=True)
     state.restore()
 
-    return selection
+    return selection[0] if first_only and selection else selection
 
 
 def get_transforms(nodes=None):

@@ -17,7 +17,7 @@ if is_using_maya_python():
         select_edges, filter_face_list_by_face_normal, slice_faces, get_face_above, \
         group_geometry_shells, get_midpoint_from_faces, get_selected_faces, reverse_face_normals, fix_cap, \
         get_faces_by_plane, get_perimeter_edges_from_faces, combine
-    from maya_tools.helpers import create_locator
+    from maya_tools.helpers import create_locator, get_dimensions
     from maya_tools.node_utils import pivot_to_base, translate, rotate, scale, set_pivot, delete_history, \
         get_translation
     from maya_tools.layer_utils import add_to_layer
