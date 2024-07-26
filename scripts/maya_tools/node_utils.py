@@ -268,13 +268,13 @@ def get_selected_transforms(first_only: bool = False) -> list[str] or str:
     return selection[0] if first_only and selection else selection
 
 
-def get_transforms(nodes=None):
+def get_transforms(nodes=None, first_only: bool = False) -> list or str:
     state = State()
     set_component_mode(ComponentType.object)
     selection = cmds.ls(nodes, tr=True) if nodes else cmds.ls(sl=True, tr=True)
     state.restore()
 
-    return selection
+    return selection[0] if selection and first_only else selection
 
 
 def get_shape_from_transform(transform, full_path=False):

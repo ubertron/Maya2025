@@ -53,14 +53,14 @@ def set_cv(transform: str, cv_id: int, position: Point3):
     cmds.setAttr(f'{transform}.cv[{cv_id}]', *position.values, type='float3')
 
 
-def create_curve_from_cvs(cvs: Sequence, close: bool = False) -> str or None:
+def create_curve_from_cvs(points: Sequence[Point3], close: bool = False) -> str or None:
     """
     Create a curve from a list of cv locations
-    :param cvs:
+    :param points:
     :param close:
     :return:
     """
-    curve = cmds.curve(degree=1, point=cvs)
+    curve = cmds.curve(degree=1, point=[x.values for x in points])
     
     if close:
         closed = cmds.closeCurve(curve)
@@ -90,7 +90,8 @@ def rebuild_closed_curve_from_selected_cv(keep_original: bool = True) -> str or 
         transform = get_transform_from_shape(shape)
         cvs = [x.values for x in get_cvs(transform=transform)]
         reordered_cvs = cvs[idx - 1:] + cvs[:idx - 1]
-        result = create_curve_from_cvs(cvs=reordered_cvs, close=True)
+        point_list = [Point3(*x) for x in reordered_cvs]
+        result = create_curve_from_cvs(points=point_list, close=True)
 
         if not keep_original:
             cmds.delete(transform)

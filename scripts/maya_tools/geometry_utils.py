@@ -123,10 +123,12 @@ def get_perimeter_edges_from_faces(transform: str, faces: list[int]):
     :param faces:
     :return:
     """
-    face_components = get_component_list(transform=transform, indices=faces)
-    all_edges = get_component_indices(cmds.polyListComponentConversion(face_components, fromFace=True, toEdge=True))
+    face_components = get_component_list(transform=transform, indices=faces, component_type=ComponentType.face)
+    all_edges = get_component_indices(cmds.polyListComponentConversion(face_components, fromFace=True, toEdge=True),
+                                      component_type=ComponentType.edge)
     internal_edges = get_component_indices(
-        cmds.polyListComponentConversion(face_components, fromFace=True, toEdge=True, internal=True))
+        cmds.polyListComponentConversion(face_components, fromFace=True, toEdge=True, internal=True),
+        component_type=ComponentType.edge)
 
     return [x for x in all_edges if x not in internal_edges]
 

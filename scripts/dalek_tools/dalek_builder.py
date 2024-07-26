@@ -781,7 +781,7 @@ class DalekBuilder:
         cmds.polyExtrudeEdge(cmds.ls(sl=True), localTranslateY=rim, localTranslateZ=-rim)
         cmds.polyExtrudeEdge(cmds.ls(sl=True), scaleX=0.0, scaleY=0.0, localTranslateZ=rim * 0.5)
         vertices = cmds.select(cmds.polyListComponentConversion(cmds.ls(sl=True), fromEdge=True, toVertex=True))
-        merge_vertices(transform=self.eye, vertices=get_component_indices(vertices), threshold=0.001)
+        merge_vertices(transform=self.eye, vertices=get_component_indices(vertices, component_type=ComponentType.vertex), threshold=0.001)
         delete_history(self.eye)
         cmds.parent(self.eye, self.eye_stalk_group)
         translate(self.eye_stalk_group, eye_stalk_position)
