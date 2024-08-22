@@ -58,8 +58,10 @@ class LayerDisplayType(Enum):
 @unique
 class ObjectType(Enum):
     animCurve = auto()
+    joint = auto()
     file = auto()
     lambert = auto()
+    locator = auto()
     materialInfo = auto()
     mesh = auto()
     nodeGraphEditorInfo = auto()

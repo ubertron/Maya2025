@@ -5,14 +5,41 @@ from maya import cmds
 from typing import Optional
 
 from core.point_classes import Point3, Point3Pair
-from core.core_enums import ComponentType
+from core.core_enums import ComponentType, DataType
 from maya_tools.geometry_utils import get_selected_vertices, get_transforms, get_vertex_position
-from maya_tools.node_utils import get_type_from_transform
-from maya_tools.node_utils import State, set_component_mode
+from maya_tools.node_utils import get_type_from_transform, State, set_component_mode, get_selected_transforms, \
+    get_pivot_position
 from maya_tools.display_utils import in_view_message
+from maya_tools.undo_utils import UndoStack
 
 
-def place_locators_at_selected_vertices(size: float = 0.2):
+def create_locator(position: Point3 = Point3(0.0, 0.0, 0.0),  size: float = 1.0, name: str = '') -> str:
+    """
+    Create a space locator at a position
+    :param position:
+    :param size:
+    :param name:
+    """
+    locator = cmds.spaceLocator(absolute=True, name=name)[0]
+    cmds.setAttr(f'{locator}.translate', *position.values, type=DataType.float3.name)
+    cmds.setAttr(f'{locator}.scale', size, size, size, type=DataType.float3.name)
+
+    return locator
+
+
+def create_pivot_locators(size: float = 1.0) -> list[str]:
+    """
+    Creates locators at the pivot position of the selected transforms
+    :param size:
+    """
+    with UndoStack('create_pivot_locators'):
+        print('size here is ', size)
+        locators = [create_locator(position=get_pivot_position(x), size=size) for x in get_selected_transforms()]
+
+    return locators
+
+
+def create_vertex_locators(size: float = 0.2):
     transform = get_transforms(single=True)
 
     if transform:
@@ -34,20 +61,6 @@ def place_locators_at_selected_vertices(size: float = 0.2):
             cmds.warning('Please select some vertices.')
     else:
         cmds.warning('Please select some vertices on a mesh.')
-
-
-def create_locator(position: Point3=Point3(0.0, 0.0, 0.0),  size: float = 0.2, name: str = '') -> str:
-    """
-    Create a space locator at a position
-    :param position:
-    :param size:
-    :param name:
-    """
-    name = name if name else 'locator0'
-    locator = cmds.spaceLocator(absolute=True, name=name)[0]
-    cmds.setAttr(f'{locator}.translate', *position.values, type='float3')
-    cmds.setAttr(f'{locator}.scale', size, size, size, type='float3')
-    return locator
 
 
 def get_distance_between_two_transforms(format_result: bool = True):
@@ -147,3 +160,29 @@ def get_midpoint(transform: Optional[str] = None, format_results: bool = False,
         return midpoint
 
 
+def rename_selection(prefix: str, start_idx: int = 1, suffix: str = ''):
+    """
+    Rename selected objects
+    :param prefix:
+    :param start_idx:
+    :param suffix:
+    """
+    for idx, node in enumerate(cmds.ls(sl=True, tr=True)):
+        cmds.rename(node, f'{prefix}{start_idx + idx}{suffix}')
+
+
+def get_selected_locators():
+    """
+    Gets a list of the selected locators
+    :return:
+    """
+    return [x for x in cmds.ls(sl=True, tr=True) if is_locator(x)]
+
+
+def is_locator(transform: str) -> bool:
+    """
+    Returns true of the supplied transform is a locator
+    :param transform:
+    :return:
+    """
+    return cmds.listRelatives(transform, type='locator') is not None

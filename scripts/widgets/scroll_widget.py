@@ -7,7 +7,7 @@ from core.core_enums import Alignment
 
 
 class ScrollWidget(GenericWidget):
-    def __init__(self, title: str = '', alignment: bool = Alignment.vertical, margin: int = 0,
+    def __init__(self, title: str = '', alignment: Alignment = Alignment.vertical, margin: int = 0,
                  parent: Optional[QWidget] = None):
         """
         Generic widget with internal scroll area
@@ -24,7 +24,7 @@ class ScrollWidget(GenericWidget):
         scroll_widget: QScrollArea = QScrollArea()
         scroll_widget.setWidgetResizable(True)
         scroll_widget.setFocusPolicy(Qt.NoFocus)
-        self.widget: GenericWidget = GenericWidget(title, alignment)
+        self.widget: GenericWidget = GenericWidget(title, alignment=alignment)
         scroll_widget.setWidget(self.widget)
         self.layout().addWidget(scroll_widget)
 

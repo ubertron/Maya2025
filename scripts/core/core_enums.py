@@ -8,6 +8,14 @@ class Axis(Enum):
     z = 2
 
 
+class Side(Enum):
+    left = 'l'
+    right = 'r'
+    center = 'c'
+    top = 't'
+    bottom = 'b'
+
+
 class ComponentType(Enum):
     vertex = 'vertex'
     edge = 'edge'

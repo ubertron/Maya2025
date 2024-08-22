@@ -12,13 +12,15 @@ from core.environment_utils import is_using_maya_python
 
 
 class GenericWidget(QWidget):
-    def __init__(self, title: str = '', alignment: Alignment = Alignment.vertical, parent: Optional[QWidget] = None):
+    def __init__(self, title: str = '', alignment: Alignment = Alignment.vertical, parent: Optional[QWidget] = None, margin: int = 2, spacing: int = 2):
         super(GenericWidget, self).__init__(parent=parent)
         self.title = title
         self.setWindowTitle(self.title)
         self.setObjectName(self.title)
         self.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
         self.setLayout(VBoxLayout() if alignment is Alignment.vertical else HBoxLayout())
+        self.set_margin(margin)
+        self.set_spacing(spacing)
         self._init_maya_properties()
 
     def add_widget(self, widget: QWidget) -> QWidget:
@@ -92,7 +94,7 @@ class GenericWidget(QWidget):
         Set widget margin
         :param value:
         """
-        self.layout().setMargin(value)
+        self.layout().setContentsMargins(value, value, value, value)
 
     def set_spacing(self, value: int):
         """

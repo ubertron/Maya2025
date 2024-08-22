@@ -101,6 +101,39 @@ def create_hemispheroid(name: str = 'hemispheroid', diameter: float = 1.0, heigh
     return hemispheroid
 
 
+def detach_faces(transform: str, faces: list[int]) -> str:
+    """
+    Extract faces from a mesh
+    :param transform:
+    :param faces:
+    :return:
+    """
+    selection = get_component_list(transform=transform, indices=faces, component_type=ComponentType.face)
+    children = cmds.listRelatives(transform, children=True, type=ObjectType.transform.name)
+
+    if children:
+        cmds.parent(children, world=True)
+
+    cmds.polyChipOff(selection, duplicate=False, constructionHistory=False)
+    num_shells = cmds.polyEvaluate(transform, shell=True)
+    extracted, original = cmds.polySeparate(transform, separateSpecificShell=num_shells - 1,
+                                            constructionHistory=False)
+    detached_mesh = cmds.rename(extracted, f'{transform}_detached')
+    group = cmds.listRelatives(original, parent=True, fullPath=True)[0]
+    parent = cmds.listRelatives(group, parent=True, fullPath=True)
+    cmds.parent(original, detached_mesh, parent)
+    cmds.delete(group)
+    result = cmds.rename(original, transform)
+
+    if children:
+        cmds.parent(children, result)
+
+    set_component_mode(ComponentType.object)
+    cmds.select(detached_mesh)
+
+    return detached_mesh
+
+
 def fix_cap(transform: str, face_id: int):
     """
     Converts an N-gon cylinder cap into a pole

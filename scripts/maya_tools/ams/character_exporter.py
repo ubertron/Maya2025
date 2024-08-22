@@ -38,7 +38,7 @@ class CharacterExporter(GenericWidget):
                                    event=self.browse_button_clicked)
         self.button_bar.add_stretch()
         self.button_bar.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
-        self.scroll_widget: ScrollWidget = self.add_widget(ScrollWidget())
+        self.scroll_widget: ScrollWidget = self.add_widget(ScrollWidget(alignment=Alignment.vertical))
         self.label: QLabel = QLabel('Character data...')
         self.label.setWordWrap(True)
         self.label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -137,7 +137,7 @@ class CharacterExportWidget(GenericWidget):
     rig = '[base rig]'
 
     def __init__(self, asset: Asset, parent: CharacterExporter):
-        super(CharacterExportWidget, self).__init__(title=asset.name)
+        super(CharacterExportWidget, self).__init__(title=asset.name, alignment=Alignment.vertical)
         self.asset = asset
         self.parent_widget: CharacterExporter = parent
         button_bar: GenericWidget = self.add_widget(GenericWidget(alignment=Alignment.horizontal))

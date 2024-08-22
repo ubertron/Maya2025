@@ -59,7 +59,45 @@ class State:
                 self.object_selection.remove(item)
 
 
-def get_component_mode() -> ComponentType:
+def get_locators():
+    """
+    Find all the locators in the scene
+    :return:
+    """
+    locator_shapes = cmds.ls(exactType=ObjectType.locator.name, long=True)
+
+    return [get_transform_from_shape(shape) for shape in locator_shapes]
+
+
+def get_pivot_position(transform: str) -> Point3:
+    """
+    Get the position of the transform's pivot
+    :param transform:
+    :return:
+    """
+    return Point3(*cmds.xform(transform, query=True, worldSpace=True, rotatePivot=True))
+
+
+def get_root_transform(transform: str):
+    """
+    Finds the top node in a hierarchy
+    :param transform:
+    :return:
+    """
+    assert cmds.objExists(transform), f'Transform not found: {transform}'
+    parent = cmds.listRelatives(transform, parent=True, fullPath=True)
+
+    return transform if parent is None else get_root_transform(parent[0])
+
+
+def get_all_root_transforms() -> list[str]:
+    """
+    @return: Finds transforms that are children of the world
+    """
+    return [x for x in cmds.ls(transforms=True) if not cmds.listRelatives(x, parent=True)]
+
+
+def get_component_mode() -> ComponentType or False:
     """
     Query the component mode
     @return:
@@ -75,7 +113,7 @@ def get_component_mode() -> ComponentType:
     elif cmds.selectType(query=True, polymeshUV=True):
         return ComponentType.uv
     else:
-        return 'unknown'
+        return False
 
 
 def set_component_mode(component_type=ComponentType.object):
@@ -219,7 +257,7 @@ def pivot_to_base(transform=None, reset=True):
         reset_pivot(transform)
 
 
-def pivot_to_center(transform=None, reset=True):
+def pivot_to_center(transform: Optional[Union[str, list[str]]] = None, reset=True):
     """
     Send pivot to the center of the object
     @param transform:
@@ -254,7 +292,7 @@ def move_to_origin(transform=None):
         cmds.setAttr(f'{item}{Attr.translate.value}', 0, 0, 0, type=DataType.float3.name)
 
 
-def get_selected_transforms(first_only: bool = False) -> list[str] or str:
+def get_selected_transforms(first_only: bool = False) -> list[str] or str or None:
     """
     Get a list of selected transform nodes
     This works if in component selection mode as well as object selection mode
@@ -265,7 +303,10 @@ def get_selected_transforms(first_only: bool = False) -> list[str] or str:
     selection = cmds.ls(sl=True, tr=True)
     state.restore()
 
-    return selection[0] if first_only and selection else selection
+    if selection:
+        return selection[0] if first_only and selection else selection
+    else:
+        return None
 
 
 def get_transforms(nodes=None, first_only: bool = False) -> list or str:
@@ -291,14 +332,15 @@ def get_shape_from_transform(transform, full_path=False):
         return None
 
 
-def get_transform_from_shape(node, full_path=False):
+def get_transform_from_shape(shape: str, full_path: bool = False) -> str or False:
     """
     Gets the transform node from a shape
-    :param node:
+    :param shape:
     :param full_path:
     :return:
     """
-    return node if cmds.nodeType(node) == 'transform' else cmds.listRelatives(node, fullPath=full_path, parent=True)[0]
+    result = cmds.listRelatives(shape, fullPath=full_path, parent=True)
+    return result[0] if result else False
 
 
 def is_object_type(transform: str, object_type: ObjectType):
@@ -313,7 +355,7 @@ def is_object_type(transform: str, object_type: ObjectType):
     return cmds.objectType(shape) == object_type.name
 
 
-def match_pivot_to_last(transforms=None):
+def match_pivot_to_last(transforms: Optional[Union[str, list[str]]] = None):
     """
     Relocate selected pivots to the location of the pivot of the last object
     :param transforms:

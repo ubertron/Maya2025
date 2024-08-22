@@ -127,3 +127,7 @@ def file_texture_node(texture_path: Path, name: Optional[str] = None, check_exis
     cmds.connectAttr(f'{placement_node}.wrapV', f'{file_node}.wrapV')
 
     return file_node
+
+
+def get_shader(node: str) -> str or none:
+    pass
