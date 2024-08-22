@@ -352,7 +352,7 @@ def is_object_type(transform: str, object_type: ObjectType):
     """
     shape = get_shape_from_transform(transform)
 
-    return cmds.objectType(shape) == object_type.name
+    return cmds.objectType(shape) == object_type.name if shape else False
 
 
 def match_pivot_to_last(transforms: Optional[Union[str, list[str]]] = None):
@@ -497,3 +497,15 @@ def place_transform_on_ellipse(transform: str, angle: float, ellipse_radius_pair
     angle = math_funcs.get_point_normal_angle_on_ellipse(point=position, ellipse_radius_pair=ellipse_radius_pair)
     node_utils.translate(transform, Point3(*position.values, 0))
     node_utils.rotate(transform, Point3(0, 0, angle))
+
+
+def get_top_node(node):
+    """
+    Finds the top node in a hierarchy
+    :param node:
+    :return:
+    """
+    assert cmds.objExists(node), f'Node not found: {node}'
+    parent = cmds.listRelatives(node, parent=True, fullPath=True)
+
+    return node if parent is None else get_top_node(parent[0])

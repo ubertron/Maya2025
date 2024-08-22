@@ -7,6 +7,14 @@ class Axis(Enum):
     y = 1
     z = 2
 
+    @staticmethod
+    def get_by_value(value: int) -> Enum:
+        return next((x for x in list(map(lambda x: x, Axis)) if x.value == value), None)
+
+    @staticmethod
+    def get_by_key(key: str) -> Enum or None:
+        return Axis.__members__.get(key)
+
 
 class Side(Enum):
     left = 'l'

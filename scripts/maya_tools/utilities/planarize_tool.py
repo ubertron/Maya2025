@@ -46,11 +46,11 @@ class PlanarizeTool(GenericWidget):
 
     @property
     def current_axis_id(self) -> int:
-        return self.axis_widget.active_button_id
+        return self.axis_widget.current_button_id
 
     @property
     def current_position(self) -> Position:
-        return Position.get_by_value(self.position_widget.active_text)
+        return Position.get_by_value(self.position_widget.current_text)
 
     @property
     def component_mode(self) -> ComponentType:

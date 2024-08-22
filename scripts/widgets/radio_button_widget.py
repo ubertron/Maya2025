@@ -28,21 +28,21 @@ class RadioButtonWidget(QWidget):
             button = QRadioButton(button)
             layout.addWidget(button)
             button_group.addButton(button)
-            button.clicked.connect(partial(self.radioButtonClicked, idx))
+            button.clicked.connect(partial(self.radio_button_clicked, idx))
             self.radio_buttons.append(button)
 
         self.radio_buttons[active_id].setChecked(True)
 
-    def radioButtonClicked(self, value):
+    def radio_button_clicked(self, value):
         self.clicked.emit(value)
 
     @property
-    def active_button_id(self) -> int:
+    def current_button_id(self) -> int:
         return next(i for i, value in enumerate(self.radio_buttons) if value.isChecked())
 
     @property
-    def active_text(self) -> int:
-        return self.button_text_list[self.active_button_id]
+    def current_text(self) -> int:
+        return self.button_text_list[self.current_button_id]
 
 
 if __name__ == '__main__':

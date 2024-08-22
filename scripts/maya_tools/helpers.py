@@ -186,3 +186,22 @@ def is_locator(transform: str) -> bool:
     :return:
     """
     return cmds.listRelatives(transform, type='locator') is not None
+
+
+def place_locator_in_centroid(size: float = 1.0):
+    """
+    Creates a locator in the center of the selection
+    :param size:
+    """
+    assert len(cmds.ls(sl=True)), 'Select geometry'
+    center = get_midpoint(cmds.ls(sl=True))
+    create_locator(position=center, size=size)
+
+
+def auto_parent_locators():
+    locators = get_selected_locators()
+
+    if len(locators) > 1:
+        for i in range(0, len(locators) - 1):
+            print(locators[i])
+            cmds.parent(locators[i], locators[i + 1])

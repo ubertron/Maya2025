@@ -1,15 +1,17 @@
+import logging
+
 from maya import cmds
 from typing import Optional
 
 from core.core_enums import Axis
 from core.point_classes import Point3, Point3Pair
 from maya_tools.maya_enums import ObjectType
-from maya_tools.node_utils import get_translation, get_type_from_transform
+from maya_tools.node_utils import get_translation, get_type_from_transform, get_root_transform, is_object_type
 from maya_tools.helpers import get_selected_locators, is_locator, create_locator
 from maya_tools.undo_utils import UndoStack
 
 
-def create_joints_from_locator_hierarchy(mirror_joints: bool = True, axis = Axis.x) -> str or None:
+def create_joints_from_locator_hierarchy(mirror_joints: bool = False, axis: Axis = Axis.x) -> str or None:
     """
     Build a skeleton from a hierarchy of locators
     Axis must be aligned to x with symmetry across the YZ plane
@@ -20,11 +22,11 @@ def create_joints_from_locator_hierarchy(mirror_joints: bool = True, axis = Axis
     selection = get_selected_locators()
 
     if len(selection) == 1:
-        locator = selection[0]
+        root_locator = get_root_transform(selection[0])
         cmds.select(clear=True)
 
         with UndoStack('build_rig_from_locator_hierarchy'):
-            root_joint = create_joints_recursively(locator=locator)
+            root_joint = create_joints_recursively(locator=root_locator)
 
             if mirror_joints:
                 limb_joints = get_limb_joints(joint=root_joint, root_position=get_translation(root_joint),
@@ -45,17 +47,19 @@ def mirror_joint(joint: str, axis: Axis):
     """
     if axis is Axis.x:
         cmds.mirrorJoint(joint, mirrorYZ=True)
-    elif axis is Axix.y:
+    elif axis is Axis.y:
         cmds.mirrorJoint(joint, mirrorXZ=True)
     else:
         cmds.mirrorJoint(joint, mirrorXY=True)
 
 
-def create_locator_hierarchy_from_joints(axis: Axis = Axis.x, size: float = 2.0) -> str or None:
+def create_locator_hierarchy_from_joints(axis: Axis = Axis.x, size: float = 2.0,
+                                         mirror_joints: bool = False) -> str or None:
     """
     Build a locator hierarchy from a selected joint
     :param axis:
     :param size:
+    :param mirror_joints: if set to true, we only create locators for the positive axis
     :return:
     """
     root_joint = get_root_joint_from_selection()
@@ -63,29 +67,44 @@ def create_locator_hierarchy_from_joints(axis: Axis = Axis.x, size: float = 2.0)
     if root_joint:
         position = Point3(*cmds.xform(root_joint, query=True, worldSpace=True, translation=True))
         locator = create_locator(position=position, size=size)
-        create_locators_recursively(joint=root_joint, axis=axis, parent_locator=locator, size=size)
+        create_locators_recursively(joint=root_joint, axis=axis, parent_locator=locator, size=size,
+                                    mirror_joints=mirror_joints)
+        cmds.select(locator)
 
         return locator
     else:
         cmds.warning('No joint selected.')
 
 
-def create_locators_recursively(joint: str, axis: Axis, parent_locator: str, size: float):
+def get_child_joints(joint: str) -> list[str]:
+    """
+    Return a list containing child joints
+    :param joint:
+    :return:
+    """
+    joints = cmds.listRelatives(joint, children=True, type=ObjectType.joint.name)
+    return joints if joints else []
+
+
+def create_locators_recursively(joint: str, axis: Axis, parent_locator: str, size: float, mirror_joints: bool):
     """
     Build the locator hierarchy recursively
     :param joint:
     :param axis:
     :param parent_locator:
     :param size:
+    :param mirror_joints:
     """
-    children = cmds.listRelatives(joint, children=True, type=ObjectType.joint.name)
+    for child_joint in get_child_joints(joint):
+        position = Point3(*cmds.xform(child_joint, query=True, worldSpace=True, translation=True))
 
-    if children:
-        for child_joint in children:
-            position = Point3(*cmds.xform(child_joint, query=True, worldSpace=True, translation=True))
-            locator = create_locator(position=position, size=size)
-            cmds.parent(locator, parent_locator)
-            create_locators_recursively(joint=child_joint, axis=axis, parent_locator=locator, size=size)
+        if mirror_joints and position.values[axis.value] < 0:
+            continue
+
+        locator = create_locator(position=position, size=size)
+        cmds.parent(locator, parent_locator)
+        create_locators_recursively(joint=child_joint, axis=axis, parent_locator=locator, size=size,
+                                    mirror_joints=mirror_joints)
 
 
 def get_root_joint_from_selection() -> str or False:
@@ -155,4 +174,63 @@ def create_joints_recursively(locator: str, parent_joint: Optional[str] = None) 
 
         return parent_joint
 
+
+def orient_joints(joint_root: Optional[str] = None, recurse: bool = False):
+    """
+    Orient joints
+    :param joint_root:
+    :param recurse:
+    """
+    joint_selection = cmds.ls(joint_root, type=ObjectType.joint.name) \
+        if joint_root else cmds.ls(sl=True, type=ObjectType.joint.name)
+
+    if joint_selection:
+        cmds.joint(joint_selection, edit=True, orientJoint='xyz', secondaryAxisOrient='yup',
+                   autoOrientSecondaryAxis=True, zeroScaleOrient=True)
+
+        if recurse:
+            for joint in joint_selection:
+                for child_joint in get_child_joints(joint):
+                    orient_joints(joint_root=child_joint, recurse=True)
+
+
+def bind_skin(robot_mode: bool = False):
+    """
+    Bind a model hierarchy to a skeleton
+    Select the root of the geometry and the skeleton to make this happen
+    :return:
+    """
+    warning = 'Please select model root and joint root.'
+    selection = cmds.ls(sl=True, tr=True)
+
+    if len(selection) == 2:
+        if False in [not cmds.listRelatives(x, parent=True) for x in selection]:
+            cmds.warning(warning)
+            return
+
+        # find joint root
+        joint_root = next((x for x in selection if cmds.objectType(x) == ObjectType.joint.name), None)
+
+        if not joint_root:
+            cmds.warning(warning)
+            return
+
+        # check model root for geometry
+        model_root = next(x for x in selection if x != joint_root)
+        transforms = [x for x in cmds.listRelatives(model_root, allDescendents=True, type=ObjectType.transform.name)]
+        geometry = [x for x in transforms if is_object_type(transform=x, object_type=ObjectType.mesh)]
+
+        if not geometry:
+            cmds.warning(warning)
+            return
+
+        # bind operation
+        cmds.bindSkin(model_root, joint_root)
+        # cmds.bindSkin(*geometry, joint_root)
+        # skin_cluster
+
+        # if robot_mode:
+        #     cmds.skinCluster(skin_cluster, edit=True, maximumInfluences=1)
+    else:
+        cmds.warning(warning)
 
