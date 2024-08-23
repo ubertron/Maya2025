@@ -11,7 +11,7 @@ if is_using_maya_python():
         get_selected_transform_and_vertices
     from maya_tools.node_utils import get_component_mode, get_selected_transforms
     from maya_tools.geometry_utils import get_component_list, get_component_indices
-    from maya_tools.helpers import get_bounds, get_midpoint
+    from maya_tools.helpers import get_bounds, get_midpoint_from_transform
 
 
 class PlanarizeTool(GenericWidget):

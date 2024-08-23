@@ -1,7 +1,7 @@
 import pyperclip
 from dataclasses import dataclass
 
-from core.math_funcs import interpolate_linear, get_midpoint, vector_to_euler_angles, get_normal_vector, \
+from core.math_funcs import interpolate_linear, get_midpoint_from_point_list, vector_to_euler_angles, get_normal_vector, \
     get_point_normal_angle_on_ellipse, get_point_position_on_ellipse
 from core.point_classes import Point3, Point2, POINT3_ORIGIN, POINT2_ORIGIN, Point3Pair, Z_AXIS, Y_AXIS, NEGATIVE_Z_AXIS
 from core.environment_utils import is_using_maya_python
@@ -183,7 +183,7 @@ class DalekDimensions:
 
     @property
     def core_center(self) -> Point3:
-        midpoint = get_midpoint([self.core_top_position, self.core_bottom_position])
+        midpoint = get_midpoint_from_point_list([self.core_top_position, self.core_bottom_position])
         shifted_z = self.interpolate_lateral_offset(midpoint.y)
         midpoint.z = shifted_z
 
@@ -359,7 +359,7 @@ class DalekBuilder:
             a_id = i * 2
             middle_id = i * 2 + 1
             b_id = (i * 2 + 2) % (self.dimensions.num_sections * 2)
-            midpoint = get_midpoint(points=(cvs[a_id], cvs[b_id]))
+            midpoint = get_midpoint_from_point_list(points=(cvs[a_id], cvs[b_id]))
             set_cv(transform=skirt_curve, cv_id=middle_id, position=midpoint)
 
     def apply_lateral_offset(self, transform: str):
@@ -807,7 +807,7 @@ class DalekBuilder:
             cv3 = skirt1_cvs[cv_id % num_cvs]
 
             # get the path
-            orb_path: Point3Pair = Point3Pair(get_midpoint((cv0, cv1)), get_midpoint((cv2, cv3)))
+            orb_path: Point3Pair = Point3Pair(get_midpoint_from_point_list((cv0, cv1)), get_midpoint_from_point_list((cv2, cv3)))
             if locators:
                 cmds.parent(create_locator(position=orb_path.a, name=f'orb_path{cv_id}_a', size=0.1), self.locator_group)
                 cmds.parent(create_locator(position=orb_path.b, name=f'orb_path{cv_id}_b', size=0.1), self.locator_group)

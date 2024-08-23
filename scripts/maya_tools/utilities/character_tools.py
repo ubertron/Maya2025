@@ -4,6 +4,7 @@ from PySide6.QtWidgets import QCheckBox, QDoubleSpinBox
 from PySide6.QtCore import QSettings
 
 # DEBUG BLOCK START
+from importlib import reload
 from maya_tools import node_utils; reload(node_utils)
 from maya_tools import helpers; reload(helpers)
 from maya_tools import rigging_utils; reload(rigging_utils)
@@ -13,7 +14,7 @@ from core import DEVELOPER
 from core.core_enums import Axis
 from core.point_classes import POINT3_ORIGIN
 from maya_tools.character_utils import mirror_limbs
-from maya_tools.helpers import get_midpoint, create_locator, create_pivot_locators, auto_parent_locators
+from maya_tools.helpers import get_midpoint_from_transform, create_locator, create_pivot_locators, auto_parent_locators
 from maya_tools.node_utils import ComponentType, set_component_mode, pivot_to_center, match_pivot_to_last, \
     get_locators
 from maya_tools.rigging_utils import create_joints_from_locator_hierarchy, create_locator_hierarchy_from_joints, \
@@ -90,7 +91,8 @@ class RigBuilder(GridWidget):
         """
         Event for Create Joints button
         """
-        create_joints_from_locator_hierarchy(mirror_joints=self.mirror_joints, axis=self.current_axis)
+        joint_root = create_joints_from_locator_hierarchy(mirror_joints=self.mirror_joints, axis=self.current_axis)
+        orient_joints(joint_root=joint_root, recurse=True)
 
     def create_locators_from_joints_clicked(self):
         """
@@ -104,7 +106,7 @@ class RigBuilder(GridWidget):
         Event for create locator button
         """
         selection = cmds.ls(sl=True)
-        position = get_midpoint(selection) if selection else POINT3_ORIGIN
+        position = get_midpoint_from_transform(selection) if selection else POINT3_ORIGIN
         locator = create_locator(position=position, size=self.current_size)
         set_component_mode(ComponentType.object)
         cmds.select(locator)
@@ -125,7 +127,7 @@ class CharacterTools(GenericWidget):
         self.add_button('Mirror Limb Geometry', event=mirror_limbs)
         self.add_button('Orient Joints', event=self.orient_joints)
         self.add_button('Bind Skin', event=bind_skin, tool_tip='Bind joint hierarchy to model.')
-        self.add_button('Bind Skin (Robot Mode)', event=partial(bind_skin, True),
+        self.add_button('Bind Skin (Rigid Mode)', event=partial(bind_skin, True),
                         tool_tip='Bind joint hierarchy to model using single influences.')
 
     @staticmethod
@@ -140,3 +142,4 @@ class CharacterTools(GenericWidget):
 if __name__ == '__main__':
     tool = CharacterTools()
     tool.show()
+

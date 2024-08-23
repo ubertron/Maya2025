@@ -3,7 +3,7 @@ from random import uniform
 from importlib import reload
 
 from core.point_classes import Point3, Y_AXIS
-from core.math_funcs import get_midpoint, vector_to_euler_angles, get_average_normal_from_points, dot_product
+from core.math_funcs import get_midpoint_from_point_list, vector_to_euler_angles, get_average_normal_from_points, dot_product
 from typing import Sequence
 
 
@@ -38,7 +38,7 @@ def test_func_2():
     euler_rotation = vector_to_euler_angles(average_normal)
     print(f'Average normal is {average_normal}')
     print(f'Euler rotation is {euler_rotation}')
-    print(f'Midpoint = {get_midpoint(points)}')
+    print(f'Midpoint = {get_midpoint_from_point_list(points)}')
     print(f'Y Axis DP is {dot_product(Y_AXIS, average_normal)}')
 
 

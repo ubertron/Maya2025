@@ -32,7 +32,7 @@ def interpolate_linear(input_range: Point2, output_range: Point2, value: float) 
     return mapped_value
 
 
-def get_midpoint(points: Sequence[Point3]) -> Point3:
+def get_midpoint_from_point_list(points: Sequence[Point3]) -> Point3:
     """
     Gets the midpoint from a list of points
     :param points:

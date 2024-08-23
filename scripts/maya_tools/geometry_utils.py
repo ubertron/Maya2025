@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 from core.core_enums import ComponentType, Axis
 from core.point_classes import Point3, Point3Pair, NEGATIVE_Y_AXIS, POINT3_ORIGIN
-from core.math_funcs import cross_product, dot_product, normalize_vector, degrees_to_radians, get_midpoint
+from core.math_funcs import cross_product, dot_product, normalize_vector, degrees_to_radians, get_midpoint_from_point_list
 from maya_tools.scene_utils import message_script
 from maya_tools.node_utils import State, set_component_mode, get_component_mode, get_type_from_transform, \
     restore_rotation, is_object_type, get_translation, set_pivot
@@ -851,7 +851,7 @@ def get_midpoint_from_faces(transform: str, faces: Sequence[int]) -> Point3:
     vertices = get_vertices_from_faces(transform=transform, faces=faces)
     vertex_positions = [get_vertex_position(transform=transform, vertex_id=vertex) for vertex in vertices]
 
-    return get_midpoint(points=vertex_positions)
+    return get_midpoint_from_point_list(points=vertex_positions)
 
 
 def reverse_face_normals(transform: str, faces: list[int] or None = None):

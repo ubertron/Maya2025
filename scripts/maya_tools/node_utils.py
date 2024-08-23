@@ -59,6 +59,19 @@ class State:
                 self.object_selection.remove(item)
 
 
+def get_child_geometry(transform: str) -> list[str]:
+    """
+    Finds all the geometry objects that are within the descendents of a transform
+    :param transform:
+    :return:
+    """
+    transform_type: str = ObjectType.transform.name
+    transforms = [x for x in cmds.listRelatives(transform, allDescendents=True, type=transform_type,  fullPath=True)]
+    geometry = [x for x in transforms if is_object_type(transform=x, object_type=ObjectType.mesh)]
+
+    return geometry
+
+
 def get_locators():
     """
     Find all the locators in the scene
@@ -325,7 +338,7 @@ def get_shape_from_transform(transform, full_path=False):
     :param full_path:
     :return:
     """
-    if cmds.nodeType(transform) == 'transform':
+    if cmds.nodeType(transform) == ObjectType.transform.name:
         shape_list = cmds.listRelatives(transform, f=full_path, shapes=True)
         return shape_list[0] if shape_list else None
     else:
@@ -439,13 +452,19 @@ def scale(nodes: Union[str, list[str]], value: Point3, absolute: bool = True):
     cmds.scale(*value.values, nodes, absolute=absolute)
 
 
-def get_translation(transform: str) -> Point3:
+def get_translation(transform: str, absolute: bool = False) -> Point3:
     """
     Get the translation of a transform
     :param transform:
+    :param absolute: use xform to calculate translation in world space
     :return:
     """
-    return Point3(*cmds.getAttr(f'{transform}.translate')[0])
+    if absolute:
+        translation = cmds.xform(transform, query=True, translation=True, worldSpace=True)
+    else:
+        translation = cmds.getAttr(f'{transform}.translate')[0]
+
+    return Point3(*translation)
 
 
 def get_rotation(transform: str) -> Point3:

@@ -1,13 +1,16 @@
 import logging
 
+from collections import OrderedDict
 from maya import cmds
 from typing import Optional
 
 from core.core_enums import Axis
+from core.math_funcs import get_midpoint_from_point_list
 from core.point_classes import Point3, Point3Pair
 from maya_tools.maya_enums import ObjectType
-from maya_tools.node_utils import get_translation, get_type_from_transform, get_root_transform, is_object_type
-from maya_tools.helpers import get_selected_locators, is_locator, create_locator
+from maya_tools.node_utils import get_translation, get_type_from_transform, get_root_transform, is_object_type, \
+    get_child_geometry
+from maya_tools.helpers import get_selected_locators, is_locator, create_locator, get_midpoint_from_transform
 from maya_tools.undo_utils import UndoStack
 
 
@@ -194,7 +197,7 @@ def orient_joints(joint_root: Optional[str] = None, recurse: bool = False):
                     orient_joints(joint_root=child_joint, recurse=True)
 
 
-def bind_skin(robot_mode: bool = False):
+def bind_skin(rigid_bind_mode: bool = False):
     """
     Bind a model hierarchy to a skeleton
     Select the root of the geometry and the skeleton to make this happen
@@ -217,20 +220,51 @@ def bind_skin(robot_mode: bool = False):
 
         # check model root for geometry
         model_root = next(x for x in selection if x != joint_root)
-        transforms = [x for x in cmds.listRelatives(model_root, allDescendents=True, type=ObjectType.transform.name)]
-        geometry = [x for x in transforms if is_object_type(transform=x, object_type=ObjectType.mesh)]
+        geometry = get_child_geometry(transform=model_root)
 
         if not geometry:
             cmds.warning(warning)
             return
 
         # bind operation
-        cmds.bindSkin(model_root, joint_root)
-        # cmds.bindSkin(*geometry, joint_root)
-        # skin_cluster
+        cmds.bindSkin(joint_root, *geometry, colorJoints=True)
 
-        # if robot_mode:
-        #     cmds.skinCluster(skin_cluster, edit=True, maximumInfluences=1)
+        if rigid_bind_mode:
+            rigid_bind(model_root=model_root, joint_root=joint_root)
     else:
         cmds.warning(warning)
 
+
+def rigid_bind(model_root: str, joint_root: str):
+    """
+    Bind a model to a skeleton with single joint influence
+    :param model_root:
+    :param joint_root:
+    """
+    # get the geometric center of each joint
+    joint_type = ObjectType.joint.name
+    joint_positions = {x: get_joint_center(x) for x in cmds.listRelatives(joint_root, allDescendents=True,
+                                                                          fullPath=True, type=joint_type)}
+
+    # iterate through geometry and find the closest joint to each mesh
+    geometry = get_child_geometry(transform=model_root)
+
+    for mesh in geometry:
+        position = get_midpoint_from_transform(transform=mesh)
+        joint, _ = min(joint_positions.items(), key=lambda item: Point3Pair(position, item[1]).length)
+        logging.debug(f'Closest joint to {mesh} is {joint}')
+
+        # set the skin weights automatically
+
+
+
+def get_joint_center(joint: str) -> Point3:
+    """
+    Finds the center position of a joint
+    :param joint:
+    :return:
+    """
+    joint_positions: list[Point3] = [get_translation(transform=joint, absolute=True)]
+    joint_positions.extend(get_translation(x, absolute=True) for x in get_child_joints(joint=joint))
+
+    return get_midpoint_from_point_list(joint_positions)

@@ -135,8 +135,8 @@ def get_bounds(transform: Optional[str] = None, format_results: bool = False,
         return bounds
 
 
-def get_midpoint(transform: Optional[str] = None, format_results: bool = False,
-                 clipboard: bool = False) -> Point3 or None:
+def get_midpoint_from_transform(transform: Optional[str] = None, format_results: bool = False,
+                                clipboard: bool = False) -> Point3 or None:
     """
     Calculate the midpoint of a transform
     :param transform:
@@ -194,7 +194,7 @@ def place_locator_in_centroid(size: float = 1.0):
     :param size:
     """
     assert len(cmds.ls(sl=True)), 'Select geometry'
-    center = get_midpoint(cmds.ls(sl=True))
+    center = get_midpoint_from_transform(cmds.ls(sl=True))
     create_locator(position=center, size=size)
 
 

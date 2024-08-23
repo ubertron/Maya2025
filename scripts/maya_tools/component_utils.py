@@ -5,7 +5,7 @@ from maya import cmds
 from dataclasses import dataclass
 from typing import Sequence, Union, Optional
 
-from core.math_funcs import get_closest_position_on_line_to_point, get_average_normal_from_points, get_midpoint, \
+from core.math_funcs import get_closest_position_on_line_to_point, get_average_normal_from_points, get_midpoint_from_point_list, \
     vector_to_euler_angles, project_point_onto_plane
 from core.point_classes import Point3, Point3Pair, X_AXIS, Y_AXIS, Z_AXIS
 from core.core_enums import Axis, Position, ComponentType
