@@ -305,6 +305,22 @@ def move_to_origin(transform=None):
         cmds.setAttr(f'{item}{Attr.translate.value}', 0, 0, 0, type=DataType.float3.name)
 
 
+def get_selected_geometry() -> list[str]:
+    """
+    Get selected geometry transforms
+    :return:
+    """
+    return [x for x in get_selected_transforms() if is_object_type(transform=x, object_type=ObjectType.mesh)]
+
+
+def get_selected_joints() -> list[str]:
+    """
+    Get selected joints
+    :return:
+    """
+    return [x for x in get_selected_transforms() if cmds.objectType(x) == ObjectType.joint.name]
+
+
 def get_selected_transforms(first_only: bool = False) -> list[str] or str or None:
     """
     Get a list of selected transform nodes
@@ -356,6 +372,15 @@ def get_transform_from_shape(shape: str, full_path: bool = False) -> str or Fals
     return result[0] if result else False
 
 
+def is_group_node(transform: str):
+    """
+    Determine if a transform is a group node
+    :param transform:
+    :return:
+    """
+    return cmds.nodeType(transform) == ObjectType.transform.name and not cmds.listRelatives(transform, shapes=True)
+
+
 def is_object_type(transform: str, object_type: ObjectType):
     """
     Verifies an object type of a transform's corresponding shape node
@@ -388,11 +413,11 @@ def move_to_last():
     Move selected objects to the location of the last selected object
     """
     transforms = cmds.ls(sl=True, tr=True)
-    assert len(transforms) > 1, "Select more than one node."
-    location = cmds.getAttr(f'{transforms[-1]}.translate')[0]
+    assert len(transforms) > 1, 'Select more than one node.'
+    location = get_translation(transform=transforms[-1], absolute=True)
 
     for i in range(len(transforms) - 1):
-        cmds.setAttr(f'{transforms[i]}.translate', *location, type='float3')
+        cmds.setAttr(f'{transforms[i]}.translate', location.values, type=DataType.float3.name)
 
 
 def rename_transforms(transforms: Optional[list] = None, token: str = "node",
@@ -528,3 +553,15 @@ def get_top_node(node):
     parent = cmds.listRelatives(node, parent=True, fullPath=True)
 
     return node if parent is None else get_top_node(parent[0])
+
+
+def sort_transforms_by_depth(transforms: list[str], reverse: bool = False) -> list[str]:
+    """
+    Sorts a list of transforms by the hierarchy depth
+    :param transforms:
+    :param reverse:
+    """
+    transform_list = cmds.ls(transforms, long=True)
+    transform_list.sort(key=lambda x: len(x.split('|')), reverse=reverse)
+
+    return transform_list

@@ -1,12 +1,17 @@
 import os
 
 from functools import partial
+from pathlib import Path
 
 from core.core_enums import FileExtension, Gender, Side
-from maya_tools.maya_enums import ObjectType
 from core.core_paths import MODELS_FOLDER, SCENES_FOLDER
-from maya_tools.scene_utils import import_model, load_scene
-from maya_tools.node_utils import get_root_transform, reset_pivot, delete_history, get_selected_transforms, super_reset
+from core.point_classes import Point3
+from maya_tools.helpers import in_view_message
+from maya_tools.layer_utils import is_display_layer, create_display_layer, add_to_layer
+from maya_tools.maya_enums import ObjectType
+from maya_tools.node_utils import get_root_transform, reset_pivot, delete_history, get_selected_transforms, \
+    super_reset, get_child_geometry, sort_transforms_by_depth, is_group_node
+from maya_tools.scene_utils import import_model, load_scene, get_scene_name, get_scene_path, export_selected, save_scene
 from maya_tools.undo_utils import UndoStack
 
 from maya import cmds
@@ -14,6 +19,8 @@ from maya import cmds
 
 BASE_MESH_MALE = 'base_mesh_male'
 BASE_MESH_FEMALE = 'base_mesh_female'
+MODEL_LAYER: str = 'modelLayer'
+MODEL_LAYER_COLOR: Point3 = Point3(0.25, 0.25, 0.25)
 
 
 def import_base_character(gender: Gender or str):
@@ -149,6 +156,61 @@ def get_limb_nodes(root_transform: str, limb_tokens: tuple[str] = ('arm', 'leg')
 
     if group_nodes:
         return [group for limb in limb_tokens for group in group_nodes if limb in group]
+
+
+def export_model_reference() -> Path or None:
+    """
+    Exports the current model file
+    Scene name must be in the format: [name].[####]
+    :return:
+    """
+    # validate scene name
+    scene_name = get_scene_name(include_extension=False)
+    scene_path = get_scene_path()
+
+    if '.' in scene_name and scene_name.split('.')[1].isdigit():
+        reference_scene_name = f'{get_scene_name(include_extension=True).split(".")[0]}{FileExtension.mb.value}'
+        reference_path: Path = scene_path.parent.joinpath(reference_scene_name)
+    else:
+        cmds.warning(f'Scene name invalid for reference export: {scene_name} - [name].[####]')
+        return
+
+    # select the top group node
+    transforms = get_selected_transforms()
+    warning = 'Please select the model.'
+
+    if transforms is None or len(transforms) != 1:
+        cmds.warning(warning)
+        return
+
+    save_scene()
+
+    with UndoStack('export_model_reference'):
+        # find all the geometry sub-children
+        root_transform = get_root_transform(transforms[0])
+        child_geometry = get_child_geometry(transform=root_transform)
+        sorted_geometry = sort_transforms_by_depth(transforms=child_geometry, reverse=True)
+
+        # reparent to top group node and freeze transformations
+        for transform in sorted_geometry:
+            reparented_transform = cmds.parent(transform, root_transform)
+            super_reset(nodes=reparented_transform)
+
+        # delete child group nodes of root_transform
+        for group_node in [x for x in cmds.listRelatives(root_transform, children=True) if is_group_node(x)]:
+            cmds.delete(group_node)
+
+        if not is_display_layer(MODEL_LAYER):
+            create_display_layer(name=MODEL_LAYER, color=MODEL_LAYER_COLOR)
+
+        add_to_layer(transforms=root_transform, layer=MODEL_LAYER)
+        cmds.select(root_transform)
+        export_selected(export_path=reference_path)
+        in_view_message(f'Model reference exported to {reference_path}')
+
+    load_scene(file_path=scene_path)
+
+    return reference_path
 
 
 class InfoSuppression:

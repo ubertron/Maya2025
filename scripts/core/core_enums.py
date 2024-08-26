@@ -68,6 +68,7 @@ class FileExtension(Enum):
     json = '.json'
     mb = '.mb'
     ma = '.ma'
+    obj = '.obj'
     png = '.png'
     psd = '.psd'
     py = '.py'

@@ -5,20 +5,24 @@ from PySide6.QtCore import QSettings
 
 # DEBUG BLOCK START
 from importlib import reload
+from core import core_enums; reload(core_enums)
 from maya_tools import node_utils; reload(node_utils)
+from maya_tools import layer_utils; reload(layer_utils)
+from maya_tools import scene_utils; reload(scene_utils)
 from maya_tools import helpers; reload(helpers)
 from maya_tools import rigging_utils; reload(rigging_utils)
+from maya_tools import character_utils; reload(character_utils)
 # DEBUG BLOCK END
 
 from core import DEVELOPER
 from core.core_enums import Axis
 from core.point_classes import POINT3_ORIGIN
-from maya_tools.character_utils import mirror_limbs
+from maya_tools.character_utils import mirror_limbs, export_model_reference
 from maya_tools.helpers import get_midpoint_from_transform, create_locator, create_pivot_locators, auto_parent_locators
 from maya_tools.node_utils import ComponentType, set_component_mode, pivot_to_center, match_pivot_to_last, \
-    get_locators
+    get_locators, get_selected_transforms
 from maya_tools.rigging_utils import create_joints_from_locator_hierarchy, create_locator_hierarchy_from_joints, \
-    bind_skin, orient_joints
+    bind_skin, orient_joints, restore_bind_pose, get_influences, rigid_bind_meshes_to_selected_joint
 from maya_tools.undo_utils import UndoStack
 from widgets.generic_widget import GenericWidget
 from widgets.grid_widget import GridWidget
@@ -118,6 +122,27 @@ class RigBuilder(GridWidget):
         create_pivot_locators(size=self.current_size)
 
 
+class RigidBindTool(GenericWidget):
+    TITLE: str = 'Rigid Bind Tools'
+
+    def __init__(self):
+        super(RigidBindTool, self).__init__(title=self.TITLE)
+        self.add_button('Rigid Bind', event=partial(bind_skin, True),
+                        tool_tip='Bind joint hierarchy to model.')
+        self.add_button('Select influences for geometry', event=self.select_influences_clicked,
+                        tool_tip='Select the influences for an object.')
+        self.add_button('Bind selected meshes to joint', event=rigid_bind_meshes_to_selected_joint)
+
+    @staticmethod
+    def select_influences_clicked():
+        selection = get_selected_transforms()
+
+        if len(selection) == 1:
+            get_influences(transform=selection[0], select=True)
+        else:
+            cmds.warning('Please select an object.')
+
+
 class CharacterTools(GenericWidget):
     def __init__(self):
         super(CharacterTools, self).__init__('Character Tools', margin=4)
@@ -127,8 +152,10 @@ class CharacterTools(GenericWidget):
         self.add_button('Mirror Limb Geometry', event=mirror_limbs)
         self.add_button('Orient Joints', event=self.orient_joints)
         self.add_button('Bind Skin', event=bind_skin, tool_tip='Bind joint hierarchy to model.')
-        self.add_button('Bind Skin (Rigid Mode)', event=partial(bind_skin, True),
-                        tool_tip='Bind joint hierarchy to model using single influences.')
+        self.add_button('Restore Bind Pose', event=restore_bind_pose)
+        self.add_button('Export Model Reference', event=export_model_reference,
+                        tool_tip='Export the file to be used as the model character reference scene.')
+        self.rigid_bind_tool = self.add_widget(GroupBox('Rigid Bind Tools', RigidBindTool()))
 
     @staticmethod
     def orient_joints():
@@ -142,4 +169,3 @@ class CharacterTools(GenericWidget):
 if __name__ == '__main__':
     tool = CharacterTools()
     tool.show()
-

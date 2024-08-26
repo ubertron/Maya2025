@@ -1,7 +1,7 @@
 import logging
 
 from collections import OrderedDict
-from maya import cmds
+from maya import cmds, mel
 from typing import Optional
 
 from core.core_enums import Axis
@@ -9,9 +9,13 @@ from core.math_funcs import get_midpoint_from_point_list
 from core.point_classes import Point3, Point3Pair
 from maya_tools.maya_enums import ObjectType
 from maya_tools.node_utils import get_translation, get_type_from_transform, get_root_transform, is_object_type, \
-    get_child_geometry
+    get_child_geometry, get_selected_geometry, get_selected_joints
 from maya_tools.helpers import get_selected_locators, is_locator, create_locator, get_midpoint_from_transform
+from maya_tools.layer_utils import is_display_layer, create_display_layer, add_to_layer
 from maya_tools.undo_utils import UndoStack
+
+JOINT_LAYER: str = 'jointLayer'
+JOINT_LAYER_COLOR: Point3 = Point3(0.4, 1.0, 1.0)
 
 
 def create_joints_from_locator_hierarchy(mirror_joints: bool = False, axis: Axis = Axis.x) -> str or None:
@@ -37,9 +41,75 @@ def create_joints_from_locator_hierarchy(mirror_joints: bool = False, axis: Axis
                 for limb_joint in limb_joints:
                     mirror_joint(joint=limb_joint, axis=axis)
 
+            if not is_display_layer(JOINT_LAYER):
+                create_display_layer(name=JOINT_LAYER, color=JOINT_LAYER_COLOR)
+
+            add_to_layer(transforms=root_joint, layer=JOINT_LAYER)
             cmds.select(root_joint)
 
             return root_joint
+
+
+def get_influences(transform: str, threshold: float = 0.01, select: bool = False) -> str or None:
+    """
+    Get a list of influence objects related to an object's skin cluster
+    :param transform:
+    :param threshold:
+    :param select:
+    :return:
+    """
+    skin_cluster = get_skin_cluster(transform=transform)
+
+    if skin_cluster:
+        influences = get_influence_names_from_cluster(skin_cluster=skin_cluster)
+        skin_weights = get_skin_weights(transform=transform)
+        output_list = [val for idx, val in enumerate(influences) for sws in skin_weights if sws[idx] > threshold]
+        output_list = list(set(output_list))
+
+        if select:
+            cmds.select(output_list)
+
+        return output_list
+    else:
+        cmds.warning(f'{transform} has no skin cluster.')
+        return None
+
+
+def get_influence_names_from_cluster(skin_cluster: str) -> list[str]:
+    """
+    Get the names of the joints for a skin cluster
+    :param skin_cluster:
+    :return:
+    """
+    return cmds.skinCluster(skin_cluster, query=True, influence=True)
+
+
+def get_skin_weights(transform: str) -> list[list[float]] or None:
+    """
+    Get a list of skin weights for each vertex in a transform
+    :param transform:
+    :return:
+    """
+    skin_cluster = get_skin_cluster(transform=transform)
+    skin_weights = []
+
+    if skin_cluster:
+
+        for i in range(cmds.polyEvaluate(transform, vertex=True)):
+            skin_weights.append(cmds.skinPercent(skin_cluster, f'{transform}.vtx[{i}]', query=True, value=True))
+
+        return skin_weights
+
+
+def get_skin_cluster(transform: str) -> str or None:
+    """
+    Finds the skin cluster nodes attached to a geometry transform
+    :param transform:
+    :return:
+    """
+    result = mel.eval(f'findRelatedSkinCluster {transform}')
+
+    return result if result else None
 
 
 def mirror_joint(joint: str, axis: Axis):
@@ -227,17 +297,33 @@ def bind_skin(rigid_bind_mode: bool = False):
             return
 
         # bind operation
-        cmds.bindSkin(joint_root, *geometry, colorJoints=True)
+        # TODO: validate the model to ensure it is flat and has reset transformations
 
         if rigid_bind_mode:
             rigid_bind(model_root=model_root, joint_root=joint_root)
+        else:
+            cmds.bindSkin(joint_root, model_root, colorJoints=True)
     else:
         cmds.warning(warning)
+
+
+def restore_bind_pose():
+    """
+    Restore selected joint to bind pose
+    """
+    selection = cmds.ls(sl=True, type=ObjectType.joint.name)
+
+    if selection and len(selection) == 1:
+        cmds.dagPose(selection[0], restore=True, bindPose=True)
+    else:
+        cmds.warning('Please select a joint')
 
 
 def rigid_bind(model_root: str, joint_root: str):
     """
     Bind a model to a skeleton with single joint influence
+    Locks to the closest bone on a per-object basis
+    There may be incorrect assumptions, so check all bones
     :param model_root:
     :param joint_root:
     """
@@ -255,7 +341,46 @@ def rigid_bind(model_root: str, joint_root: str):
         logging.debug(f'Closest joint to {mesh} is {joint}')
 
         # set the skin weights automatically
+        cluster_node = create_rigid_joint_cluster(mesh_transform=mesh, joint=joint)
+        cmds.skinPercent(cluster_node, mesh, transformValue=[(joint, 1.0)])
 
+
+def create_rigid_joint_cluster(mesh_transform: str, joint: str) -> str:
+    """
+    Rigid bind a mesh to a joint
+    :param mesh_transform:
+    :param joint:
+    :return:
+    """
+    cluster_node = cmds.skinCluster(joint, mesh_transform, maximumInfluences=1)[0]
+
+    return cluster_node
+
+
+def rigid_bind_meshes_to_selected_joint():
+    """
+    Convenience function to set the skin weights for an existing skin cluster to a joint
+    """
+    joints = get_selected_joints()
+    geometry = get_selected_geometry()
+
+    if len(joints) == 1:
+        joint = joints[0]
+    else:
+        cmds.warning('Please select a single joint.')
+        return
+
+    if not geometry:
+        cmds.warning('Please select geometry.')
+        return
+
+    for mesh in geometry:
+        skin_cluster = get_skin_cluster(transform=mesh)
+
+        if skin_cluster and joint in get_influence_names_from_cluster(skin_cluster=skin_cluster):
+            cmds.skinPercent(skin_cluster, mesh, transformValue=[(joint, 1.0)])
+
+    logging.info(f'Meshes bound to {joint}: {", ".join(geometry)}')
 
 
 def get_joint_center(joint: str) -> Point3:

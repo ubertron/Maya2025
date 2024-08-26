@@ -4,7 +4,31 @@ from pathlib import Path
 from maya import cmds
 from typing import List
 
-from core.core_enums import ComponentType
+from core.core_enums import ComponentType, FileExtension
+
+
+def export_selected(export_path: Path):
+    """
+    Export selected objects
+    :param export_path:
+    """
+    file_types = {
+        FileExtension.ma: 'mayaAscii',
+        FileExtension.mb: 'mayaBinary',
+        FileExtension.obj: 'OBJ'
+    }
+
+    file_type = next((value for key, value in file_types.items() if export_path.as_posix().endswith(key.value)), None)
+
+    if file_type:
+        if cmds.ls(sl=True, tr=True):
+            export_path.parent.mkdir(parents=True, exist_ok=True)
+            result = cmds.file(export_path.as_posix(), exportSelected=True, type=file_type)
+            logging.info(f'Selected transforms exported to {result}')
+        else:
+            cmds.warning('Nothing selected.')
+    else:
+        cmds.warning(f'Invalid export extension: {export_path.suffix}')
 
 
 def get_scene_name(include_extension: bool = True) -> str:
@@ -30,13 +54,6 @@ def get_scene_path() -> Path:
     return Path(cmds.file(query=True, sceneName=True))
 
 
-def new_scene():
-    """
-    Create a new scene in Maya
-    """
-    cmds.file(newFile=True, force=True)
-
-
 def import_model(import_path: Path):
     """
     Imports a file
@@ -54,6 +71,21 @@ def load_scene(file_path: Path, force: bool = True):
     return cmds.file(file_path.as_posix(), force=force, open=True, returnNewNodes=True)
 
 
+def new_scene():
+    """
+    Create a new scene in Maya
+    """
+    cmds.file(newFile=True, force=True)
+
+
+def query_unsaved_changes() -> bool:
+    """
+    Returns True if there are unsaved changes in the current scene
+    @return: bool
+    """
+    return cmds.file(query=True, modified=True)
+
+
 def save_scene(force: bool = False):
     """
     Perform a file save operation
@@ -67,7 +99,7 @@ def save_scene(force: bool = False):
         return False
 
     try:
-        cmds.system.saveFile(force=force)
+        cmds.file(save=True, force=force)
         return True
     except RuntimeError as err:
         logging.error(f'Please check file out in source control prior to save.: {err}')
