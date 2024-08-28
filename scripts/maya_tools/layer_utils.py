@@ -133,7 +133,7 @@ def toggle_current_layer_shading():
     Toggle shading for layers representing the current object selection
     """
     for layer in get_selected_display_layers():
-        toggle_layer_shading(layer)
+        toggle_layer_shading(layer=layer)
 
 
 def list_layer_contents(layer_name: str) -> list[str] or None:
@@ -173,6 +173,7 @@ def add_to_reference_layer(items: Sequence[str] = ()):
 
 def get_selected_display_layers():
     layers = mel.eval('getLayerSelection("Display")')
+
     return [item for item in get_display_layers() if item in layers]
 
 

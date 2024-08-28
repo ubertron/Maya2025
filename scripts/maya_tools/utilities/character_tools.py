@@ -6,6 +6,8 @@ from PySide6.QtCore import QSettings
 # DEBUG BLOCK START
 from importlib import reload
 from core import core_enums; reload(core_enums)
+from core.function_utils import get_lead_docstring_comment
+from maya_tools import display_utils; reload(display_utils)
 from maya_tools import node_utils; reload(node_utils)
 from maya_tools import layer_utils; reload(layer_utils)
 from maya_tools import scene_utils; reload(scene_utils)
@@ -20,9 +22,10 @@ from core.point_classes import POINT3_ORIGIN
 from maya_tools.character_utils import mirror_limbs, export_model_reference
 from maya_tools.helpers import get_midpoint_from_transform, create_locator, create_pivot_locators, auto_parent_locators
 from maya_tools.node_utils import ComponentType, set_component_mode, pivot_to_center, match_pivot_to_last, \
-    get_locators, get_selected_transforms
+    get_locators, get_selected_transforms, align_transform_to_joint
 from maya_tools.rigging_utils import create_joints_from_locator_hierarchy, create_locator_hierarchy_from_joints, \
-    bind_skin, orient_joints, restore_bind_pose, get_influences, rigid_bind_meshes_to_selected_joint
+    bind_skin, reorient_joints, restore_bind_pose, get_influences, rigid_bind_meshes_to_selected_joint, \
+    unbind_skin_clusters
 from maya_tools.undo_utils import UndoStack
 from widgets.generic_widget import GenericWidget
 from widgets.grid_widget import GridWidget
@@ -95,8 +98,7 @@ class RigBuilder(GridWidget):
         """
         Event for Create Joints button
         """
-        joint_root = create_joints_from_locator_hierarchy(mirror_joints=self.mirror_joints, axis=self.current_axis)
-        orient_joints(joint_root=joint_root, recurse=True)
+        create_joints_from_locator_hierarchy(mirror_joints=self.mirror_joints, axis=self.current_axis)
 
     def create_locators_from_joints_clicked(self):
         """
@@ -144,17 +146,24 @@ class RigidBindTool(GenericWidget):
 
 
 class CharacterTools(GenericWidget):
+    TITLE: str = 'Character Tools'
+
     def __init__(self):
-        super(CharacterTools, self).__init__('Character Tools', margin=4)
+        super(CharacterTools, self).__init__(self.TITLE, margin=4)
         self.rig_builder = self.add_widget(GroupBox('Rig Builder', RigBuilder()))
-        self.add_button('Center Pivot', event=pivot_to_center, tool_tip='Center pivot')
-        self.add_button('Match Pivot', event=match_pivot_to_last, tool_tip='Match pivot to last.')
-        self.add_button('Mirror Limb Geometry', event=mirror_limbs)
+        self.add_button('Center Pivot', event=pivot_to_center, tool_tip=get_lead_docstring_comment(pivot_to_center))
+        self.add_button('Match Pivot', event=match_pivot_to_last,
+                        tool_tip=get_lead_docstring_comment(match_pivot_to_last))
+        self.add_button('Align Transform To Joint', event=align_transform_to_joint,
+                        tool_tip=get_lead_docstring_comment(align_transform_to_joint))
+        self.add_button('Mirror Limb Geometry', event=mirror_limbs, tool_tip=get_lead_docstring_comment(mirror_limbs))
         self.add_button('Orient Joints', event=self.orient_joints)
-        self.add_button('Bind Skin', event=bind_skin, tool_tip='Bind joint hierarchy to model.')
+        self.add_button('Bind Skin', event=bind_skin, tool_tip=get_lead_docstring_comment(bind_skin))
         self.add_button('Restore Bind Pose', event=restore_bind_pose)
         self.add_button('Export Model Reference', event=export_model_reference,
-                        tool_tip='Export the file to be used as the model character reference scene.')
+                        tool_tip=get_lead_docstring_comment(export_model_reference))
+        self.add_button('Unbind Skin Clusters', event=unbind_skin_clusters,
+                        tool_tip=get_lead_docstring_comment(unbind_skin_clusters))
         self.rigid_bind_tool = self.add_widget(GroupBox('Rigid Bind Tools', RigidBindTool()))
 
     @staticmethod
@@ -163,7 +172,7 @@ class CharacterTools(GenericWidget):
         Set the joint orientations
         """
         with UndoStack('orient_joints'):
-            orient_joints(recurse=True)
+            reorient_joints(recurse=True)
 
 
 if __name__ == '__main__':

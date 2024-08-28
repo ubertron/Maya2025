@@ -13,6 +13,18 @@ from maya_tools.display_utils import in_view_message
 from maya_tools.undo_utils import UndoStack
 
 
+def auto_parent_locators():
+    """
+    Create a locator parented hierarchy based on selection order
+    """
+    locators = get_selected_locators()
+
+    if len(locators) > 1:
+        for i in range(0, len(locators) - 1):
+            print(locators[i])
+            cmds.parent(locators[i], locators[i + 1])
+
+
 def create_locator(position: Point3 = Point3(0.0, 0.0, 0.0),  size: float = 1.0, name: str = '') -> str:
     """
     Create a space locator at a position
@@ -196,12 +208,3 @@ def place_locator_in_centroid(size: float = 1.0):
     assert len(cmds.ls(sl=True)), 'Select geometry'
     center = get_midpoint_from_transform(cmds.ls(sl=True))
     create_locator(position=center, size=size)
-
-
-def auto_parent_locators():
-    locators = get_selected_locators()
-
-    if len(locators) > 1:
-        for i in range(0, len(locators) - 1):
-            print(locators[i])
-            cmds.parent(locators[i], locators[i + 1])

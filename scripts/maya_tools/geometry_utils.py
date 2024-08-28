@@ -11,7 +11,7 @@ from core.point_classes import Point3, Point3Pair, NEGATIVE_Y_AXIS, POINT3_ORIGI
 from core.math_funcs import cross_product, dot_product, normalize_vector, degrees_to_radians, get_midpoint_from_point_list
 from maya_tools.scene_utils import message_script
 from maya_tools.node_utils import State, set_component_mode, get_component_mode, get_type_from_transform, \
-    restore_rotation, is_object_type, get_translation, set_pivot
+    restore_rotation, is_object_type, get_translation, set_pivot, get_selected_geometry, get_child_geometry
 from maya_tools.maya_enums import ObjectType
 
 
@@ -565,10 +565,12 @@ def toggle_xray(transforms: Optional[Sequence[str]] = None):
     Toggle xray on passed or selected objects
     :param transforms:
     """
-    transforms = list(cmds.ls(transforms)) if transforms else cmds.ls(sl=True, transforms=True)
+    transforms = cmds.ls(transforms) if transforms else cmds.ls(sl=True, transforms=True)
 
-    for item in transforms:
-        cmds.displaySurface(item, xRay=(not cmds.displaySurface(item, xRay=True, query=True)[0]))
+    for transform in transforms:
+        for mesh in get_child_geometry(transform):
+            state = cmds.displaySurface(mesh, xRay=True, query=True)[0]
+            cmds.displaySurface(mesh, xRay= not state)
 
 
 def get_faces_by_axis(transform: str, axis: Point3, tolerance_angle: float = 0.05) -> list[int]:

@@ -1,9 +1,10 @@
 from maya import cmds
 from typing import Optional, Union
 
-from core.point_classes import Point2, Point3
+from core.point_classes import Point2, Point3, Point3Pair
 from core.core_enums import ComponentType, Attr, DataType
 from maya_tools.maya_enums import ObjectType
+from maya_tools.display_utils import warning_message
 
 
 class State:
@@ -59,6 +60,51 @@ class State:
                 self.object_selection.remove(item)
 
 
+def align_transform_to_joint():
+    """
+    Rotate a transform to match the position and orientation of a joint
+    """
+    transforms = get_selected_transforms()
+    warning = 'Please select a joint and a single transform'
+
+    if len(transforms) == 2:
+        joints = get_selected_joints()
+
+        if len(joints) == 1:
+            joint = joints[0]
+        else:
+            warning_message(warning)
+            return
+
+        transform = next(x for x in transforms if x != joint)
+    else:
+        warning_message(warning)
+        return
+
+    orientation = cmds.joint(joint, query=True, orientation=True)
+    position = get_translation(transform=joint, absolute=True)
+    translate(nodes=transform, value=position)
+    rotate(nodes=transform, value=Point3(*orientation))
+
+
+def get_all_child_transforms(transform: str, ordered: bool = False, reverse: bool = False) -> list[str]:
+    """
+    Find all children of a transform
+    Children can be transforms or joints
+    :param transform:
+    :param ordered:
+    :param reverse:
+    :return:
+    """
+    transform_type: str = ObjectType.transform.name
+    children = cmds.listRelatives(transform, allDescendents=True, type=transform_type, fullPath=True)
+
+    if ordered:
+        children = sort_transforms_by_depth(transforms=children, reverse=reverse)
+
+    return children if children else []
+
+
 def get_child_geometry(transform: str) -> list[str]:
     """
     Finds all the geometry objects that are within the descendents of a transform
@@ -72,7 +118,34 @@ def get_child_geometry(transform: str) -> list[str]:
     return geometry
 
 
-def get_locators():
+def get_hierarchy_depth(transform: str) -> int:
+    """
+    Finds the number of hierarchy levels from a root transform
+    :param transform:
+    :return:
+    """
+    children = get_all_child_transforms(transform=transform, ordered=True, reverse=True)
+
+    if children:
+        deepest_item = get_all_child_transforms(transform=transform, ordered=True, reverse=True)[0]
+        tokens = [x for x in deepest_item.split('|') if x != '']
+
+        return len(tokens)
+    else:
+        return 1
+
+
+def get_immediate_children(transform: str) -> list[str]:
+    """
+    Finds the immediate children of a transform
+    :param transform:
+    :return:
+    """
+    children = cmds.listRelatives(transform, children=True, fullPath=True)
+    return children if children else []
+
+
+def get_locators() -> list[str]:
     """
     Find all the locators in the scene
     :return:
@@ -305,6 +378,41 @@ def move_to_origin(transform=None):
         cmds.setAttr(f'{item}{Attr.translate.value}', 0, 0, 0, type=DataType.float3.name)
 
 
+def get_hierarchy_path(transform: Optional[str] = None, full_path: bool = False) -> list[str] or False:
+    """
+    Get a list of the path of a transform from the world
+    :param transform:
+    :param full_path:
+    :return:
+    """
+    warning = 'Please select a single transform'
+
+    if transform:
+        node_name = cmds.ls(transform, long=full_path)
+
+        if node_name:
+            transform = node_name[0]
+        else:
+            warning_message(warning)
+            return False
+    else:
+        selection = get_selected_transforms(full_path=full_path)
+        if len(selection) == 1:
+            transform = selection[0]
+        else:
+            warning_message(text=warning)
+            return False
+
+    hierarchy = [transform]
+    parent = cmds.listRelatives(transform, parent=True, fullPath=full_path)
+
+    while parent:
+        hierarchy.append(parent[0])
+        parent = cmds.listRelatives(parent, parent=True, fullPath=full_path)
+
+    return hierarchy[::-1]
+
+
 def get_selected_geometry() -> list[str]:
     """
     Get selected geometry transforms
@@ -321,7 +429,7 @@ def get_selected_joints() -> list[str]:
     return [x for x in get_selected_transforms() if cmds.objectType(x) == ObjectType.joint.name]
 
 
-def get_selected_transforms(first_only: bool = False) -> list[str] or str or None:
+def get_selected_transforms(first_only: bool = False, full_path: bool = False) -> list[str] or str or None:
     """
     Get a list of selected transform nodes
     This works if in component selection mode as well as object selection mode
@@ -329,7 +437,7 @@ def get_selected_transforms(first_only: bool = False) -> list[str] or str or Non
     """
     state = State()
     set_component_mode(ComponentType.object)
-    selection = cmds.ls(sl=True, tr=True)
+    selection = cmds.ls(sl=True, tr=True, long=full_path)
     state.restore()
 
     if selection:
@@ -350,15 +458,22 @@ def get_transforms(nodes=None, first_only: bool = False) -> list or str:
 def get_shape_from_transform(transform, full_path=False):
     """
     Gets the shape node if any from a transform
+    try-except needed for lcoators which are transforms with unqueryable shapes
     :param transform:
     :param full_path:
     :return:
     """
-    if cmds.nodeType(transform) == ObjectType.transform.name:
-        shape_list = cmds.listRelatives(transform, f=full_path, shapes=True)
+    try:
+        object_type = cmds.objectType(transform)
+    except RuntimeError:
+        return
+
+    if object_type == ObjectType.transform.name:
+        shape_list = cmds.listRelatives(transform, fullPath=full_path, shapes=True)
+
         return shape_list[0] if shape_list else None
     else:
-        return None
+        return
 
 
 def get_transform_from_shape(shape: str, full_path: bool = False) -> str or False:
@@ -388,9 +503,13 @@ def is_object_type(transform: str, object_type: ObjectType):
     :param object_type:
     :return:
     """
-    shape = get_shape_from_transform(transform)
+    if object_type is ObjectType.joint:
+        return cmds.objectType(transform) == ObjectType.joint.name
 
-    return cmds.objectType(shape) == object_type.name if shape else False
+    else:
+        shape = get_shape_from_transform(transform)
+
+        return cmds.objectType(shape) == object_type.name if shape else False
 
 
 def match_pivot_to_last(transforms: Optional[Union[str, list[str]]] = None):
@@ -408,16 +527,32 @@ def match_pivot_to_last(transforms: Optional[Union[str, list[str]]] = None):
     reset_pivot(selection[:-1])
 
 
-def move_to_last():
+def match_translation():
     """
     Move selected objects to the location of the last selected object
     """
-    transforms = cmds.ls(sl=True, tr=True)
-    assert len(transforms) > 1, 'Select more than one node.'
-    location = get_translation(transform=transforms[-1], absolute=True)
+    transforms = get_selected_transforms()
 
-    for i in range(len(transforms) - 1):
-        cmds.setAttr(f'{transforms[i]}.translate', location.values, type=DataType.float3.name)
+    if len(transforms) < 2:
+        warning_message(text='Select more than one node')
+        return
+
+    location: Point3 = get_translation(transform=transforms[-1], absolute=True)
+    translate(nodes=transforms[:-1], value=location, absolute=True)
+
+
+def match_rotation():
+    """
+    Rotate selected objects to the rotation of the last selected object
+    """
+    transforms = get_selected_transforms()
+
+    if len(transforms) < 2:
+        warning_message(text='Select more than one node')
+        return
+
+    rotation = get_rotation(transform=transforms[-1])
+    rotate(nodes=transforms[:-1], value=rotation, absolute=True)
 
 
 def rename_transforms(transforms: Optional[list] = None, token: str = "node",

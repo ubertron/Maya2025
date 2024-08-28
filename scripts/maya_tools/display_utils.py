@@ -1,3 +1,5 @@
+import logging
+
 from maya import cmds
 
 
@@ -8,6 +10,26 @@ def in_view_message(text: str, persist_time: int = 2000):
     :param persist_time:
     """
     cmds.inViewMessage(assistMessage=text, fade=True, pos='midCenter', fadeStayTime=persist_time)
+
+
+def warning_message(text: str, persist_time: int = 2000):
+    """
+    Display a warning message in-view and in the log
+    :param text:
+    :param persist_time:
+    """
+    in_view_message(text=text, persist_time=persist_time)
+    cmds.warning(text)
+
+
+def info_message(text: str, persist_time: int = 2000):
+    """
+    Display an info message in-view and in the log
+    :param text:
+    :param persist_time:
+    """
+    in_view_message(text=text, persist_time=persist_time)
+    logging.info(text)
 
 
 def toggle_transform_constraints():

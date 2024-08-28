@@ -78,7 +78,7 @@ def load_base_character(gender, latest=False):
 
 def mirror_limbs(*args, side: Side = Side.left):
     """
-
+    Mirror limb geometry
     :param args:
     :param side:
     :return:
@@ -160,7 +160,7 @@ def get_limb_nodes(root_transform: str, limb_tokens: tuple[str] = ('arm', 'leg')
 
 def export_model_reference() -> Path or None:
     """
-    Exports the current model file
+    Export the file to be used as a model reference scene
     Scene name must be in the format: [name].[####]
     :return:
     """
