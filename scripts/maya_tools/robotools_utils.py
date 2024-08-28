@@ -10,11 +10,12 @@ from maya import cmds
 from core.core_paths import SITE_PACKAGES, MAYA_INTERPRETER_PATH, MAYA_REQUIREMENTS, icon_path, PROJECT_ROOT, \
     PRESETS_FOLDER
 from core.config_utils import MayaConfig
-from maya_tools.io.fbx_utils import check_fbx_plug_in
 from maya_tools import plug_in_utils
-from maya_tools.utilities.shelf_manager import ShelfManager, message_script
-from maya_tools.utilities import hotkey_manager
+from maya_tools.io.fbx_utils import check_fbx_plug_in
 from maya_tools.maya_environment_utils import is_using_mac_osx, MAYA_APP_DIR
+from maya_tools.tool_utils import launch_script
+from maya_tools.utilities import hotkey_manager
+from maya_tools.utilities.shelf_manager import ShelfManager, message_script
 
 ROBOTOOLS_TITLE: str = 'Robotools'
 ROBOTOOLS_VERSION = '0.3'
@@ -59,10 +60,14 @@ def setup_robotools_shelf():
     script_icon = icon_path('script.png')
     export_manager = 'from maya_tools.ams.ams_debug import launch_export_manager\nlaunch_export_manager()'
     root_name_toggle = 'from maya_tools.ams.ams_debug import root_name_toggle\nroot_name_toggle()'
+
+    character_tools = launch_script(module_name='maya_tools.utilities', script_name='character_tools',
+                                    class_name='CharacterTools', object_name='Character Tools')
     base_male_cmd = 'from maya_tools.character_utils import import_base_character\nimport_base_character("male")'
     load_base_male = 'from maya_tools.character_utils import load_base_character\nload_base_character("male")'
     base_female_cmd = 'from maya_tools.character_utils import import_base_character\nimport_base_character("female")'
     load_base_female = 'from maya_tools.character_utils import load_base_character\nload_base_character("female")'
+
     toggle_layer_shading = 'from maya_tools.layer_utils import toggle_current_layer_shading\ntoggle_current_layer_shading()'
     create_cube = 'from maya import cmds; cmds.polyCube(w=1, h=1, d=1, sx=1, sy=1, sz=1)'
     slice_cmd = 'from maya_tools.mirror_utils import slice_geometry\nslice_geometry()'
@@ -95,6 +100,7 @@ def setup_robotools_shelf():
     sm.add_shelf_button(label='Root Name Toggle (Debug)', overlay_label='RtTog', icon=script_icon, command=root_name_toggle)
     sm.add_separator()
     sm.add_label('Characters')
+    sm.add_shelf_button(label='Character Tools', icon=script_icon, command=character_tools, overlay_label='CharT')
     sm.add_shelf_button(label='Import Base Male', icon=icon_path('base_male.png'), command=base_male_cmd)
     sm.add_shelf_button(label='Load Base Male', icon=script_icon, command=load_base_male, overlay_label='loadM')
     sm.add_shelf_button(label='Import Base Female', icon=icon_path('base_female.png'), command=base_female_cmd)
