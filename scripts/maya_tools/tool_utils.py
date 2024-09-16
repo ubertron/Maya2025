@@ -42,7 +42,8 @@ def launch_utility(utility_class: Type, object_name: str, **kwargs):
     if utility:
         logging.debug(f'Utility found: {utility}')
     else:
-        utility = utility_class(**kwargs)
+        # utility = utility_class(**kwargs)
+        utility = utility_class()
         logging.debug(f'Utility not found. Creating new instance: {utility}')
     
     utility.show()

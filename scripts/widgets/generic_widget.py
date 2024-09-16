@@ -2,17 +2,19 @@ import platform
 
 from PySide6.QtWidgets import QWidget, QPushButton, QLabel, QLayout, QSizePolicy, QMainWindow, QSpacerItem
 from PySide6.QtCore import Qt
-from shiboken6 import wrapInstance
 from typing import Optional, Callable
 
 from widgets.layouts import HBoxLayout, VBoxLayout
 from core import DARWIN_STR
-from core.core_enums import Alignment
+from core.core_enums import Alignment, WidgetMode, Side
 from core.environment_utils import is_using_maya_python
+from core.point_classes import Point2
 
 
 class GenericWidget(QWidget):
-    def __init__(self, title: str = '', alignment: Alignment = Alignment.vertical, parent: Optional[QWidget] = None, margin: int = 2, spacing: int = 2):
+    def __init__(self, title: str = '', alignment: Alignment = Alignment.vertical, parent: Optional[QWidget] = None,
+                 margin: int = 2, spacing: int = 2, size: Optional[Point2] = None,
+                 widget_mode: WidgetMode = WidgetMode.classic):
         super(GenericWidget, self).__init__(parent=parent)
         self.title = title
         self.setWindowTitle(self.title)
@@ -21,7 +23,12 @@ class GenericWidget(QWidget):
         self.setLayout(VBoxLayout() if alignment is Alignment.vertical else HBoxLayout())
         self.set_margin(margin)
         self.set_spacing(spacing)
-        self._init_maya_properties()
+
+        if size:
+            self.resize(*size.values)
+
+        if widget_mode is WidgetMode.maya_floating_window:
+            self._init_maya_properties()
 
     def add_widget(self, widget: QWidget) -> QWidget:
         """
@@ -32,15 +39,22 @@ class GenericWidget(QWidget):
         self.layout().addWidget(widget)
         return widget
 
-    def add_label(self, text: str = '', center_align: bool = True) -> QLabel:
+    def add_label(self, text: str = '', side: Side = Side.center) -> QLabel:
         """
         Add a label to the layout
         :param text:
-        :param center_align:
+        :param side:
         :return:
         """
         label: QLabel = self.add_widget(QLabel(text))
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter if center_align else Qt.AlignmentFlag.AlignLeft)
+
+        if side is Side.center:
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        elif side is Position.right:
+            label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        else:
+            label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
         return label
 
     def add_button(self, text: str, tool_tip: str = '', event: Optional[Callable] = None) -> QPushButton:
@@ -108,8 +122,8 @@ class GenericWidget(QWidget):
         Initializes widget properties for Maya
         """
         if is_using_maya_python():
-            from maya import OpenMayaUI
-            self.mayaMainWindow = wrapInstance(int(OpenMayaUI.MQtUtil.mainWindow()), QMainWindow)
+            from maya_tools.maya_environment_utils import MAYA_MAIN_WINDOW
+            self.mayaMainWindow = MAYA_MAIN_WINDOW
             self.setWindowFlags(Qt.Window)
             self.setWindowFlags(Qt.Tool if platform.system() == DARWIN_STR else Qt.Window)
 

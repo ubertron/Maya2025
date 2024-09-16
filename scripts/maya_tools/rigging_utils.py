@@ -93,7 +93,7 @@ def create_joints_from_locator_hierarchy(mirror_joints: bool = False, axis: Axis
 
             add_to_layer(transforms=root_joint, layer=JOINT_LAYER)
             reorient_joints(root_joint=root_joint, recurse=True)
-            fix_root_joint_orientation(root_joint)
+            fix_root_joint_orientation(root_joint=root_joint, axis=axis)
             cmds.select(root_joint)
 
             return root_joint

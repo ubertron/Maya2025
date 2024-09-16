@@ -1,9 +1,15 @@
 import platform
-from pathlib import Path
 
-from maya import mel
+from pathlib import Path
+from maya import mel, OpenMayaUI
 from typing import List
+from PySide6.QtWidgets import QMainWindow
+from shiboken6 import wrapInstance
+
 from core import DARWIN_STR
+
+
+MAYA_MAIN_WINDOW = wrapInstance(int(OpenMayaUI.MQtUtil.mainWindow()), QMainWindow)
 
 
 def is_using_mac_osx() -> bool:

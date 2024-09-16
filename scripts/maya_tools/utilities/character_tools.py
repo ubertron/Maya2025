@@ -3,10 +3,10 @@ from maya import cmds
 from PySide6.QtWidgets import QCheckBox, QDoubleSpinBox
 from PySide6.QtCore import QSettings
 
-# DEBUG BLOCK START
+"""
+DEBUG BLOCK START
 from importlib import reload
 from core import core_enums; reload(core_enums)
-from core.function_utils import get_lead_docstring_comment
 from maya_tools import display_utils; reload(display_utils)
 from maya_tools import node_utils; reload(node_utils)
 from maya_tools import layer_utils; reload(layer_utils)
@@ -14,10 +14,13 @@ from maya_tools import scene_utils; reload(scene_utils)
 from maya_tools import helpers; reload(helpers)
 from maya_tools import rigging_utils; reload(rigging_utils)
 from maya_tools import character_utils; reload(character_utils)
-# DEBUG BLOCK END
+from widgets import generic_widget; reload(generic_widget)
+DEBUG BLOCK END
+"""
 
 from core import DEVELOPER
 from core.core_enums import Axis
+from core.function_utils import get_lead_docstring_comment
 from core.point_classes import POINT3_ORIGIN
 from maya_tools.character_utils import mirror_limbs, export_model_reference
 from maya_tools.helpers import get_midpoint_from_transform, create_locator, create_pivot_locators, auto_parent_locators
@@ -27,7 +30,8 @@ from maya_tools.rigging_utils import create_joints_from_locator_hierarchy, creat
     bind_skin, reorient_joints, restore_bind_pose, get_influences, rigid_bind_meshes_to_selected_joint, \
     unbind_skin_clusters
 from maya_tools.undo_utils import UndoStack
-from widgets.generic_widget import GenericWidget
+#from widgets.generic_widget import GenericWidget
+from widgets.maya_dockable_widget import MayaDockableWidget
 from widgets.grid_widget import GridWidget
 from widgets.group_box import GroupBox
 from widgets.radio_button_widget import RadioButtonWidget
@@ -124,7 +128,7 @@ class RigBuilder(GridWidget):
         create_pivot_locators(size=self.current_size)
 
 
-class RigidBindTool(GenericWidget):
+class RigidBindTool(MayaDockableWidget):
     TITLE: str = 'Rigid Bind Tools'
 
     def __init__(self):
@@ -145,11 +149,11 @@ class RigidBindTool(GenericWidget):
             cmds.warning('Please select an object.')
 
 
-class CharacterTools(GenericWidget):
+class CharacterTools(MayaDockableWidget):
     TITLE: str = 'Character Tools'
 
     def __init__(self):
-        super(CharacterTools, self).__init__(self.TITLE, margin=4)
+        super(CharacterTools, self).__init__(self.TITLE)
         self.rig_builder = self.add_widget(GroupBox('Rig Builder', RigBuilder()))
         self.add_button('Center Pivot', event=pivot_to_center, tool_tip=get_lead_docstring_comment(pivot_to_center))
         self.add_button('Match Pivot', event=match_pivot_to_last,
@@ -176,5 +180,7 @@ class CharacterTools(GenericWidget):
 
 
 if __name__ == '__main__':
+    from widgets.maya_dockable_widget import generate_ui_script
     tool = CharacterTools()
-    tool.show()
+    ui_script = generate_ui_script(instance=tool, import_module='maya_tools.utilities.character_tools')
+    tool.show(dockable=True, floating=True, uiScript=ui_script)

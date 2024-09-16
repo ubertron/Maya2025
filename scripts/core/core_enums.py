@@ -192,6 +192,12 @@ class MetadataKey(Enum):
     animations = auto()
 
 
+@unique
+class WidgetMode(Enum):
+    classic = auto()
+    maya_floating_window = auto()
+
+
 if __name__ == '__main__':
     # my_enum = MetadataKey.rig_hash
     # print(isinstance(my_enum, MetadataKey))

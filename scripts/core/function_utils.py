@@ -26,3 +26,4 @@ if __name__ == '__main__':
     from core import environment_utils
 
     get_lead_docstring_comment(function=environment_utils.is_using_maya_python, print_result=True)
+
