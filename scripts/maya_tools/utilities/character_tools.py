@@ -19,7 +19,7 @@ DEBUG BLOCK END
 """
 
 from core import DEVELOPER
-from core.core_enums import Axis
+from core.core_enums import Axis, Alignment
 from core.function_utils import get_lead_docstring_comment
 from core.point_classes import POINT3_ORIGIN
 from maya_tools.character_utils import mirror_limbs, export_model_reference
@@ -30,7 +30,7 @@ from maya_tools.rigging_utils import create_joints_from_locator_hierarchy, creat
     bind_skin, reorient_joints, restore_bind_pose, get_influences, rigid_bind_meshes_to_selected_joint, \
     unbind_skin_clusters
 from maya_tools.undo_utils import UndoStack
-#from widgets.generic_widget import GenericWidget
+from widgets.generic_widget import GenericWidget
 from widgets.maya_dockable_widget import MayaDockableWidget
 from widgets.grid_widget import GridWidget
 from widgets.group_box import GroupBox
@@ -128,7 +128,8 @@ class RigBuilder(GridWidget):
         create_pivot_locators(size=self.current_size)
 
 
-class RigidBindTool(MayaDockableWidget):
+# class RigidBindTool(MayaDockableWidget):
+class RigidBindTool(GenericWidget):
     TITLE: str = 'Rigid Bind Tools'
 
     def __init__(self):
@@ -149,11 +150,12 @@ class RigidBindTool(MayaDockableWidget):
             cmds.warning('Please select an object.')
 
 
-class CharacterTools(MayaDockableWidget):
+# class CharacterTools(MayaDockableWidget):
+class CharacterTools(GenericWidget):
     TITLE: str = 'Character Tools'
 
     def __init__(self):
-        super(CharacterTools, self).__init__(self.TITLE)
+        super().__init__(self.TITLE)
         self.rig_builder = self.add_widget(GroupBox('Rig Builder', RigBuilder()))
         self.add_button('Center Pivot', event=pivot_to_center, tool_tip=get_lead_docstring_comment(pivot_to_center))
         self.add_button('Match Pivot', event=match_pivot_to_last,

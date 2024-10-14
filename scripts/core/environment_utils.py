@@ -6,12 +6,14 @@ import sys
 from pathlib import Path
 from typing import List
 
+from core.core_enums import PythonPlatform, OperatingSystem
+
 
 MAYA_PLUGINS_FOLDER: Path = Path('/Applications/Autodesk/maya2025/plug-ins')
 PYTHON_397 = '3.9.7'
-PYTHON_PLATFORM = 'python'
-MAYA_PLATFORM = 'maya'
-UNREAL_PLATFORM = 'unrealeditor'
+# PYTHON_PLATFORM = 'python'
+# MAYA_PLATFORM = 'maya'
+# UNREAL_PLATFORM = 'unrealeditor'
 
 
 def get_python_version() -> str:
@@ -23,12 +25,12 @@ def get_python_version() -> str:
     return f"{version.major}.{version.minor}.{version.micro}"
 
 
-def get_platform() -> str:
+def get_python_platform() -> PythonPlatform:
     """
     Finds the platform of Python as a string
     :return: str
     """
-    return Path(sys.executable).name.lower()
+    return PythonPlatform.get_by_value(Path(sys.executable).name.lower())
 
 
 def is_using_maya_python() -> bool:
@@ -36,7 +38,7 @@ def is_using_maya_python() -> bool:
     Determine if code is being used in a Maya environment
     :return: bool
     """
-    return get_platform() == MAYA_PLATFORM
+    return get_python_platform() is PythonPlatform.maya
 
 
 def is_using_standalone_python() -> bool:
@@ -44,7 +46,7 @@ def is_using_standalone_python() -> bool:
     Determine if code is being used in a standalone environment
     :return: bool
     """
-    return get_platform() == PYTHON_PLATFORM
+    return get_python_platform() is PythonPlatform.standalone
 
 
 def is_using_unreal_editor_python() -> bool:
@@ -52,7 +54,31 @@ def is_using_unreal_editor_python() -> bool:
     Determine if code is being used in an Unreal environment
     :return: bool
     """
-    return get_platform() == UNREAL_PLATFORM
+    return get_python_platform() is PythonPlatform.unreal
+
+
+def get_operating_system() -> OperatingSystem:
+    """
+    Get operating system
+    :return:
+    """
+    return OperatingSystem.get_by_value(platform.system())
+
+
+def is_using_mac_os() -> bool:
+    """
+    Determine if using Mac OS
+    :return:
+    """
+    return get_operating_system() is OperatingSystem.mac
+
+
+def is_using_windows_os() -> bool:
+    """
+    Determinf if using Windows OS
+    :return:
+    """
+    return get_operating_system() is OperatingSystem.windows
 
 
 def list_user_setup_script() -> List[Path]:
@@ -74,4 +100,5 @@ def format_installed_packages():
 if __name__ == '__main__':
     # format_installed_packages()
     # list_user_setup_script()
-    print(get_platform())
+    print(get_operating_system())
+    print(is_using_mac_os())

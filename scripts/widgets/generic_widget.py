@@ -1,34 +1,26 @@
-import platform
-
-from PySide6.QtWidgets import QWidget, QPushButton, QLabel, QLayout, QSizePolicy, QMainWindow, QSpacerItem
+from PySide6.QtWidgets import QWidget, QPushButton, QLabel, QLayout, QSizePolicy
 from PySide6.QtCore import Qt
+from core.core_enums import Alignment, Position, WidgetMode, Side
+from core.environment_utils import is_using_maya_python, is_using_mac_os
 from typing import Optional, Callable
-
+from core.date_time_utils import get_date_time_string
 from widgets.layouts import HBoxLayout, VBoxLayout
-from core import DARWIN_STR
-from core.core_enums import Alignment, WidgetMode, Side
-from core.environment_utils import is_using_maya_python
-from core.point_classes import Point2
 
 
 class GenericWidget(QWidget):
-    def __init__(self, title: str = '', alignment: Alignment = Alignment.vertical, parent: Optional[QWidget] = None,
-                 margin: int = 2, spacing: int = 2, size: Optional[Point2] = None,
-                 widget_mode: WidgetMode = WidgetMode.classic):
-        super(GenericWidget, self).__init__(parent=parent)
-        self.title = title
-        self.setWindowTitle(self.title)
-        self.setObjectName(self.title)
+    def __init__(self, title: str = "", alignment: Alignment = Alignment.vertical, margin: int = 2, spacing: int = 2):
+        super().__init__()
+        self.setWindowTitle(title)
+        self.setObjectName(self.__class__.__name__)
         self.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
         self.setLayout(VBoxLayout() if alignment is Alignment.vertical else HBoxLayout())
         self.set_margin(margin)
         self.set_spacing(spacing)
 
-        if size:
-            self.resize(*size.values)
+        if is_using_maya_python():
+            self.setParent(self._init_maya_properties())
 
-        if widget_mode is WidgetMode.maya_floating_window:
-            self._init_maya_properties()
+        self.setWindowTitle(title)
 
     def add_widget(self, widget: QWidget) -> QWidget:
         """
@@ -96,13 +88,6 @@ class GenericWidget(QWidget):
         """
         self.layout().addStretch(True)
 
-    def add_spacing(self, value: int):
-        """
-        Add spacing to the layout
-        :param value: size of the spacing
-        """
-        self.layout().addSpacing(value)
-
     def set_margin(self, value: int):
         """
         Set widget margin
@@ -121,16 +106,14 @@ class GenericWidget(QWidget):
         """
         Initializes widget properties for Maya
         """
-        if is_using_maya_python():
-            from maya_tools.maya_environment_utils import MAYA_MAIN_WINDOW
-            self.mayaMainWindow = MAYA_MAIN_WINDOW
-            self.setWindowFlags(Qt.Window)
-            self.setWindowFlags(Qt.Tool if platform.system() == DARWIN_STR else Qt.Window)
+        from maya_tools.maya_environment_utils import MAYA_MAIN_WINDOW
+        self.mayaMainWindow = MAYA_MAIN_WINDOW
+        self.setWindowFlags(Qt.Tool if is_using_mac_os() else Qt.Window)
 
 
-class TestWidget(GenericWidget):
+class ExampleGenericWidget(GenericWidget):
     def __init__(self):
-        super(TestWidget, self).__init__(title='Date Time Widget')
+        super(ExampleGenericWidget, self).__init__(title='Date Time Widget')
         self.add_stretch()
         self.label = self.add_label('Well what are you waiting for? Click it!')
         self.add_stretch()
@@ -138,14 +121,16 @@ class TestWidget(GenericWidget):
         self.resize(320, 120)
 
     def get_time(self):
-        self.label.setText(datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S"))
+        """
+        Event for self.button
+        """
+        self.label.setText(get_date_time_string())
 
 
-if __name__ == '__main__':
-    from datetime import datetime
+if __name__ == "__main__":
     from PySide6.QtWidgets import QApplication
 
     app = QApplication()
-    tool = TestWidget()
+    tool = ExampleGenericWidget()
     tool.show()
     app.exec()

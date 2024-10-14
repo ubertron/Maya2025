@@ -8,14 +8,13 @@ from inspect import getsource
 
 from core.core_enums import Side
 from core.point_classes import Point2
-from maya_tools.maya_environment_utils import MAYA_MAIN_WINDOW
 from widgets.generic_widget import GenericWidget
 
 
 class MayaDockableWidget(MayaQWidgetDockableMixin, GenericWidget):
     """A GenericWidget which is dockable in the Maya interface"""
     def __init__(self, title: str = "", size: Optional[Point2] = None):
-        super(MayaDockableWidget, self).__init__(title=title, size=size, parent=MAYA_MAIN_WINDOW)
+        super(MayaDockableWidget, self).__init__(title=title, size=size)
 
 
 def delete_existing_workspace_control(instance: object):
@@ -73,4 +72,3 @@ if __name__ == "__main__":
     ui_script = generate_ui_script(instance=dockable_widget, import_module='widgets.maya_dockable_widget')
     # dockable_widget.show(dockable=True, floating=False, area='left', uiScript=ui_script)
     dockable_widget.show(dockable=True, floating=True, uiScript=ui_script)
-

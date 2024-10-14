@@ -2,6 +2,18 @@ from enum import Enum, unique, auto
 from dataclasses import dataclass
 
 
+@unique
+class Alignment(Enum):
+    horizontal = auto()
+    vertical = auto()
+
+
+class Attr(Enum):
+    translate = '.translate'
+    rotate = '.rotate'
+    scale = '.scale'
+
+
 class Axis(Enum):
     x = 0
     y = 1
@@ -16,14 +28,6 @@ class Axis(Enum):
         return Axis.__members__.get(key)
 
 
-class Side(Enum):
-    left = 'l'
-    right = 'r'
-    center = 'c'
-    top = 't'
-    bottom = 'b'
-
-
 class ComponentType(Enum):
     vertex = 'vertex'
     edge = 'edge'
@@ -34,7 +38,26 @@ class ComponentType(Enum):
     uv = 'uv'
 
 
-class Gender:
+@unique
+class DataType(Enum):
+    float = auto()
+    float2 = auto()
+    float3 = auto()
+    int = auto()
+    int2 = auto()
+    int3 = auto()
+    long = auto()
+    long2 = auto()
+    long3 = auto()
+    double = auto()
+    double2 = auto()
+    double3 = auto()
+    str = auto()
+    list = auto()
+
+
+@unique
+class Gender(Enum):
     male = auto()
     female = auto()
     other = auto()
@@ -61,6 +84,16 @@ class AssetType(Enum):
         return AssetType.__members__[key]
 
 
+@unique
+class Engine(Enum):
+    godot = 'Godot'
+    python = 'Python'
+    spark = 'Spark AR'
+    standalone = 'Standalone'
+    unity = 'Unity'
+    unreal = 'Unreal Engine'
+
+
 class FileExtension(Enum):
     ams = '.ams'
     jpg = '.jpg'
@@ -79,9 +112,25 @@ class FileExtension(Enum):
 
 
 @unique
-class Alignment(Enum):
-    horizontal = auto()
-    vertical = auto()
+class MetadataKey(Enum):
+    project = auto()
+    name = auto()
+    asset_type = auto()
+    schema = auto()
+    source_art_folder = auto()
+    export_folder = auto()
+    rig_hash = auto()
+    animations = auto()
+
+
+class OperatingSystem(Enum):
+    linux = 'Linux'
+    mac = 'Darwin'
+    windows = 'Windows'
+
+    @staticmethod
+    def get_by_value(value: str) -> Enum:
+        return next((x for x in OperatingSystem if x.value == value), None)
 
 
 @unique
@@ -111,57 +160,6 @@ class Position(Enum):
         return next((x for x in list(map(lambda x: x, Position)) if x.value == value), None)
 
 
-@unique
-class SoftwarePlatform(Enum):
-    Houdini = auto()
-    Maya = auto()
-    Photoshop = auto()
-    Standalone = auto()
-    Substance = auto()
-    Unreal = auto()
-
-
-@unique
-class Gender(Enum):
-    male = auto()
-    female = auto()
-    other = auto()
-
-
-class Attr(Enum):
-    translate = '.translate'
-    rotate = '.rotate'
-    scale = '.scale'
-
-
-@unique
-class DataType(Enum):
-    float = auto()
-    float2 = auto()
-    float3 = auto()
-    int = auto()
-    int2 = auto()
-    int3 = auto()
-    long = auto()
-    long2 = auto()
-    long3 = auto()
-    double = auto()
-    double2 = auto()
-    double3 = auto()
-    str = auto()
-    list = auto()
-
-
-@unique
-class Engine(Enum):
-    godot = 'Godot'
-    python = 'Python'
-    spark = 'Spark AR'
-    standalone = 'Standalone'
-    unity = 'Unity'
-    unreal = 'Unreal Engine'
-
-
 @dataclass
 class Platform:
     engine: Engine
@@ -169,6 +167,17 @@ class Platform:
 
     def __repr__(self) -> str:
         return f'{self.engine.value} v{self.version}' if self.version else f'{self.engine.value}'
+
+
+@unique
+class PythonPlatform(Enum):
+    maya = 'maya'
+    standalone = 'python'
+    unreal = 'unrealeditor'
+
+    @staticmethod
+    def get_by_value(value: str) -> Enum:
+        return next((x for x in PythonPlatform if x.value == value), None)
 
 
 @unique
@@ -180,16 +189,22 @@ class ResourceType(Enum):
     scene = auto()
 
 
+class Side(Enum):
+    left = 'l'
+    right = 'r'
+    center = 'c'
+    top = 't'
+    bottom = 'b'
+
+
 @unique
-class MetadataKey(Enum):
-    project = auto()
-    name = auto()
-    asset_type = auto()
-    schema = auto()
-    source_art_folder = auto()
-    export_folder = auto()
-    rig_hash = auto()
-    animations = auto()
+class SoftwarePlatform(Enum):
+    Houdini = auto()
+    Maya = auto()
+    Photoshop = auto()
+    Standalone = auto()
+    Substance = auto()
+    Unreal = auto()
 
 
 @unique

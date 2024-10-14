@@ -73,8 +73,8 @@ class ScrollWidget(GenericWidget):
     def add_stretch(self):
         self.widget.add_stretch()
 
-    def add_spacing(self, value: int):
-        self.widget.add_spacing(value)
+    def set_spacing(self, value: int):
+        self.widget.set_spacing(value)
 
     @property
     def child_widgets(self) -> list[QWidget]:
