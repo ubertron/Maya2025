@@ -8,6 +8,7 @@ import shutil
 from maya import mel
 from pathlib import Path
 
+from startup import pip_utils
 from maya_tools import robotools_utils
 
 
@@ -39,15 +40,16 @@ def initializePlugin(plugin):
     @param plugin:
     """
     vendor = 'Robonobo'
-    version = '1.0.0'
+    version = '2.0'
     pluginFn = om.MFnPlugin(plugin, vendor, version)
 
     try:
         logging.info('>>> Robotools plugin initialize script')
+        pip_utils.install_requirements()
         robotools_utils.setup_robotools()
         pluginFn.registerCommand(RobotoolsInitializeCmd.kPluginCmdName, RobotoolsInitializeCmd.cmdCreator)
-    except RuntimeError:
-        raise RuntimeError(f'Failed to register command: {RobotoolsInitializeCmd.kPluginCmdName}\n')
+    except RuntimeError as err:
+        raise RuntimeError(f'Failed to register command: {RobotoolsInitializeCmd.kPluginCmdName}\nError: {err}')
 
 
 def uninitializePlugin(plugin):

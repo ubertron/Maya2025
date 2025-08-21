@@ -24,7 +24,7 @@ class PlanarizeTool(GenericWidget):
             RadioButtonWidget(title='Plane Axis', button_text_list=self.axis_labels, active_id=1))
         self.position_widget: RadioButtonWidget = self.add_widget(
             RadioButtonWidget(title='Plane Position', button_text_list=Position.values(), active_id=1))
-        self.planarize_button = self.add_button('Planarize', event=self.planarize_button_clicked)
+        self.planarize_button = self.add_button('Planarize', clicked=self.planarize_button_clicked)
         self._init_signals()
 
     def _init_signals(self):

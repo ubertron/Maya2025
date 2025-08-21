@@ -4,7 +4,7 @@ from functools import partial
 from pathlib import Path
 
 from core.core_enums import FileExtension, Gender, Side
-from core.core_paths import MODELS_FOLDER, SCENES_FOLDER
+from core.core_paths import MODELS_DIR, SCENES_DIR
 from core.point_classes import Point3
 from maya_tools.helpers import in_view_message
 from maya_tools.layer_utils import is_display_layer, create_display_layer, add_to_layer
@@ -30,7 +30,7 @@ def import_base_character(gender: Gender or str):
     """
     gender_str = gender.name if type(gender) is Gender else gender
     file_name = f'{BASE_MESH_MALE if gender_str == "male" else BASE_MESH_FEMALE}{FileExtension.fbx.value}'
-    import_path: Path = MODELS_FOLDER.joinpath(file_name)
+    import_path: Path = MODELS_DIR.joinpath(file_name)
     result = import_model(import_path=import_path)
     transform: str = next(x for x in result if cmds.objectType(x) == ObjectType.transform.name)
 
@@ -54,7 +54,7 @@ def load_base_character(gender, latest=False):
 
     if latest:
         # find all the scenes
-        scenes = SCENES_FOLDER.glob(f'{scene_name}*')
+        scenes = SCENES_DIR.glob(f'{scene_name}*')
         # discount the non-versioned file
         scenes = [x for x in scenes if len(str(x).split('.')) == 3]
 
@@ -66,7 +66,7 @@ def load_base_character(gender, latest=False):
         scenes.sort(key=lambda x: x.split(os.sep)[-1].split('.')[1])
         scene_path = scenes[-1]
     else:
-        scene_path = SCENES_FOLDER.joinpath('{}{}'.format(scene_name, FileExtension.mb.value))
+        scene_path = SCENES_DIR.joinpath('{}{}'.format(scene_name, FileExtension.mb.value))
 
     print(f'>>> Loading: {scene_path.name}')
     result = load_scene(scene_path)

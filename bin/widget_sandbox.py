@@ -8,7 +8,7 @@ from widgets.grid_widget import GridWidget
 class WidgetSandbox(GenericWidget):
     def __init__(self):
         super(WidgetSandbox, self).__init__('Widget Sandbox')
-        self.init_button = self.add_button('Init Grid', event=self.init_grid)
+        self.init_button = self.add_button('Init Grid', clicked=self.init_grid)
         self.init_button.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         self.grid_widget: GridWidget = self.add_widget(GridWidget())
         self.init_grid()

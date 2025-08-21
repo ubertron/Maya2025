@@ -3,7 +3,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from core.core_enums import AssetType, FileExtension, MetadataKey
+from core.core_enums import AssetType, MetadataKey
 from maya_tools.ams.asset import Asset
 from maya_tools.ams.project_utils import load_project_definition, get_project_definition
 from maya_tools.ams.project_definition import ProjectDefinition

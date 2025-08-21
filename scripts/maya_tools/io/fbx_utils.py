@@ -10,7 +10,7 @@ from maya_tools.maya_environment_utils import MAYA_APP_DIR
 
 FBX_PLUG_IN: str = 'fbxmaya.mll'
 FBX_PLUG_IN_PATH: Path = Path(cmds.pluginInfo(FBX_PLUG_IN, query=True, path=True))
-FBX_EXPORT_PRESETS: Path = [x for x in MAYA_APP_DIR.joinpath('FBX').rglob('*.fbxexportpreset')]
+FBX_EXPORT_PRESETS: list[Path] = [x for x in MAYA_APP_DIR.joinpath('FBX').rglob('*.fbxexportpreset')]
 
 
 def load_fbx_preset(preset_path: Path):
@@ -79,13 +79,19 @@ def get_fbx_export_preset_path(preset_name: str, single: bool = True) -> Path or
     result = [x for x in FBX_EXPORT_PRESETS if x.stem == preset_name]
 
     if single:
-        assert len(result) == 1, f'Warning: multiple presets found for {preset_name}'
+        paths = "\n".join(x.as_posix() for x in result)
+        assert len(result) == 1, f'Warning: multiple presets found for {preset_name}\n{paths}'
+        return result[0]
 
     return result[0] if len(result) == 1 else result
 
 
-FBX_EXPORT_PRESET_RIG: Path = get_fbx_export_preset_path('ams_rig', single=True)
-FBX_EXPORT_PRESET_ANIMATION: Path = get_fbx_export_preset_path('ams_animation', single=True)
+def get_fbx_rig_preset() -> Path:
+    return get_fbx_export_preset_path('ams_rig', single=True)
+
+
+def get_fbx_animation_preset() -> Path:
+    return  get_fbx_export_preset_path('ams_animation', single=True)
 
 
 def fbx_reset_export():

@@ -2,5 +2,6 @@
 numpy
 pillow
 pyperclip
+pyqtdarktheme
 PySide6
 scipy

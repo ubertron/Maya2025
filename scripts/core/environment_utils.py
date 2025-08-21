@@ -73,7 +73,7 @@ def is_using_mac_os() -> bool:
     return get_operating_system() is OperatingSystem.mac
 
 
-def is_using_windows_os() -> bool:
+def is_using_windows() -> bool:
     """
     Determinf if using Windows OS
     :return:

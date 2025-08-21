@@ -33,9 +33,9 @@ class CharacterExporter(GenericWidget):
         super(CharacterExporter, self).__init__('Character Exporter')
         self.parent_widget: QWidget or None = parent
         self.button_bar: GenericWidget = self.add_widget(GenericWidget(alignment=Alignment.horizontal))
-        self.button_bar.add_button('Refresh', tool_tip='Update status info', event=self.refresh_button_clicked)
+        self.button_bar.add_button('Refresh', tool_tip='Update status info', clicked=self.refresh_button_clicked)
         self.button_bar.add_button('Browse...', tool_tip='Open assets in a Finder window',
-                                   event=self.browse_button_clicked)
+                                   clicked=self.browse_button_clicked)
         self.button_bar.add_stretch()
         self.button_bar.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         self.scroll_widget: ScrollWidget = self.add_widget(ScrollWidget(alignment=Alignment.vertical))
@@ -143,14 +143,14 @@ class CharacterExportWidget(GenericWidget):
         button_bar: GenericWidget = self.add_widget(GenericWidget(alignment=Alignment.horizontal))
         button_bar.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         self.browse_button = button_bar.add_button('Open Folder', tool_tip=f'Open {self.asset.name} folder',
-                                                   event=partial(open_file_location, self.asset.source_art_folder))
+                                                   clicked=partial(open_file_location, self.asset.source_art_folder))
         self.export_rig_button = button_bar.add_button('Export Rig', tool_tip='Export just the character rig',
-                                                       event=self.export_rig_button_clicked)
+                                                       clicked=self.export_rig_button_clicked)
         self.export_animations_button = button_bar.add_button('Export Animations', tool_tip='Export the animations',
-                                                              event=self.export_animations_button_clicked)
+                                                              clicked=self.export_animations_button_clicked)
         self.metadata_button = button_bar.add_button(
             'View metadata', tool_tip='View the asset metadata file',
-            event=partial(self.view_metadata_menu_item_clicked, self.asset.metadata_path))
+            clicked=partial(self.view_metadata_menu_item_clicked, self.asset.metadata_path))
         self.metadata_button.setVisible(logging.DEBUG >= logging.root.level)
 
         if logging.DEBUG >= logging.root.level:

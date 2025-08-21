@@ -60,7 +60,7 @@ class ExampleDockableWidget(MayaDockableWidget):
     def __init__(self):
         super(ExampleDockableWidget, self).__init__(title=self.TITLE, size=Point2(320, 80))
         self.label = self.add_label(f"{self.__class__.__name__} label", side=Side.center)
-        self.add_button("Get time", event=self.button_clicked)
+        self.add_button("Get time", clicked=self.button_clicked)
 
     def button_clicked(self):
         self.label.setText(datetime.now().strftime("%d/%m/%Y %H:%M:%S"))

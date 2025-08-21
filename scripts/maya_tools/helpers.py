@@ -1,14 +1,13 @@
-import math
 import pyperclip
 
 from maya import cmds
 from typing import Optional
 
 from core.point_classes import Point3, Point3Pair
-from core.core_enums import ComponentType, DataType
+from core.core_enums import DataType, Axis
 from maya_tools.geometry_utils import get_selected_vertices, get_transforms, get_vertex_position
-from maya_tools.node_utils import get_type_from_transform, State, set_component_mode, get_selected_transforms, \
-    get_pivot_position
+from maya_tools.node_utils import get_type_from_transform, get_selected_transforms, \
+    get_pivot_position, get_translation, get_all_child_transforms, translate, is_locator
 from maya_tools.display_utils import in_view_message
 from maya_tools.undo_utils import UndoStack
 
@@ -73,6 +72,34 @@ def create_vertex_locators(size: float = 0.2):
             cmds.warning('Please select some vertices.')
     else:
         cmds.warning('Please select some vertices on a mesh.')
+
+
+def flip_locator_hierarchy(transform: str, axis: Axis):
+    """
+    Flip transform positions across an axis
+    :param transform:
+    :param axis:
+    """
+    # Get all the children ordered by depth
+    transforms = get_all_child_transforms(transform=transform, ordered=True, reverse=True)
+    locators = [x for x in transforms if is_locator(x)]
+
+    # Flip items along the specified axis
+    with UndoStack("Move Locators"):
+        for locator in locators:
+            position: Point3 = get_translation(transform=locator, absolute=True)
+            old_position = str(position)
+            new_axis_position: float = -position.values[axis.value]
+
+            if axis is Axis.x:
+                position.x = new_axis_position
+            elif axis is Axis.y:
+                position.y = new_axis_position
+            else:
+                position.z = new_axis_position
+
+            translate(nodes=locator, value=position, absolute=True)
+            print(f"{old_position} > {position}")
 
 
 def get_distance_between_two_transforms(format_result: bool = True):
@@ -189,15 +216,6 @@ def get_selected_locators():
     :return:
     """
     return [x for x in cmds.ls(sl=True, tr=True) if is_locator(x)]
-
-
-def is_locator(transform: str) -> bool:
-    """
-    Returns true of the supplied transform is a locator
-    :param transform:
-    :return:
-    """
-    return cmds.listRelatives(transform, type='locator') is not None
 
 
 def place_locator_in_centroid(size: float = 1.0):

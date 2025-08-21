@@ -19,6 +19,23 @@ def apply_shader(shading_group, transforms: Optional[str] = None):
     cmds.sets(target, edit=True, forceElement=shading_group)
 
 
+def get_shading_group_from_shader(shader):
+    """
+    Get the shading group for a shader
+    @param shader:
+    @return:
+    """
+    shadingGroups = cmds.listConnections(shader, type=ObjectType.shadingEngine.name)
+    if shadingGroups:
+        return shadingGroups[0]
+
+
+def get_texture_from_file_node(file_node: str) -> Path | None:
+    """Get a texture from a file node."""
+    result = cmds.getAttr(f"{file_node}.fileTextureName")
+    return result if result else None
+
+
 def lambert_shader(name: str, color: Optional[Sequence[float]] = None) -> tuple[str, str]:
     """
     Create a Lambert shader node
@@ -36,18 +53,6 @@ def lambert_shader(name: str, color: Optional[Sequence[float]] = None) -> tuple[
     return shader, shading_group
 
 
-def get_shading_group_from_shader(shader):
-    """
-    Get the shading group for a shader
-    @param shader:
-    @return:
-    """
-    shadingGroups = cmds.listConnections(shader, type=ObjectType.shadingEngine.name)
-
-    if shadingGroups:
-        return shadingGroups[0]
-
-
 def lambert_file_texture_shader(texture_path: Path, name=None, check_existing: bool = True) -> tuple:
     """
     Create a Lambert shader with a file texture node
@@ -59,17 +64,14 @@ def lambert_file_texture_shader(texture_path: Path, name=None, check_existing: b
     assert texture_path.exists(), f'Path not found: {texture_path}'
     name = name if name else texture_path.stem
     shader_name = f'{name}Shader'
-
     if check_existing:
         output_shader = next((x for x in LAMBERT_SHADER_NODES if x == shader_name), None)
 
         if output_shader:
             return output_shader, get_shading_group_from_shader(output_shader)
-
     output_shader, shading_group = lambert_shader(name)
     file_node = file_texture_node(texture_path, name)
     cmds.connectAttr(f'{file_node}.outColor', f'{output_shader}.color')
-
     return output_shader, shading_group
 
 
@@ -81,10 +83,6 @@ def set_diffuse_color(shader, color: tuple[float]):
     """
     for idx, value in enumerate(['.colorR', '.colorG', '.colorB']):
         cmds.setAttr(f'{shader}{value}', color[idx])
-
-    # cmds.setAttr(f'{shader}.colorR', color[0])
-    # cmds.setAttr(f'{shader}.colorG', color[1])
-    # cmds.setAttr(f'{shader}.colorB', color[2])
 
 
 def file_texture_node(texture_path: Path, name: Optional[str] = None, check_existing: bool = True):
@@ -125,9 +123,4 @@ def file_texture_node(texture_path: Path, name: Optional[str] = None, check_exis
     cmds.connectAttr(f'{placement_node}.vertexUvThree', f'{file_node}.vertexUvThree')
     cmds.connectAttr(f'{placement_node}.wrapU', f'{file_node}.wrapU')
     cmds.connectAttr(f'{placement_node}.wrapV', f'{file_node}.wrapV')
-
     return file_node
-
-
-def get_shader(node: str) -> str or none:
-    pass

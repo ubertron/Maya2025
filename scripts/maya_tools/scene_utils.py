@@ -1,4 +1,6 @@
+from __future__ import annotations
 import logging
+import pyperclip
 
 from pathlib import Path
 from maya import cmds
@@ -46,12 +48,19 @@ def get_scene_name(include_extension: bool = True) -> str:
             return '.'.join(scene_path.name.split('.')[:-1])
 
 
-def get_scene_path() -> Path:
+def get_scene_path() -> Path | None:
     """
     Get the full path of the scene
     :return:
     """
-    return Path(cmds.file(query=True, sceneName=True))
+    result = cmds.file(query=True, sceneName=True)
+    if result:
+        pyperclip.copy(result)
+        logging.info(f"Current scene path: {result}")
+        return Path(result)
+    else:
+        logging.info("No scene found.")
+        return None
 
 
 def import_model(import_path: Path):

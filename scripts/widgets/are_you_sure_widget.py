@@ -17,8 +17,8 @@ class AreYouSureWidget(GenericWidget):
         question_label.setMargin(20)
         self.value = True
         button_bar: GenericWidget = self.add_widget(GenericWidget(alignment=Alignment.horizontal))
-        button_bar.add_button(text=positive, event=partial(self.user_response, True))
-        button_bar.add_button(text=negative, event=partial(self.user_response, False))
+        button_bar.add_button(text=positive, clicked=partial(self.user_response, True))
+        button_bar.add_button(text=negative, clicked=partial(self.user_response, False))
         button_bar.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
 
     def user_response(self, arg):
@@ -32,7 +32,7 @@ class DialogTestWidget(GenericWidget):
         message = 'Proceed to delete stuff?'
         self.dialog = AreYouSureWidget(question=message)
         self.label = self.add_label('Response')
-        self.button = self.add_button('Launch', event=self.launch_clicked)
+        self.button = self.add_button('Launch', clicked=self.launch_clicked)
         self.dialog.responded.connect(self.user_responded)
         self.setFixedSize(320, 240)
 

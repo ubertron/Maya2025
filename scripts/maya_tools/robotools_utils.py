@@ -1,30 +1,25 @@
 # Robotools version 0.3: New version of Robotools for Maya 2025
-import hashlib
 import logging
 import os
+import shutil
 
 from distutils.dir_util import copy_tree
 from pathlib import Path
 from maya import cmds
 
-from core.core_paths import SITE_PACKAGES, MAYA_INTERPRETER_PATH, MAYA_REQUIREMENTS, icon_path, PROJECT_ROOT, \
-    PRESETS_FOLDER
+from core.core_paths import SITE_PACKAGES, MAYA_INTERPRETER_PATH, MAYA_REQUIREMENTS, image_path, PROJECT_ROOT, \
+    PRESETS_DIR
 from core.config_utils import MayaConfig
 from maya_tools import plug_in_utils
 from maya_tools.io.fbx_utils import check_fbx_plug_in
 from maya_tools.maya_environment_utils import is_using_mac_osx, MAYA_APP_DIR
 from maya_tools.tool_utils import launch_script
-from maya_tools.utilities import hotkey_manager
-from maya_tools.utilities.shelf_manager import ShelfManager, message_script
+from startup.robotools_hotkeys import RobotoolsHotkeys
+from startup.robotools_shelf import RobotoolsShelf, TOOL_TITLE
 
-ROBOTOOLS_TITLE: str = 'Robotools'
-ROBOTOOLS_VERSION = '0.3'
-ROBOTOOLS_PLUG_IN = 'robotools'
-ROBOTOOLS_SHELF_VERSION: str = 1.3
+
 MAYA_CONFIG: MayaConfig = MayaConfig()
 PREFERENCES_KEY: str = 'PREFERENCES'
-ROBOTOOLS_HOTKEYS_NAME: str = 'Robotools_Hotkeys'
-ROBOTOOLS_HOTKEYS_PATH: Path = PROJECT_ROOT.joinpath('scripts', 'startup', f'{ROBOTOOLS_HOTKEYS_NAME}.mhk')
 
 
 def setup_robotools():
@@ -32,32 +27,30 @@ def setup_robotools():
     Sets up Robotools
     """
     logging.info(f">>> robotools_utils.py setup script")
-
-    if False in (check_requirements_hash(), SITE_PACKAGES.exists()):
-        install_requirements()
-        warning_string = 'Robotools updated - please restart Maya'
-        cmds.warning(warning_string)
-    else:
-        logging.info(">>> Tools up to date")
-
     setup_robotools_shelf()
     setup_plug_ins()
     setup_preferences()
     setup_presets()
     setup_hotkeys()
 
-
 def setup_robotools_shelf():
+    """Set up the robotools shelf."""
     logging.info('>>> Setting up Robotools shelf')
-    sm = ShelfManager(ROBOTOOLS_TITLE)
+    RobotoolsShelf().create()
+
+
+def setup_robotools_shelf_():
+    logging.info('>>> Setting up Robotools shelf')
+    sm = ShelfManager(title=ROBOTOOLS_TITLE)
     sm.delete()
     sm.create(select=True)
     sm.delete_buttons()
 
     maya_cmds = 'from maya import cmds\n'
     version_info = 'Robotools Shelf Version {}: {}'.format(ROBOTOOLS_SHELF_VERSION, robotools_plug_in_path())
-    robonobo_icon = icon_path('robonobo_32.png')
-    script_icon = icon_path('script.png')
+    scene_info = 'from maya_tools import scene_utils; scene_utils.get_scene_path()'
+    robonobo_icon = image_path('robonobo_32.png')
+    script_icon = image_path('script.png')
     export_manager = 'from maya_tools.ams.ams_debug import launch_export_manager\nlaunch_export_manager()'
     root_name_toggle = 'from maya_tools.ams.ams_debug import root_name_toggle\nroot_name_toggle()'
 
@@ -94,6 +87,7 @@ def setup_robotools_shelf():
 
     sm.add_label('Robotools v{}'.format(ROBOTOOLS_VERSION), bold=True)
     sm.add_shelf_button(label='About Robotools', icon=robonobo_icon, command=message_script(version_info))
+    sm.add_shelf_button(label='Scene Info', icon=script_icon, command=scene_info, overlay_label='Scene')
     sm.add_separator()
     sm.add_label('AMS')
     sm.add_shelf_button(label='Export Manager (Debug)', overlay_label='ExMan', icon=script_icon, command=export_manager)
@@ -101,9 +95,9 @@ def setup_robotools_shelf():
     sm.add_separator()
     sm.add_label('Characters')
     sm.add_shelf_button(label='Character Tools', icon=script_icon, command=character_tools, overlay_label='CharT')
-    sm.add_shelf_button(label='Import Base Male', icon=icon_path('base_male.png'), command=base_male_cmd)
+    sm.add_shelf_button(label='Import Base Male', icon=image_path('base_male.png'), command=base_male_cmd)
     sm.add_shelf_button(label='Load Base Male', icon=script_icon, command=load_base_male, overlay_label='loadM')
-    sm.add_shelf_button(label='Import Base Female', icon=icon_path('base_female.png'), command=base_female_cmd)
+    sm.add_shelf_button(label='Import Base Female', icon=image_path('base_female.png'), command=base_female_cmd)
     sm.add_shelf_button(label='Load Base Female', icon=script_icon, command=load_base_female, overlay_label='loadF')
     sm.add_separator()
     sm.add_label('Display')
@@ -113,8 +107,8 @@ def setup_robotools_shelf():
     sm.add_separator()
     sm.add_label('Geometry')
     sm.add_shelf_button(label='Create Cube', overlay_label='Cube', icon=script_icon, command=create_cube)
-    sm.add_shelf_button(label='Slice', icon=icon_path('slice.png'), command=slice_cmd)
-    sm.add_shelf_button(label='Mirror', icon=icon_path('mirror.png'), command=mirror_cmd)
+    sm.add_shelf_button(label='Slice', icon=image_path('slice.png'), command=slice_cmd)
+    sm.add_shelf_button(label='Mirror', icon=image_path('mirror.png'), command=mirror_cmd)
     sm.add_shelf_button(label='Quadrangulate', overlay_label='Quad', icon=script_icon, command=quadrangulate)
     sm.add_shelf_button(label='Merge Vertices', overlay_label='Merge', icon=script_icon, command=merge_vertices)
     sm.add_shelf_button(label='Select Triangles', overlay_label='Tris', icon=script_icon, command=select_triangles)
@@ -168,7 +162,7 @@ def setup_presets():
     Includes FBX export presets
     """
     logging.info('>>> Setting Maya presets')
-    copy_tree(src=PRESETS_FOLDER.as_posix(), dst=MAYA_APP_DIR.as_posix())
+    copy_tree(src=PRESETS_DIR.as_posix(), dst=MAYA_APP_DIR.as_posix())
 
 
 def setup_hotkeys():
@@ -176,8 +170,7 @@ def setup_hotkeys():
     Set up the Robotools hotkeys
     """
     logging.info('>>> Setting up hotkeys')
-    RobotoolsHotkeyManager().init_hotkeys()
-    RobotoolsHotkeyManager().save_hotkeys()
+    RobotoolsHotkeys().apply()
 
 
 def robotools_plug_in_path() -> Path or None:
@@ -190,91 +183,9 @@ def robotools_plug_in_path() -> Path or None:
     return Path(cmds.pluginInfo(ROBOTOOLS_PLUG_IN, query=True, path=True)) if ROBOTOOLS_PLUG_IN in plugins else None
 
 
-def install_requirements():
-    """
-    Install requirements to the site-packages directory
-    @return:
-    """
-
-    SITE_PACKAGES.mkdir(exist_ok=True)
-    cmd = f'{MAYA_INTERPRETER_PATH} -m pip install -r {MAYA_REQUIREMENTS} -t {SITE_PACKAGES} --upgrade'
-    logging.debug(f'Terminal command: {cmd}')
-    os.system(cmd)
-    installed = [x.strip() for x in open(MAYA_REQUIREMENTS, 'r').readlines()]
-    logging.info(f'>>> Packages installed: {", ".join(installed)}')
-
-
-def uninstall_requirements():
-    """
-    Uninstall requirements and delete site-packages directory
-    """
-    if SITE_PACKAGES.exists():
-        cmd = f'{MAYA_INTERPRETER_PATH} -m pip uninstall -r {MAYA_REQUIREMENTS}'
-        os.system(cmd)
-        shutil.rmtree(SITE_PACKAGES)
-
-
-def check_requirements_hash() -> bool:
-    """
-    Compares the current requirements with the previously used file by comparing hash values
-    :return:
-    """
-    modules_key = 'MODULES'
-    requirements_key = 'REQUIREMENTS'
-    sha256 = hashlib.sha256()
-
-    with open(MAYA_REQUIREMENTS.as_posix(), 'rb') as f:
-        for byte_block in iter(lambda: f.read(4096), b""):
-            sha256.update(byte_block)
-
-    new_hash = sha256.hexdigest()
-    saved_hash = MAYA_CONFIG.get(section=modules_key, option=requirements_key)
-    MAYA_CONFIG.set(section=modules_key, option=requirements_key, value=new_hash, save=True)
-
-    return new_hash == saved_hash
-
-
 def delete_robotools():
     """
     Get rid of the shelf
     """
     logging.info('>>> Deleting Robotools shelf')
-    ShelfManager('Robotools').delete()
-
-
-class RobotoolsHotkeyManager(hotkey_manager.HotkeyManager):
-    def __init__(self):
-        super(RobotoolsHotkeyManager, self).__init__(name=ROBOTOOLS_HOTKEYS_NAME, path=ROBOTOOLS_HOTKEYS_PATH)
-
-    def init_hotkeys(self):
-        """
-        Set up the hotkeys
-        """
-        logging.info('>>> Setting up Robotools hotkeys')
-        is_mac: bool = is_using_mac_osx()
-        is_pc: bool = not is_using_mac_osx()
-
-        self.set_hotkey('hotkeyPrefs', annotation='Hotkey Editor', mel_command='HotkeyPreferencesWindow',
-                        key='H', cmd=is_mac, ctrl=is_pc, overwrite=True)
-        self.set_hotkey('appendToPoly', annotation='Append To Poly', mel_command='AppendToPolygonTool',
-                        key='A', cmd=is_mac, ctrl=is_pc, overwrite=True)
-        self.set_hotkey('createPoly', annotation='Create Polygon Tool', mel_command='CreatePolygonTool',
-                        key='C', cmd=is_mac, ctrl=is_pc, overwrite=True)
-        self.set_hotkey('combine', annotation='Combine', mel_command='CombinePolygons',
-                        key='A', cmd=is_mac, ctrl=is_pc, alt=True, overwrite=True)
-        self.set_hotkey('mergeVertices', annotation='Merge Vertices', mel_command='PolyMergeVertices',
-                        key='W', cmd=is_mac, ctrl=is_pc, overwrite=True)
-        self.set_hotkey('toggleGrid', annotation='Toggle Grid', mel_command='ToggleGrid',
-                        key=';', cmd=is_mac, ctrl=is_pc, overwrite=True)
-        self.set_hotkey('selectEdgeLoop', annotation='Select Edge Loop', mel_command='SelectEdgeLoopSp',
-                        key=']', cmd=is_mac, ctrl=is_pc, overwrite=True)
-        self.set_hotkey('selectEdgeRing', annotation='Select Edge Ring', mel_command='SelectEdgeRingSp',
-                        key='[', cmd=is_mac, ctrl=is_pc, overwrite=True)
-        self.set_hotkey('connect', annotation='Connect', mel_command='ConnectComponents', key='C', overwrite=True)
-
-    def save_hotkeys(self):
-        """
-        Save the hotkeys file locally
-        """
-        ROBOTOOLS_HOTKEYS_PATH.parent.mkdir(parents=True, exist_ok=True)
-        self.export_set()
+    RobotoolsShelf().delete()

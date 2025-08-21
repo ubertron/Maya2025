@@ -23,15 +23,16 @@ from core.core_enums import Axis, Alignment
 from core.function_utils import get_lead_docstring_comment
 from core.point_classes import POINT3_ORIGIN
 from maya_tools.character_utils import mirror_limbs, export_model_reference
-from maya_tools.helpers import get_midpoint_from_transform, create_locator, create_pivot_locators, auto_parent_locators
+from maya_tools.display_utils import warning_message
+from maya_tools.helpers import get_midpoint_from_transform, create_locator, create_pivot_locators, auto_parent_locators, flip_locator_hierarchy
+from maya_tools.locator_utils import zero_locator_rotations
 from maya_tools.node_utils import ComponentType, set_component_mode, pivot_to_center, match_pivot_to_last, \
     get_locators, get_selected_transforms, align_transform_to_joint
 from maya_tools.rigging_utils import create_joints_from_locator_hierarchy, create_locator_hierarchy_from_joints, \
     bind_skin, reorient_joints, restore_bind_pose, get_influences, rigid_bind_meshes_to_selected_joint, \
-    unbind_skin_clusters
+    unbind_skin_clusters, toggle_locators_joints
 from maya_tools.undo_utils import UndoStack
 from widgets.generic_widget import GenericWidget
-from widgets.maya_dockable_widget import MayaDockableWidget
 from widgets.grid_widget import GridWidget
 from widgets.group_box import GroupBox
 from widgets.radio_button_widget import RadioButtonWidget
@@ -50,20 +51,20 @@ class RigBuilder(GridWidget):
         self.add_label('Size', row=1, column=0)
         self.size_input: QDoubleSpinBox = self.add_widget(QDoubleSpinBox(), row=1, column=1)
         self.mirror_check_box: QCheckBox = self.add_widget(QCheckBox('Mirror Joints'), row=2, column=0, col_span=2)
-        self.add_button('Create Joints From Locators', event=self.create_joints_from_locators_clicked, row=3, column=0, col_span=2,
-                        tool_tip='Build the joints from the locator hierarchy.')
-        self.add_button('Create Locators From Joints', event=self.create_locators_from_joints_clicked, row=4, column=0, col_span=2,
-                        tool_tip='Build the locator hierarchy from selected joints.')
-        self.add_button('Create Locator At Selection Center', row=5, column=0, col_span=2,
+        self.add_button('Toggle Locators <> Joints', row=3, column=0, col_span=2,
+                        event=self.toggle_locators_joints_clicked,
+                        tool_tip='Toggle between joints and locator hierarchy.')
+        self.add_button('Create Locator At Selection Center', row=4, column=0, col_span=2,
                         event=self.create_locator_at_selection_center_clicked,
                         tool_tip='Create locator at the center of selected components.')
-        self.add_button('Create Locators From Pivots', row=6, column=0, col_span=2,
+        self.add_button('Create Locators From Pivots', row=5, column=0, col_span=2,
                         event=self.create_pivot_locators_clicked,
                         tool_tip='Create locators at selected pivot positions.')
-        self.add_button('Auto-Parent Locators', row=7, column=0, col_span=2, event=auto_parent_locators,
+        self.add_button('Auto-Parent Locators', row=6, column=0, col_span=2, event=auto_parent_locators,
                         tool_tip='Create a hierarchy from selected locators based on selection order.')
-        self.add_button('Delete locators', row=8, column=0, col_span=2, event=partial(cmds.delete, get_locators()),
+        self.add_button('Delete locators', row=7, column=0, col_span=2, event=partial(cmds.delete, get_locators()),
                         tool_tip='Purge all locators.')
+        self.add_button('Zero Locator Rotations', row=8, column=0, col_span=2, event=zero_locator_rotations)
         self.setup_ui()
 
     def setup_ui(self):
@@ -109,7 +110,7 @@ class RigBuilder(GridWidget):
         Event for Create Locators button
         """
         create_locator_hierarchy_from_joints(mirror_joints=self.mirror_joints, axis=self.current_axis,
-                                             size=self.current_size)
+                                             size=self.current_size, positive_axis=False)
 
     def create_locator_at_selection_center_clicked(self):
         """
@@ -127,18 +128,26 @@ class RigBuilder(GridWidget):
         """
         create_pivot_locators(size=self.current_size)
 
+    def toggle_locators_joints_clicked(self):
+        transform = get_selected_transforms(first_only=True)
+        if transform:
+            result = toggle_locators_joints(transform=transform, mirror_joints=self.mirror_joints,
+                                            axis=self.current_axis, size=self.current_size)
+            print(f'{result} created')
+        else:
+            warning_message('Nothing selected')
 
-# class RigidBindTool(MayaDockableWidget):
+
 class RigidBindTool(GenericWidget):
     TITLE: str = 'Rigid Bind Tools'
 
     def __init__(self):
         super(RigidBindTool, self).__init__(title=self.TITLE)
-        self.add_button('Rigid Bind', event=partial(bind_skin, True),
+        self.add_button('Rigid Bind', clicked=partial(bind_skin, True),
                         tool_tip='Bind joint hierarchy to model.')
-        self.add_button('Select influences for geometry', event=self.select_influences_clicked,
+        self.add_button('Select influences for geometry', clicked=self.select_influences_clicked,
                         tool_tip='Select the influences for an object.')
-        self.add_button('Bind selected meshes to joint', event=rigid_bind_meshes_to_selected_joint)
+        self.add_button('Bind selected meshes to joint', clicked=rigid_bind_meshes_to_selected_joint)
 
     @staticmethod
     def select_influences_clicked():
@@ -147,30 +156,30 @@ class RigidBindTool(GenericWidget):
         if len(selection) == 1:
             get_influences(transform=selection[0], select=True)
         else:
-            cmds.warning('Please select an object.')
+            warning_message('Please select an object.')
 
 
-# class CharacterTools(MayaDockableWidget):
 class CharacterTools(GenericWidget):
     TITLE: str = 'Character Tools'
 
     def __init__(self):
         super().__init__(self.TITLE)
         self.rig_builder = self.add_widget(GroupBox('Rig Builder', RigBuilder()))
-        self.add_button('Center Pivot', event=pivot_to_center, tool_tip=get_lead_docstring_comment(pivot_to_center))
-        self.add_button('Match Pivot', event=match_pivot_to_last,
+        self.add_button('Center Pivot', clicked=pivot_to_center, tool_tip=get_lead_docstring_comment(pivot_to_center))
+        self.add_button('Match Pivot', clicked=match_pivot_to_last,
                         tool_tip=get_lead_docstring_comment(match_pivot_to_last))
-        self.add_button('Align Transform To Joint', event=align_transform_to_joint,
+        self.add_button('Align Transform To Joint', clicked=align_transform_to_joint,
                         tool_tip=get_lead_docstring_comment(align_transform_to_joint))
-        self.add_button('Mirror Limb Geometry', event=mirror_limbs, tool_tip=get_lead_docstring_comment(mirror_limbs))
-        self.add_button('Orient Joints', event=self.orient_joints)
-        self.add_button('Bind Skin', event=bind_skin, tool_tip=get_lead_docstring_comment(bind_skin))
-        self.add_button('Restore Bind Pose', event=restore_bind_pose)
-        self.add_button('Export Model Reference', event=export_model_reference,
+        self.add_button('Mirror Limb Geometry', clicked=mirror_limbs, tool_tip=get_lead_docstring_comment(mirror_limbs))
+        self.add_button('Orient Joints', clicked=self.orient_joints)
+        self.add_button('Bind Skin', clicked=bind_skin, tool_tip=get_lead_docstring_comment(bind_skin))
+        self.add_button('Restore Bind Pose', clicked=restore_bind_pose)
+        self.add_button('Export Model Reference', clicked=export_model_reference,
                         tool_tip=get_lead_docstring_comment(export_model_reference))
-        self.add_button('Unbind Skin Clusters', event=unbind_skin_clusters,
+        self.add_button('Unbind Skin Clusters', clicked=unbind_skin_clusters,
                         tool_tip=get_lead_docstring_comment(unbind_skin_clusters))
         self.rigid_bind_tool = self.add_widget(GroupBox('Rigid Bind Tools', RigidBindTool()))
+        self.add_stretch()
 
     @staticmethod
     def orient_joints():
@@ -181,8 +190,8 @@ class CharacterTools(GenericWidget):
             reorient_joints(recurse=True)
 
 
-if __name__ == '__main__':
-    from widgets.maya_dockable_widget import generate_ui_script
-    tool = CharacterTools()
-    ui_script = generate_ui_script(instance=tool, import_module='maya_tools.utilities.character_tools')
-    tool.show(dockable=True, floating=True, uiScript=ui_script)
+# if __name__ == '__main__':
+#     from widgets.maya_dockable_widget import generate_ui_script
+#     tool = CharacterTools()
+#     ui_script = generate_ui_script(instance=tool, import_module='maya_tools.utilities.character_tools')
+#     tool.show(dockable=True, floating=True, uiScript=ui_script)

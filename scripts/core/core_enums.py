@@ -8,6 +8,26 @@ class Alignment(Enum):
     vertical = auto()
 
 
+class AssetType(Enum):
+    character = 'Characters'
+    environment = 'Environments'
+    fx = 'FX'
+    prop = 'Props'
+    vehicle = 'Vehicles'
+
+    @staticmethod
+    def keys() -> list:
+        return [x.name for x in AssetType]
+
+    @staticmethod
+    def values() -> list[str]:
+        return [x.value for x in AssetType]
+
+    @staticmethod
+    def get_by_key(key: str):
+        return AssetType.__members__[key]
+
+
 class Attr(Enum):
     translate = '.translate'
     rotate = '.rotate'
@@ -57,34 +77,6 @@ class DataType(Enum):
 
 
 @unique
-class Gender(Enum):
-    male = auto()
-    female = auto()
-    other = auto()
-    none = auto()
-
-
-class AssetType(Enum):
-    character = 'Characters'
-    environment = 'Environments'
-    fx = 'FX'
-    prop = 'Props'
-    vehicle = 'Vehicles'
-
-    @staticmethod
-    def keys() -> list:
-        return list(map(lambda x: x.name, AssetType))
-
-    @staticmethod
-    def values() -> list[str]:
-        return list(map(lambda x: x.value, AssetType))
-
-    @staticmethod
-    def get(key: str):
-        return AssetType.__members__[key]
-
-
-@unique
 class Engine(Enum):
     godot = 'Godot'
     python = 'Python'
@@ -92,6 +84,14 @@ class Engine(Enum):
     standalone = 'Standalone'
     unity = 'Unity'
     unreal = 'Unreal Engine'
+
+
+@unique
+class Gender(Enum):
+    male = auto()
+    female = auto()
+    other = auto()
+    none = auto()
 
 
 class FileExtension(Enum):
@@ -112,7 +112,17 @@ class FileExtension(Enum):
 
 
 @unique
+class Language(Enum):
+    """Enum for language."""
+
+    mel = auto()
+    python = auto()
+
+
+@unique
 class MetadataKey(Enum):
+    """Enum for metadata."""
+
     project = auto()
     name = auto()
     asset_type = auto()
@@ -121,6 +131,15 @@ class MetadataKey(Enum):
     export_folder = auto()
     rig_hash = auto()
     animations = auto()
+
+
+@unique
+class ModifierKey(Enum):
+    """Enum for modifier keys."""
+
+    alt = auto()
+    control = auto()
+    command = auto()
 
 
 class OperatingSystem(Enum):
@@ -134,6 +153,12 @@ class OperatingSystem(Enum):
 
 
 @unique
+class ToolState(Enum):
+    open = auto()
+    closed = auto()
+
+
+@unique
 class Position(Enum):
     minimum = 'Minimum'
     center = 'Center'
@@ -141,15 +166,15 @@ class Position(Enum):
 
     @staticmethod
     def items() -> list:
-        return list(map(lambda x: x, Position))
+        return [x for x in Position]
 
     @staticmethod
     def keys() -> list:
-        return list(map(lambda x: x.name, Position))
+        return [x.name for x in Position]
 
     @staticmethod
     def values() -> list:
-        return list(map(lambda x: x.value, Position))
+        return [x.value for x in Position]
 
     @staticmethod
     def get_by_key(key: str) -> Enum or None:
@@ -157,7 +182,7 @@ class Position(Enum):
 
     @staticmethod
     def get_by_value(value: str) -> Enum:
-        return next((x for x in list(map(lambda x: x, Position)) if x.value == value), None)
+        return next((x for x in Position if x.value == value), None)
 
 
 @dataclass

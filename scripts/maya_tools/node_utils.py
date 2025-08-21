@@ -107,15 +107,15 @@ def get_all_child_transforms(transform: str, ordered: bool = False, reverse: boo
 
 def get_child_geometry(transform: str) -> list[str]:
     """
-    Finds all the geometry objects that are within the descendents of a transform
+    Finds all the geometry objects that are within the descendants of a transform
     :param transform:
     :return:
     """
-    transform_type: str = ObjectType.transform.name
-    transforms = [x for x in cmds.listRelatives(transform, allDescendents=True, type=transform_type,  fullPath=True)]
-    geometry = [x for x in transforms if is_object_type(transform=x, object_type=ObjectType.mesh)]
-
-    return geometry
+    relatives = cmds.listRelatives(transform, allDescendents=True, type=ObjectType.transform.name,  fullPath=True)
+    if relatives:
+        transforms = [x for x in relatives]
+        return [x for x in transforms if is_object_type(transform=x, object_type=ObjectType.mesh)]
+    return []
 
 
 def get_hierarchy_depth(transform: str) -> int:
@@ -429,7 +429,7 @@ def get_selected_joints() -> list[str]:
     return [x for x in get_selected_transforms() if cmds.objectType(x) == ObjectType.joint.name]
 
 
-def get_selected_transforms(first_only: bool = False, full_path: bool = False) -> list[str] or str or None:
+def get_selected_transforms(first_only: bool = False, full_path: bool = False) -> list[str] or str:
     """
     Get a list of selected transform nodes
     This works if in component selection mode as well as object selection mode
@@ -439,11 +439,10 @@ def get_selected_transforms(first_only: bool = False, full_path: bool = False) -
     set_component_mode(ComponentType.object)
     selection = cmds.ls(sl=True, tr=True, long=full_path)
     state.restore()
-
     if selection:
         return selection[0] if first_only and selection else selection
     else:
-        return None
+        return []
 
 
 def get_transforms(nodes=None, first_only: bool = False) -> list or str:
@@ -451,29 +450,25 @@ def get_transforms(nodes=None, first_only: bool = False) -> list or str:
     set_component_mode(ComponentType.object)
     selection = cmds.ls(nodes, tr=True) if nodes else cmds.ls(sl=True, tr=True)
     state.restore()
-
     return selection[0] if selection and first_only else selection
 
 
-def get_shape_from_transform(transform, full_path=False):
+def get_shape_from_transform(transform, full_path=False) -> str or None:
     """
     Gets the shape node if any from a transform
-    try-except needed for lcoators which are transforms with unqueryable shapes
+    Locators have unqueryable shapes
     :param transform:
     :param full_path:
     :return:
     """
-    try:
-        object_type = cmds.objectType(transform)
-    except RuntimeError:
-        return
-
+    object_type = cmds.objectType(transform)
+    if cmds.listRelatives(transform, type=ObjectType.locator.name):
+        return None
     if object_type == ObjectType.transform.name:
         shape_list = cmds.listRelatives(transform, fullPath=full_path, shapes=True)
-
         return shape_list[0] if shape_list else None
     else:
-        return
+        return None
 
 
 def get_transform_from_shape(shape: str, full_path: bool = False) -> str or False:
@@ -487,6 +482,15 @@ def get_transform_from_shape(shape: str, full_path: bool = False) -> str or Fals
     return result[0] if result else False
 
 
+def get_type_from_transform(transform: str):
+    """
+    Gets the type of the shape connected to a transform
+    :param transform:
+    :return:
+    """
+    return cmds.objectType(get_shape_from_transform(transform=transform))
+
+
 def is_group_node(transform: str):
     """
     Determine if a transform is a group node
@@ -494,6 +498,15 @@ def is_group_node(transform: str):
     :return:
     """
     return cmds.nodeType(transform) == ObjectType.transform.name and not cmds.listRelatives(transform, shapes=True)
+
+
+def is_locator(transform: str) -> bool:
+    """
+    Returns true of the supplied transform is a locator
+    :param transform:
+    :return:
+    """
+    return cmds.listRelatives(transform, type=ObjectType.locator.name) is not None
 
 
 def is_object_type(transform: str, object_type: ObjectType):
@@ -505,11 +518,21 @@ def is_object_type(transform: str, object_type: ObjectType):
     """
     if object_type is ObjectType.joint:
         return cmds.objectType(transform) == ObjectType.joint.name
-
+    elif object_type is ObjectType.locator:
+        return is_locator(transform)
     else:
         shape = get_shape_from_transform(transform)
-
         return cmds.objectType(shape) == object_type.name if shape else False
+
+
+def match_rotation():
+    """Rotate selected objects to the rotation of the last selected object."""
+    transforms = get_selected_transforms()
+    if len(transforms) < 2:
+        warning_message(text='Select more than one node')
+        return
+    rotation = get_rotation(transform=transforms[-1])
+    rotate(nodes=transforms[:-1], value=rotation, absolute=True)
 
 
 def match_pivot_to_last(transforms: Optional[Union[str, list[str]]] = None):
@@ -527,32 +550,13 @@ def match_pivot_to_last(transforms: Optional[Union[str, list[str]]] = None):
     reset_pivot(selection[:-1])
 
 
-def match_translation():
-    """
-    Move selected objects to the location of the last selected object
-    """
-    transforms = get_selected_transforms()
-
-    if len(transforms) < 2:
-        warning_message(text='Select more than one node')
-        return
-
-    location: Point3 = get_translation(transform=transforms[-1], absolute=True)
-    translate(nodes=transforms[:-1], value=location, absolute=True)
-
-
-def match_rotation():
-    """
-    Rotate selected objects to the rotation of the last selected object
-    """
-    transforms = get_selected_transforms()
-
-    if len(transforms) < 2:
-        warning_message(text='Select more than one node')
-        return
-
-    rotation = get_rotation(transform=transforms[-1])
-    rotate(nodes=transforms[:-1], value=rotation, absolute=True)
+def move_to_last():
+    """Move selected objects to the location of the last selected object."""
+    transforms = cmds.ls(sl=True, tr=True)
+    assert len(transforms) > 1, 'Select more than one node.'
+    location = get_translation(transform=transforms[-1], absolute=True)
+    for i in range(len(transforms) - 1):
+        cmds.setAttr(f'{transforms[i]}.translate', *location.values, type=DataType.float3.name)
 
 
 def rename_transforms(transforms: Optional[list] = None, token: str = "node",
@@ -566,20 +570,21 @@ def rename_transforms(transforms: Optional[list] = None, token: str = "node",
     """
     transforms = cmds.ls(transforms, tr=True) if transforms else cmds.ls(sl=True, tr=True)
     name_list = []
-
     for idx, x in enumerate(transforms):
         name_list.append(cmds.rename(x, f"{token}{str(idx + start).zfill(padding)}"))
-
     return name_list
 
 
-def get_type_from_transform(transform: str):
+def match_translation():
     """
-    Gets the type of the shape connected to a transform
-    :param transform:
-    :return:
+    Move selected objects to the location of the last selected object
     """
-    return cmds.objectType(get_shape_from_transform(transform=transform))
+    transforms = get_selected_transforms()
+    if len(transforms) < 2:
+        warning_message(text='Select more than one node')
+        return
+    location: Point3 = get_translation(transform=transforms[-1], absolute=True)
+    translate(nodes=transforms[:-1], value=location, absolute=True)
 
 
 def translate(nodes: Union[str, list[str]], value: Point3, absolute: bool = True):

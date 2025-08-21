@@ -4,7 +4,7 @@ from PySide6.QtCore import QSettings, Qt
 
 from widgets.generic_widget import GenericWidget
 from core import DEVELOPER
-from core.core_enums import Alignment
+from core.core_enums import Alignment, Side
 from core.environment_utils import is_using_maya_python
 from maya_tools.ams.character_exporter import CharacterExporter
 from maya_tools.ams.environment_exporter import EnvironmentExporter
@@ -13,26 +13,27 @@ from maya_tools.ams.project_definition import ProjectDefinition
 
 
 class ExportManager(GenericWidget):
-    title: str = 'Export Manager'
+    name: str = 'Export Manager'
     version: str = '0.1'
     codename: str = 'hot mango'
     project_key: str = 'project_root'
+    title: str = f'{name} v{version} [{codename}]'
 
     def __init__(self):
-        super(ExportManager, self).__init__(title=f'{self.title} v{self.version} [{self.codename}]')
-        project_widget: GenericWidget = self.add_widget(GenericWidget(alignment=Alignment.horizontal))
-        project_widget.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        super(ExportManager, self).__init__(title=self.title)
+        project_widget: GenericWidget = self.add_widget(widget=GenericWidget(alignment=Alignment.horizontal))
+        project_widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         self.settings = QSettings(DEVELOPER, self.title.replace(' ', ''))
         self.project_label: QLabel = project_widget.add_label('Project:')
         project_widget.add_stretch()
         self.set_project_button: QPushButton = project_widget.add_button(
-            'Set Project...', tool_tip='Set the project for the tool.', event=self.set_project_button_clicked)
+            'Set Project...', tool_tip='Set the project for the tool.', clicked=self.set_project_button_clicked)
         self.tab_bar: QTabWidget = self.add_widget(QTabWidget())
         self.character_exporter: CharacterExporter = CharacterExporter(self)
         self.environment_exporter = EnvironmentExporter(self)
         self.tab_bar.addTab(self.character_exporter, 'Characters')
         self.tab_bar.addTab(self.environment_exporter, 'Environments')
-        self.info_label: QLabel = self.add_label(center_align=False)
+        self.info_label: QLabel = self.add_label(side=Side.left)
         self.info_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.progress_bar: QProgressBar = self.add_widget(QProgressBar())
         self.project = None
@@ -60,9 +61,9 @@ class ExportManager(GenericWidget):
         """
         Event for set_project_button
         """
-        message = 'Browse for the project directory'
+        msg = 'Browse for the project directory'
         default = self.project_root.parent.as_posix() if self.project_root else None
-        d = QFileDialog.getExistingDirectory(self, caption=message, dir=default, options=QFileDialog.ShowDirsOnly)
+        d = QFileDialog.getExistingDirectory(self, caption=msg, dir=default, options=QFileDialog.Option.ShowDirsOnly)
 
         if d:
             self.project_root = Path(d)

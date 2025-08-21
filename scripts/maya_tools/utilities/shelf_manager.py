@@ -1,151 +1,186 @@
-import inspect
+"""Utils for shelves."""
+from __future__ import annotations
+
 import logging
-
-from maya import mel, cmds
-from typing import List, Optional, Type
+from abc import ABC, abstractmethod
+from functools import partial
 from pathlib import Path
+from typing import Callable, Sequence
 
-logging.basicConfig()
-logging.getLogger().setLevel(logging.INFO)
+from maya import cmds, mel
+from PySide6.QtCore import QSettings
 
-_DEBUG_MODE: bool = False
+from core import DEVELOPER
+from core.core_enums import Language
+from core.core_paths import image_path
+
+SHELF_LAYOUT = mel.eval("$tmpVar=$gShelfTopLevel")
+SHELVES: list = cmds.shelfTabLayout(SHELF_LAYOUT, query=True, childArray=True)
+SCRIPT_ICON: Path = image_path("script.png")
+SHELF_CONFIG: Path = Path(__file__).parents[2] / "config" / "shelf_config.ini"
 
 
-class ShelfManager:
-    TOP_LEVEL_SHELF: str = mel.eval('$tmpVar=$gShelfTopLevel')
+logging.basicConfig(format="$(levelname)s: $(message)s", level=logging.INFO)
 
-    def __init__(self, name: str):
-        self.name = name
+
+class ShelfManager(ABC):
+    """Class to handle Maya shelves."""
+
+    def __init__(self, title: str) -> None:
+        """Init."""
+        self.title: str = title.replace(" ", "_")
+        self.settings: QSettings = QSettings(DEVELOPER, title)
+        self.panel_buttons = {}
+
+    @abstractmethod
+    def initialize_buttons(self) -> None:
+        """Add buttons to the shelf."""
 
     @property
-    def shelf_names(self) -> List[str]:
-        return cmds.tabLayout(self.TOP_LEVEL_SHELF, query=True, childArray=True)
+    def exists(self) -> bool:
+        """Query if shelf exists."""
+        return self.title in SHELVES
 
     @property
-    def current_button_labels(self) -> List[str]:
-        return [cmds.shelfButton(x, query=True, label=True) for x in self.current_buttons]
+    def index(self) -> int:
+        """Index of the shelf in the shelf list."""
+        return SHELVES.index(self.title) + 1
 
     @property
-    def current_buttons(self) -> List[str]:
-        shelf_contents = cmds.shelfLayout(self.name, query=True, childArray=True)
-        return [] if shelf_contents is None else [x for x in shelf_contents if 'shelfButton' in x]
+    def buttons(self) -> list:
+        """List of buttons in the shelf."""
+        shelf_contents = cmds.shelfLayout(self.title, query=True, childArray=True)
+        if shelf_contents is None:
+            return []
+        return  [x for x in shelf_contents if "shelfButton" in x]
 
-    @property
-    def tab_index(self) -> int or None:
-        return self.shelf_names.index(self.name) + 1 if self.name in self.shelf_names else None
+    def add_button(self, label: str, icon: Path, command: Callable,
+                   overlay_label: str = "", overwrite: bool = True) -> None:
+        """Add a button to the shelf."""
+        if label in self.buttons and overwrite:
+            self.delete_button(label=label)
+        cmds.shelfButton(label=label, image=icon,
+                            parent=self.title, command=command,
+                            overlayLabelBackColor=(0, 0, 0, 0),
+                            imageOverlayLabel=overlay_label)
 
-    def create(self, select: bool = False):
-        """
-        Add the shelf to the ui
-        :param select:
-        """
-        if self.name not in self.shelf_names:
-            cmds.shelfLayout(self.name, parent=self.TOP_LEVEL_SHELF)
+    def add_panel_button(self, label: str, overlay_label: str, linked_labels: Sequence,
+                         state: bool = True) -> None:
+        """Add a panel button to the shelf."""
+        if label in self.buttons:
+            self.delete_button(label=label)
+        icon_true = image_path("panel_open.png")
+        icon_false = image_path("panel_closed.png")
+        self.panel_buttons[label] = {True: icon_true, False: icon_false,
+                                      "linked": list(linked_labels)}
+        state = state if state else self.settings.value(label, defaultValue=True)
+        icon = icon_true if state else icon_false
+        cmd = partial(self.toggle_icon_button, label)
+        cmds.shelfButton(label=label, parent=self.title, command=cmd, image=icon,
+                         overlayLabelBackColor=(0, 0, 0, 0),
+                         imageOverlayLabel=overlay_label)
 
-            if select:
-                self.select_tab_index()
+    def add_separator(self) -> None:
+        """Add a separator to the current shelf."""
+        cmds.setParent(self.title)
+        cmds.separator(width=4, height=35, horizontal=False,
+                       backgroundColor=(0.6, 0.6, 0.6), enableBackground=False)
 
-    def delete(self):
-        """
-        Remove the shelf from the ui
-        """
-        if self.name in self.shelf_names:
-            cmds.deleteUI(self.name)
-
-    def select_tab_index(self, tab_index: Optional[int] = None):
-        """
-        Set the currently selected shelf tab
-        :param tab_index:
-        """
-        if tab_index is not None:
-            assert tab_index <= len(self.shelf_names), 'Invalid index'
-
-        cmds.shelfTabLayout(self.TOP_LEVEL_SHELF, edit=True, selectTabIndex=tab_index if tab_index else self.tab_index)
-
-    def select_tab_name(self, name: Optional[str] = None):
-        """
-        Select the current tab by name
-        :param name: str
-        """
-        if name is not None:
-            assert name in self.shelf_names, 'Invalid shelf name'
-
-        cmds.shelfTabLayout(self.TOP_LEVEL_SHELF, edit=True, selectTab=name if name else self.name)
-
-    def add_shelf_button(self, label: str, icon: Path, command: str = '', overlay_label: Optional[str] = None,
-                         overwrite: bool = True):
-        """
-        Add a button to the current shelf
-        :param label: str
-        :param icon: Path
-        :param command: str
-        :param overlay_label: str
-        :param overwrite: bool
-        """
-        if label in self.current_button_labels and overwrite:
+    def add_toggle_button(self, label: str, icon_true: Path, icon_false: Path,
+                          command: Callable | None = None,
+                          linked_labels: Sequence = (),
+                          state: bool = True) -> None:
+        """Add a toggle button to the shelf."""
+        if label in self.buttons:
             self.delete_button(label=label)
 
-        if overlay_label:
-            cmds.shelfButton(label=label, image1=icon, parent=self.name, command=command,
-                             overlayLabelBackColor=(0, 0, 0, 0), imageOverlayLabel=overlay_label)
-        else:
-            cmds.shelfButton(label=label, image1=icon, parent=self.name, command=command)
+        self.panel_buttons[label] = {True: icon_true, False: icon_false,
+                                      "linked": list(linked_labels)}
 
-    def add_separator(self):
-        """
-        Add a separator to the current shelf
-        """
-        cmds.setParent(self.name)
-        cmds.separator(width=12, height=35, horizontal=False, backgroundColor=(0.6, 0.6, 0.6), enableBackground=False)
+        def cmd() -> None:
+            """Toggle button command."""
+            self.toggle_icon_button(label)
+            command() if command else None
 
-    def add_label(self, text, bold=False):
-        """
-        Add a text to the current shelf`
-        """
-        cmds.setParent(self.name)
-        cmds.text(label='<b>{}</b>'.format(text) if bold else text, width=len(text) * 7, align='center')
+        icon = icon_true if state else icon_false
+        cmds.shelfButton(label=label, parent=self.title, command=cmd, image=icon)
 
-    def delete_button(self, label: str):
-        """
-        Delete a button by label
-        :param label:
-        """
-        button = next((x for x in self.current_buttons if cmds.shelfButton(x, query=True, label=True) == label), None)
+    def create(self, set_focus: bool = True) -> None:
+        """Create shelf if it doesn't exist."""
+        self.delete()
+        cmds.shelfLayout(self.title,  parent=SHELF_LAYOUT)
+        self.initialize_buttons()
+        self.update_panels()
+        if set_focus:
+            self.set_focus()
+
+    def delete(self) -> None:
+        """Delete the shelf."""
+        if self.title in SHELVES:
+            try:
+                cmds.deleteUI(self.title)
+            except RuntimeError as err:
+                logging.error(f"Nope: {err}")
+
+    def delete_button(self, label: str) -> None:
+        """Remove a button from the shelf."""
+        button = self.get_button(label=label)
         if button:
             cmds.deleteUI(button)
+            if label in self.panel_buttons:
+                self.panel_buttons.pop(label)
 
-    def delete_buttons(self):
-        """
-        Delete all buttons in shelf
-        """
+    def delete_buttons(self) -> None:
+        """Delete all buttons."""
         for button in self.buttons:
             cmds.deleteUI(button)
 
-    @property
-    def buttons(self) -> List[str]:
-        buttons = cmds.shelfLayout(self.name, query=True, childArray=True)
+    def get_button(self, label: str) -> str | None:
+        """Get button by label."""
+        return next((x for x in self.buttons if cmds.shelfButton(
+            x, query=True, label=True) == label), None)
 
-        return buttons if buttons is not None else []
+    def set_button_visibility(self, label: str, state: bool) -> None:  # noqa: FBT001
+        """Set the visibility of a button."""
+        button = self.get_button(label=label)
+        if button:
+            cmds.shelfButton(button, edit=True, visible=1 if state else 0)
+
+    def set_focus(self) -> None:
+        """Set the shelf focus."""
+        if self.exists:
+            cmds.shelfTabLayout(SHELF_LAYOUT, edit=True, selectTabIndex=self.index)
+
+    @staticmethod
+    def execute_script(script: str, language: Language = Language.python) -> None:
+        """Execute a script."""
+        if language is Language.python:
+            exec(script)
+        elif language is Language.mel:
+            mel.eval(script)
+        else:
+            logging.info(f"Language not supported: {language}")
 
 
-def build_shelf_command(function: Type, script: str, imports: Optional[str] = None) -> str:
-    """
-    Creates a text script incorporating a function, a function call and an optional import header
-    The command can be executed by Maya shelf buttons
-    :param function:
-    :param script:
-    :param imports:
-    :return:
-    """
-    import_string = f'{imports}\n\n' if imports else ''
+    def toggle_icon_button(self, label: str) -> bool | None:
+        """Toggle an icon button."""
+        button = self.get_button(label=label)
+        if button:
+            icon =  cmds.shelfButton(button, query=True, image=True)
+            state = str(icon) == str(self.panel_buttons[label][True])
+            self.settings.setValue(label, not state)
+            cmds.shelfButton(button, edit=True,
+                             image=self.panel_buttons[label][not state])
+            for linked in self.panel_buttons[label]["linked"]:
+                self.set_button_visibility(label=linked, state=not state)
+            return not state
+        return None
 
-    return f'{import_string}{inspect.getsource(function)}\n\n{script}'
-
-
-def message_script(text: str) -> str:
-    """
-    Creates a script which launches an in-view message
-    @param text:
-    @return:
-    """
-    return f'from maya import cmds\ncmds.inViewMessage(assistMessage="{text}", fade=True, pos="midCenter")'
+    def update_panels(self) -> None:
+        """Update panels and linked buttons."""
+        for label in self.panel_buttons:
+            state = self.settings.value(label, "true") == "true"
+            button = self.get_button(label=label)
+            cmds.shelfButton(button, edit=True, image=self.panel_buttons[label][state])
+            for linked in self.panel_buttons[label]["linked"]:
+                self.set_button_visibility(label=linked, state=state)

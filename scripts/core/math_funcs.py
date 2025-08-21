@@ -3,7 +3,7 @@ import math
 import logging
 import pyperclip
 
-from scipy.linalg import expm, norm
+# from scipy.linalg import expm, norm
 from typing import Sequence, Optional
 
 from core.point_classes import Point2, Point3, Point3Pair, Y_AXIS, X_AXIS, Z_AXIS, NEGATIVE_Y_AXIS, NEGATIVE_X_AXIS, \

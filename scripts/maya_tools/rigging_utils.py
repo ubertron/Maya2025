@@ -11,8 +11,8 @@ from maya_tools.display_utils import info_message, warning_message
 from maya_tools.maya_enums import ObjectType
 from maya_tools.node_utils import get_translation, get_type_from_transform, get_root_transform, is_object_type, \
     get_child_geometry, get_selected_geometry, get_selected_joints, get_selected_transforms, get_immediate_children, \
-    get_all_child_transforms, get_hierarchy_depth, get_hierarchy_path
-from maya_tools.helpers import get_selected_locators, is_locator, create_locator, get_midpoint_from_transform
+    get_all_child_transforms, get_hierarchy_depth, get_hierarchy_path, is_locator
+from maya_tools.helpers import get_selected_locators, create_locator, get_midpoint_from_transform
 from maya_tools.layer_utils import is_display_layer, create_display_layer, add_to_layer
 from maya_tools.scene_utils import get_scene_path
 from maya_tools.undo_utils import UndoStack
@@ -65,38 +65,52 @@ def bind_skin(rigid_bind_mode: bool = False):
         warning_message(warning)
 
 
-def create_joints_from_locator_hierarchy(mirror_joints: bool = False, axis: Axis = Axis.x) -> str or None:
+def create_joints_from_locator_hierarchy(transform: str = "", mirror_joints: bool = False, axis: Axis = Axis.x,
+                                         to_layer: bool = False) -> str or None:
     """
     Build a skeleton from a hierarchy of locators
     Axis must be aligned to x with symmetry across the YZ plane
+    :param transform:
     :param mirror_joints:
     :param axis:
+    :param to_layer:
     :return:
     """
-    selection = get_selected_locators()
+    if transform:
+        if is_locator(transform=transform):
+            root_locator = get_root_transform(transform)
+        else:
+            cmds.warning('Invalid transform')
+            return
+    else:
+        selected_locators = get_selected_locators()
+        if selected_locators:
+            root_locator = get_root_transform(selected_locators[0])
+        else:
+            cmds.warning('Invalid selection')
+            return
 
-    if len(selection) == 1:
-        root_locator = get_root_transform(selection[0])
-        cmds.select(clear=True)
+    cmds.select(clear=True)
 
-        with UndoStack('build_rig_from_locator_hierarchy'):
-            root_joint = create_joints_recursively(locator=root_locator)
+    with UndoStack('create_joints_from_locator_hierarchy'):
+        root_joint = create_joints_recursively(locator=root_locator)
 
-            if mirror_joints:
-                limb_joints = get_limb_joints(joint=root_joint, root_position=get_translation(root_joint),
-                                              limb_joints=[], axis=Axis.x)
-                for limb_joint in limb_joints:
-                    mirror_joint(joint=limb_joint, axis=axis)
+        if mirror_joints:
+            limb_joints = get_limb_joints(joint=root_joint, root_position=get_translation(root_joint),
+                                          limb_joints=[], axis=Axis.x)
+            for limb_joint in limb_joints:
+                mirror_joint(joint=limb_joint, axis=axis)
 
+        if to_layer:
             if not is_display_layer(JOINT_LAYER):
                 create_display_layer(name=JOINT_LAYER, color=JOINT_LAYER_COLOR)
 
             add_to_layer(transforms=root_joint, layer=JOINT_LAYER)
-            reorient_joints(root_joint=root_joint, recurse=True)
-            fix_root_joint_orientation(root_joint=root_joint, axis=axis)
-            cmds.select(root_joint)
 
-            return root_joint
+        reorient_joints(root_joint=root_joint, recurse=True)
+        fix_root_joint_orientation(root_joint=root_joint, axis=axis)
+        cmds.select(root_joint)
+        return root_joint
 
 
 def create_joints_recursively(locator: str, parent_joint: Optional[str] = None) -> str:
@@ -124,30 +138,45 @@ def create_joints_recursively(locator: str, parent_joint: Optional[str] = None) 
         return parent_joint
 
 
-def create_locator_hierarchy_from_joints(axis: Axis = Axis.x, size: float = 2.0,
-                                         mirror_joints: bool = False) -> str or None:
+def create_locator_hierarchy_from_joints(transform: str = '', mirror_joints: bool = False, axis: Axis = Axis.x,
+                                         size: float = 2.0,
+                                         positive_axis: bool = False) -> str or None:
     """
     Build a locator hierarchy from a selected joint
+    :param transform:
     :param axis:
     :param size:
     :param mirror_joints: if set to true, we only create locators for the positive axis
+    :param positive_axis: set to True if mirroring from left to right
     :return:
     """
-    root_joint = get_root_joint()
+    if not transform:
+        transform = get_selected_transforms(first_only=True)
+        if not transform:
+            cmds.warning('Nothing selected')
+            return
 
-    if root_joint:
-        position = Point3(*cmds.xform(root_joint, query=True, worldSpace=True, translation=True))
-        locator = create_locator(position=position, size=size)
-        create_locators_recursively(joint=root_joint, axis=axis, parent_locator=locator, size=size,
-                                    mirror_joints=mirror_joints)
-        cmds.select(locator)
-
-        return locator
+    if transform:
+        if is_object_type(transform, object_type=ObjectType.joint):
+            root_joint = get_root_joint(transform=transform)
+        else:
+            warning_message(f'Selection is not a joint: {transform}')
+            return
     else:
-        warning_message('No joint selected.')
+        warning_message('No valid transform')
+        return
+
+    position = Point3(*cmds.xform(root_joint, query=True, worldSpace=True, translation=True))
+    root_locator = create_locator(position=position, size=size)
+    create_locators_recursively(joint=root_joint, axis=axis, parent_locator=root_locator, size=size,
+                                mirror_joints=mirror_joints, positive_axis=positive_axis)
+    cmds.select(root_locator)
+
+    return root_locator
 
 
-def create_locators_recursively(joint: str, axis: Axis, parent_locator: str, size: float, mirror_joints: bool):
+def create_locators_recursively(joint: str, axis: Axis, parent_locator: str, size: float, mirror_joints: bool,
+                                positive_axis: bool = False):
     """
     Build the locator hierarchy recursively
     :param joint:
@@ -155,17 +184,21 @@ def create_locators_recursively(joint: str, axis: Axis, parent_locator: str, siz
     :param parent_locator:
     :param size:
     :param mirror_joints:
+    :param positive_axis:
     """
     for child_joint in get_child_joints(joint):
         position = Point3(*cmds.xform(child_joint, query=True, worldSpace=True, translation=True))
 
-        if mirror_joints and position.values[axis.value] < -JOINT_SEARCH_TOLERANCE:
-            continue
+        if mirror_joints:
+            if positive_axis and position.values[axis.value] < -JOINT_SEARCH_TOLERANCE:
+                continue
+            elif position.values[axis.value] > JOINT_SEARCH_TOLERANCE:
+                continue
 
         locator = create_locator(position=position, size=size)
         cmds.parent(locator, parent_locator)
         create_locators_recursively(joint=child_joint, axis=axis, parent_locator=locator, size=size,
-                                    mirror_joints=mirror_joints)
+                                    mirror_joints=mirror_joints, positive_axis=positive_axis)
 
 
 def create_rigid_joint_cluster(mesh_transform: str, joint: str) -> str:
@@ -180,13 +213,13 @@ def create_rigid_joint_cluster(mesh_transform: str, joint: str) -> str:
     return cluster_node
 
 
-def export_joint_map_from_locator_hierarchy(locator: str):
+def export_joint_hierarchy(transform: str):
     """
     WIP
-    :param locator:
+    :param transform:
     """
     scene_path: Point3 = get_scene_path()
-    joint_map_path: Point3 = scene_path.parent.joinpath('joint_map.json')
+    joint_map_path: Point3 = scene_path.parent.joinpath(f'{scene_path.stem}_joint_hierarchy.json')
     print(joint_map_path)
 
 
@@ -488,6 +521,35 @@ def rigid_bind_meshes_to_selected_joint():
 
     cmds.select(joint)
     logging.info(f'Meshes bound to {joint}: {", ".join(geometry)}')
+
+
+def toggle_locators_joints(transform: str, mirror_joints: bool = True, axis: Axis = Axis.x, size: float = 2.0) -> str:
+    """
+    Toggle between joint and locator hierarchy
+    :param transform:
+    :param mirror_joints:
+    :param axis:
+    :param size:
+    :return:
+    """
+    transform: str = get_root_transform(transform)
+
+    if is_object_type(transform, object_type=ObjectType.locator):
+        locator_root = create_joints_from_locator_hierarchy(transform=transform, mirror_joints=mirror_joints, axis=axis)
+        cmds.delete(transform)
+        return locator_root
+    elif is_object_type(transform, object_type=ObjectType.joint):
+        joint_root = create_locator_hierarchy_from_joints(transform=transform, mirror_joints=mirror_joints, axis=axis,
+                                                          size=size)
+
+        if joint_root:
+            cmds.delete(transform)
+            return joint_root
+        else:
+            warning_message('Something went wrong')
+            return
+    else:
+        warning_message('Selection is neither a joint nor a locator')
 
 
 def unbind_skin_clusters(transforms: Optional[str] = None):

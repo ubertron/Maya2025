@@ -10,6 +10,7 @@ from core.core_enums import ComponentType, Axis
 from core.point_classes import Point3, Point3Pair, NEGATIVE_Y_AXIS, POINT3_ORIGIN
 from core.math_funcs import cross_product, dot_product, normalize_vector, degrees_to_radians, get_midpoint_from_point_list
 from maya_tools.scene_utils import message_script
+from maya_tools import display_utils, node_utils
 from maya_tools.node_utils import State, set_component_mode, get_component_mode, get_type_from_transform, \
     restore_rotation, is_object_type, get_translation, set_pivot, get_selected_geometry, get_child_geometry
 from maya_tools.maya_enums import ObjectType
@@ -48,6 +49,14 @@ def create_cube(name: Optional[str] = None, size: float = 1, divisions: int = 1)
 
 
 def create_platonic_sphere(name: str, diameter: float, primitive: int = 2, subdivisions: int = 3):
+    """
+    Create platonic sphere
+    :param name:
+    :param diameter:
+    :param primitive:
+    :param subdivisions:
+    :return:
+    """
     sphere = cmds.polyPlatonic(radius=diameter / 2, primitive=primitive, subdivisionMode=0,
                                subdivisions=subdivisions, sphericalInflation=1)[0]
 
@@ -204,7 +213,7 @@ def get_selected_edges(node: str = '') -> list[int] or None:
     :param node:
     :return:
     """
-    return get_selected_components(node=node, component_type=ComponentType.edge)
+    return get_selected_components(transform=node, component_type=ComponentType.edge)
 
 
 def get_selected_vertices(node: str = '') -> list[int] or None:
@@ -213,7 +222,15 @@ def get_selected_vertices(node: str = '') -> list[int] or None:
     :param node:
     :return:
     """
-    return get_selected_components(node=node, component_type=ComponentType.vertex)
+    return get_selected_components(transform=node, component_type=ComponentType.vertex)
+
+
+def get_selection() -> om.MSelectionList:
+    """
+    Get selected
+    :return:
+    """
+    return om.MGlobal.getActiveSelectionList()
 
 
 def get_selected_faces(transform: str = '') -> list[int] or None:
@@ -222,32 +239,31 @@ def get_selected_faces(transform: str = '') -> list[int] or None:
     :param transform:
     :return:
     """
-    return get_selected_components(node=transform, component_type=ComponentType.face)
+    return get_selected_components(transform=transform, component_type=ComponentType.face)
 
 
-def get_selected_components(node: str = '', component_type: ComponentType = ComponentType.face) -> list[int] or None:
+def get_selected_components(transform: str = '', component_type: ComponentType = ComponentType.face) -> list[int] or None:
     """
     Gets a list of the component ids, or None if node not found
-    :param node:
+    :param transform:
     :param component_type:
     :return:
     """
-    node = get_transforms(node)
+    transform = get_transforms(transform)
     assert component_type in (ComponentType.face, ComponentType.vertex, ComponentType.edge), 'Component not supported.'
-    assert node, 'Please supply a node.'
+    assert transform, 'Please supply a transform.'
     component_label: dict = {ComponentType.edge: 'e', ComponentType.face: 'f', ComponentType.vertex: 'vtx'}
     state = State()
-    cmds.select(node)
+    cmds.select(transform)
     set_component_mode(component_type=component_type)
     selection = cmds.ls(sl=True, flatten=True)
     state.restore()
-    component_prefix = f'{node}.{component_label[component_type]}['
+    component_prefix = f'{transform}.{component_label[component_type]}['
     component_ids = [int(x.split(component_prefix)[1].split(']')[0]) for x in selection]
-
     return component_ids
 
 
-def get_vertex_count(transform) -> int:
+def get_vertex_count(transform: str) -> int:
     """
     Get the number of vertices in a transform
     :param transform:
@@ -256,7 +272,7 @@ def get_vertex_count(transform) -> int:
     return cmds.polyEvaluate(transform, vertex=True)
 
 
-def get_vertex_positions(transform: str) -> list[Point3]:
+def get_vertex_positions_cmds(transform: str) -> list[Point3]:
     """
     Gets the position of each vertex in a mesh
     :param transform:
@@ -265,6 +281,22 @@ def get_vertex_positions(transform: str) -> list[Point3]:
     vertex_list = range(get_vertex_count(transform))
 
     return [get_vertex_position(transform=transform, vertex_id=i) for i in vertex_list]
+
+
+def get_vertex_positions(transform: str) -> om.MPointArray:
+    """
+    Get the vertex positions of a transform
+    :param transform:
+    :return: om.MPointArray
+    """
+    vertex_iterator: om.MItMeshVertex = get_vertex_iterator(transform)
+    vertex_positions: list = []
+
+    while not vertex_iterator.isDone():
+        vertex_positions.append(ertex_iterator.position(om.MSpace.kWorld))
+        next(vertex_iterator)
+
+    return vertex_positions
 
 
 def get_vertex_position(transform: str, vertex_id: int) -> Point3:
@@ -311,16 +343,16 @@ def get_face_position(transform: str, face_id: int) -> Point3:
     :param face_id:
     :return:
     """
-    sList = om.MSelectionList()
-    sList.add(f'{transform}.f[{face_id}]')
-    sIter = om.MItSelectionList(sList, om.MFn.kMeshPolygonComponent)
-    dagPath, component = sIter.getComponent()
-    pIter = om.MItMeshPolygon(dagPath, component)
+    selection_list = om.MSelectionList()
+    selection_list.add(f'{transform}.f[{face_id}]')
+    selection_iterator = om.MItSelectionList(selection_list, om.MFn.kMeshPolygonComponent)
+    dag_path, component = selection_iterator.getComponent()
+    polygon_iterator = om.MItMeshPolygon(dag_path, component)
     c = None
 
-    while not pIter.isDone():
-        c = pIter.center(space=om.MSpace.kWorld)
-        pIter.next()
+    while not polygon_iterator.isDone():
+        c = polygon_iterator.center(space=om.MSpace.kWorld)
+        polygon_iterator.next()
 
     return Point3(c[0], c[1], c[2])
 
@@ -442,6 +474,7 @@ def get_faces_by_vert_count(transform: Optional[str] = None, select: bool = Fals
 
     if select and len(result):
         select_faces(transform=transform, faces=result)
+        return None
     else:
         return vertex_dict[return_type]
 
@@ -560,17 +593,24 @@ def toggle_backface_culling(transforms: Optional[Sequence[str]] = None):
         cmds.setAttr(value, 3) if cmds.getAttr(value) == 0 else cmds.setAttr(value, 0)
 
 
-def toggle_xray(transforms: Optional[Sequence[str]] = None):
+def toggle_xray(transform: Optional[Sequence[str]] = None):
     """
     Toggle xray on passed or selected objects
-    :param transforms:
+    :param transform:
     """
-    transforms = cmds.ls(transforms) if transforms else cmds.ls(sl=True, transforms=True)
+    geometry_list = cmds.ls(transform) if transform else node_utils.get_selected_geometry()
+    if not geometry_list:
+        display_utils.warning_message(f'No geometry selected')
+        return
 
-    for transform in transforms:
-        for mesh in get_child_geometry(transform):
-            state = cmds.displaySurface(mesh, xRay=True, query=True)[0]
-            cmds.displaySurface(mesh, xRay= not state)
+    def toggle_xray_recursive(geometry: str):
+        state = cmds.displaySurface(geometry, xRay=True, query=True)[0]
+        cmds.displaySurface(geometry, xRay=not state)
+        for x in node_utils.get_child_geometry(geometry):
+            toggle_xray_recursive(x)
+
+    for x in geometry_list:
+        toggle_xray_recursive(geometry=x)
 
 
 def get_faces_by_axis(transform: str, axis: Point3, tolerance_angle: float = 0.05) -> list[int]:
@@ -854,6 +894,124 @@ def get_midpoint_from_faces(transform: str, faces: Sequence[int]) -> Point3:
     vertex_positions = [get_vertex_position(transform=transform, vertex_id=vertex) for vertex in vertices]
 
     return get_midpoint_from_point_list(points=vertex_positions)
+
+
+def get_mesh_face_area(face_component: str) -> float:
+    """Calculates the average face area of a given mesh."""
+    polygon_iterator = get_polygon_iterator(face_component)
+    return polygon_iterator.getArea(om.MSpace.kWorld)
+
+
+def get_average_face_area(transform: str) -> float:
+    """Calculates the average face area of a given mesh."""
+    face_areas = []
+
+    for face_id in range(cmds.polyEvaluate(transform, face=True)):
+        face_area = get_mesh_face_area(f'{transform}.f[{face_id}]')
+        face_areas.append(face_area)
+
+    return sum(face_areas) / len(face_areas)
+
+
+def find_ngons(transform: str):
+    """
+    Find the triangular faces in a mesh
+    :param transform:
+    :return:
+    """
+    ngons: list = []
+    polygon_iterator = get_polygon_iterator(transform)
+
+    while not polygon_iterator.isDone():
+        face_index = polygon_iterator.index()
+        edges = polygon_iterator.getEdges()
+
+        if len(edges) > 4:
+            ngons.append(face_index)
+
+        polygon_iterator.next()
+
+    return ngons
+
+
+def find_three_edge_faces(transform: str):
+    """
+    Find the triangular faces in a mesh
+    :param transform:
+    :return:
+    """
+    three_edge_faces: list = []
+    polygon_iterator = get_polygon_iterator(transform)
+
+    while not polygon_iterator.isDone():
+        face_index = polygon_iterator.index()
+        edges = polygon_iterator.getEdges()
+
+        if len(edges) == 3:
+            three_edge_faces.append(face_index)
+
+        polygon_iterator.next()
+
+    return three_edge_faces
+
+
+def get_vertex_iterator(transform: str) -> om.MItMeshVertex:
+    """
+    Get an MItMeshVertex instance from a transform
+    :param transform: str
+    :return:
+    """
+    selection_list = om.MSelectionList()
+    selection_list.add(transform)
+    dag_path, component = selection_list.getComponent(0)
+    return om.MItMeshVertex(dag_path, component)
+
+
+def get_edge_iterator(transform: str) -> om.MItMeshEdge:
+    """
+    Get an MItMeshEdge instance from a transform
+    :param transform: str
+    :return:
+    """
+    selection_list = om.MSelectionList()
+    selection_list.add(transform)
+    dag_path, component = selection_list.getComponent(0)
+    return om.MItMeshEdge(dag_path, component)
+
+
+def get_polygon_iterator(transform: str) -> om.MItMeshPolygon:
+    """
+    Get an MItMeshPolygon instance from a transform
+    :param transform: str
+    :return:
+    """
+    selection_list = om.MSelectionList()
+    selection_list.add(transform)
+    dag_path, component = selection_list.getComponent(0)
+    return om.MItMeshPolygon(dag_path, component)
+
+
+def get_face_edge_count_dict(transform: str) -> dict:
+    """
+    Get number of edges in each face
+    :param transform:
+    :return:
+    """
+    face_edge_dict: dict = {}
+    polygon_iterator = get_polygon_iterator(transform=transform)
+
+    while not polygon_iterator.isDone():
+        face_id = polygon_iterator.index()
+        num_edges = len(polygon_iterator.getEdges())
+
+        if num_edges in face_edge_dict:
+            face_edge_dict[num_edges].append(face_id)
+        else:
+            face_edge_dict[num_edges] = [face_id]
+
+        polygon_iterator.next()
+
+    return face_edge_dict
 
 
 def reverse_face_normals(transform: str, faces: list[int] or None = None):

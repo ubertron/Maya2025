@@ -28,7 +28,8 @@ def launch_export_manager():
         em.close()
 
     em = export_manager.ExportManager()
-    em.show()
+    # em.show()
+    em.show_workspace_control()
 
 
 def root_name_toggle():
