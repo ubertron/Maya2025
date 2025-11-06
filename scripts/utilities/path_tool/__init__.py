@@ -5,6 +5,7 @@ from pathlib import Path
 
 SOURCE_CONTROL_ROOT: Path = Path.home() / "Dropbox/Projects/Unity/AnimationSandbox"
 TOOL_NAME = "Path Tool"
+UI_SCRIPT = "from utilities.path_tool import path_tool; path_tool.PathTool().restore()"
 
 
 class PathType(Enum):

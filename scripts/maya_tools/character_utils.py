@@ -1,15 +1,18 @@
+"""Functions to handle characters."""
+from __future__ import annotations
+
 import os
 
-from functools import partial
 from pathlib import Path
 
 from core.core_enums import FileExtension, Gender, Side
 from core.core_paths import MODELS_DIR, SCENES_DIR
 from core.point_classes import Point3
+from maya_tools import DEFAULT_MAYA_FILE_FORMAT
 from maya_tools.helpers import in_view_message
 from maya_tools.layer_utils import is_display_layer, create_display_layer, add_to_layer
 from maya_tools.maya_enums import ObjectType
-from maya_tools.node_utils import get_root_transform, reset_pivot, delete_history, get_selected_transforms, \
+from maya_tools.node_utils import get_root_transform, get_selected_transforms, \
     super_reset, get_child_geometry, sort_transforms_by_depth, is_group_node
 from maya_tools.scene_utils import import_model, load_scene, get_scene_name, get_scene_path, export_selected, save_scene
 from maya_tools.undo_utils import UndoStack
@@ -33,17 +36,14 @@ def import_base_character(gender: Gender or str):
     import_path: Path = MODELS_DIR.joinpath(file_name)
     result = import_model(import_path=import_path)
     transform: str = next(x for x in result if cmds.objectType(x) == ObjectType.transform.name)
-
     if transform.startswith('|'):
         transform = transform[1:]
-
     cmds.select(transform)
     cmds.viewFit()
-
     return transform
 
 
-def load_base_character(gender, latest=False):
+def load_base_character(gender: Gender | str, latest: bool=False):
     """
     Load a base character scene
     @param gender:
@@ -54,7 +54,7 @@ def load_base_character(gender, latest=False):
 
     if latest:
         # find all the scenes
-        scenes = SCENES_DIR.glob(f'{scene_name}*')
+        scenes = SCENES_DIR.glob(f'{scene_name}*.ma')
         # discount the non-versioned file
         scenes = [x for x in scenes if len(str(x).split('.')) == 3]
 
@@ -66,7 +66,7 @@ def load_base_character(gender, latest=False):
         scenes.sort(key=lambda x: x.split(os.sep)[-1].split('.')[1])
         scene_path = scenes[-1]
     else:
-        scene_path = SCENES_DIR.joinpath('{}{}'.format(scene_name, FileExtension.mb.value))
+        scene_path = SCENES_DIR.joinpath('{}{}'.format(scene_name, DEFAULT_MAYA_FILE_FORMAT.value))
 
     print(f'>>> Loading: {scene_path.name}')
     result = load_scene(scene_path)

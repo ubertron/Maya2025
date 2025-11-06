@@ -1,0 +1,168 @@
+{
+    "Novotools": {
+        "Tools": {
+            "Edit Shelves": {
+                "icon": "edit_grey.png",
+                "language": "python",
+                "tool_tip": "Edit the shelf data",
+                "script": "from core import file_utils\nfile_utils.edit_shelves_data()"
+            },
+            "Rebuild Shelves": {
+                "icon": "refresh_grey.png",
+                "language": "python",
+                "tool_tip": "Rebuild the shelves",
+                "script": "from maya_tools import shelf_utils\nshelf_utils.ShelfManager().build()"
+            },
+            "Path Tool": {
+                "icon": "path_tool.png",
+                "language": "python",
+                "tool_tip": "Path Tool",
+                "script": "from utilities.path_tool import UI_SCRIPT, path_tool\npath_tool.PathTool().show_workspace_control(ui_script=UI_SCRIPT)"
+            }
+        },
+        "Characters": {
+            "Load Base Male Character": {
+                "icon": "load_male.png",
+                "language": "python",
+                "tool_tip": "Load base male character",
+                "script": "from maya_tools.character_utils import load_base_character\nload_base_character('male')"
+            },
+            "Load Base Female Character": {
+                "icon": "load_female.png",
+                "language": "python",
+                "tool_tip": "Load base female character",
+                "script": "from maya_tools.character_utils import load_base_character\nload_base_character('female')"
+            },
+            "Import Base Male Character": {
+                "icon": "import_male.png",
+                "language": "python",
+                "tool_tip": "Import base male character",
+                "script": "from maya_tools.character_utils import import_base_character\nimport_base_character('male')"
+            },
+            "Import Base Feale Character": {
+                "icon": "import_female.png",
+                "language": "python",
+                "tool_tip": "Import base female character",
+                "script": "from maya_tools.character_utils import import_base_character\nimport_base_character('female')"
+            }
+        },
+        "Display": {
+            "Toggle Layer Shading": {
+                "icon": "toggle_layer_shading.png",
+                "language": "python",
+                "tool_tip": "Toggle layer shading",
+                "script": "from maya_tools import layer_utils\nlayer_utils.toggle_current_layer_shading()"
+            },
+            "Toggle Xray": {
+                "icon": "toggle_xray.png",
+                "language": "python",
+                "tool_tip": "Toggle xray",
+                "script": "from maya_tools import geometry_utils\ngeometry_utils.toggle_xray()"
+            },
+            "Get Dimensions": {
+                "icon": "dimensions.png",
+                "language": "python",
+                "tool_tip": "Get dimensions",
+                "script": "from maya_tools import helpers\nhelpers.get_dimensions(format_results=True, clipboard=True)"
+            }
+        },
+        "Geometry": {
+            "Create Cube": {
+                "icon": "create_cube.png",
+                "language": "mel",
+                "tool tip": "Create a cube",
+                "script": "polyCube -w 10 -h 10 -d 10;"
+            },
+            "Slice Geometry": {
+                "icon": "slice_geometry.png",
+                "language": "python",
+                "tool tip": "Slice geometry",
+                "script": "from maya_tools import mirror_utils\nmirror_utils.slice_geometry()"
+            },
+            "Mirror Geometry": {
+                "icon": "mirror_geometry.png",
+                "language": "python",
+                "tool tip": "Mirror geometry",
+                "script": "from maya_tools import mirror_utils\nmirror_utils.mirror_geometry()"
+            },
+            "Create Plane": {
+                "icon": "create_plane.png",
+                "language": "python",
+                "tool tip": "Create plane",
+                "script": "cmds.polyPlane(width=10, height=10, sx=4, sy=4)"
+            },
+            "Quadrangulate": {
+                "icon": "quadrangulate.png",
+                "language": "python",
+                "tool tip": "Quadrangulate",
+                "script": "cmds.polyQuad()"
+            },
+            "Merge Vertices": {
+                "icon": "merge_vertices.png",
+                "language": "python",
+                "tool tip": "Merge vertices",
+                "script": "from maya_tools.geometry_utils import merge_vertices\nmerge_vertices(cmds.ls(sl=True)[0])"
+            }
+        },
+        "Node": {
+            "Super Reset": {
+                "icon": "super_reset.png",
+                "language": "python",
+                "tool tip": "Super reset",
+                "script": "from maya_tools import node_utils\nnode_utils.super_reset()"
+            },
+            "Pivot To Base": {
+                "icon": "pivot_to_base.png",
+                "language": "python",
+                "tool tip": "Pivot to base",
+                "script": "from maya_tools import node_utils\nnode_utils.pivot_to_base()"
+            },
+            "Pivot To Center": {
+                "icon": "pivot_to_center.png",
+                "language": "python",
+                "tool tip": "Pivot to center",
+                "script": "from maya_tools import node_utils\nnode_utils.pivot_to_center()"
+            },
+            "Pivot To Origin": {
+                "icon": "pivot_to_origin.png",
+                "language": "python",
+                "tool tip": "Pivot to origin",
+                "script": "from maya_tools import node_utils\nnode_utils.pivot_to_origin()"
+            },
+            "Move To Origin": {
+                "icon": "move_to_origin.png",
+                "language": "python",
+                "tool_tip": "Move selected to origin",
+                "script": "from maya_tools import node_utils\nnode_utils.move_to_origin()"
+            },
+            "Toggle Transform Constraints": {
+                "icon": "toggle_transform_constraints.png",
+                "language": "python",
+                "tool_tip": "Toggle transform constraints",
+                "script": "from maya_tools import display_utils\ndisplay_utils.toggle_transform_constraints()"
+            }
+        }
+    },
+    "Oddities": {
+        "Tools": {
+            "Edit Shelves": {
+                "icon": "edit_grey.png",
+                "language": "python",
+                "tool_tip": "Edit the shelf data",
+                "script": "from core import file_utils\nfile_utils.edit_shelves_data()"
+            },
+            "Rebuild Shelves": {
+                "icon": "refresh_grey.png",
+                "language": "python",
+                "tool_tip": "Rebuild the shelves",
+                "script": "from maya_tools import shelf_utils\nshelf_utils.ShelfManager().build()"
+            },
+            "Test2": {
+                "icon": "test.png",
+                "language": "python",
+                "tool_tip": "Test",
+                "script": "print('test2')"
+            }
+        }
+    }
+}

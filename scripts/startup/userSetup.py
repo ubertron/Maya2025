@@ -1,17 +1,30 @@
+"""userSetup.py from startup directory
+
+Directory must be specified in the tools module accessible by the module path.
+"""
 import logging
 
-from pathlib import Path
 from maya import cmds
+from pathlib import Path
+
+from core import logging_utils
+from startup import pip_utils
 
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+LOGGER = logging_utils.get_logger(name=__name__, level=logging.DEBUG)
 
 
-def main():
-    cmds.scriptEditorInfo(clearHistory=True)    # Debug only: comment out to view full startup log
+def setup_maya():
+    """Function sets up Maya session."""
+
+    #cmds.scriptEditorInfo(clearHistory=True)    # Debug only: comment out to view full startup log
     path = Path.home() / "Dropbox/Technology/Python3/Projects/Maya2025/scripts/startup"
-    logging.info(f">>> Maya2025 Project userSetup.py in {path}")
-    # Get latest from source control
+    LOGGER.info(f">>> Maya2025 Project userSetup.py in {path}")
+    LOGGER.info(f">>> Installing required packages")
+    pip_utils.install_requirements()
+    #LOGGER.info(f">>> Initializing shelves")
+    #shelf_utils.ShelfManager().build()
+    #shelf_utils.set_current_shelf("Novotools")
 
 
-cmds.evalDeferred(main, lowestPriority=True)
+cmds.evalDeferred(setup_maya, lowestPriority=True)

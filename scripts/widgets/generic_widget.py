@@ -7,10 +7,11 @@ from PySide6.QtWidgets import QWidget, QPushButton, QLabel, QLayout, QSizePolicy
 from PySide6.QtCore import Qt
 
 from core.core_enums import Alignment, Side
+from core.core_paths import image_path
 from core import environment_utils
 from typing import Optional, Callable
 from core.date_time_utils import get_date_time_string
-from icon_button import IconButton
+from widgets.icon_button import IconButton
 from widgets.layouts import HBoxLayout, VBoxLayout
 
 
@@ -66,9 +67,10 @@ class GenericWidget(QWidget):
         self.add_widget(widget=button)
         return button
 
-    def add_icon_button(self, icon_path: Path, tool_tip: str = "", size: int=32, margin: int = 2,
+    def add_icon_button(self, icon_path: Path | None, tool_tip: str = "", size: int=32, margin: int = 2,
                         clicked: Callable | None = None) -> IconButton:
         """Add an icon button to the layout."""
+        icon_path = icon_path if icon_path is not None else image_path("script.png")
         icon_button = IconButton(icon_path=icon_path, tool_tip=tool_tip, size=size, margin=margin, clicked=clicked)
         self.add_widget(widget=icon_button)
         return icon_button
@@ -89,20 +91,6 @@ class GenericWidget(QWidget):
             label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         return label
 
-    def set_margin(self, value: int):
-        """
-        Set widget margin
-        :param value:
-        """
-        self.layout().setContentsMargins(value, value, value, value)
-
-    def set_spacing(self, value: int):
-        """
-        Set widget spacing
-        :param value:
-        """
-        self.layout().setSpacing(value)
-
     def add_stretch(self):
         """
         Add a stretch item to the layout
@@ -119,9 +107,7 @@ class GenericWidget(QWidget):
         return widget
 
     def clear_layout(self):
-        """
-        Remove all widgets and spacer items from the current layout
-        """
+        """Remove all widgets and spacer items from the current layout."""
         for i in reversed(range(self.layout().count())):
             item = self.layout().itemAt(i)
             if isinstance(item, QSpacerItem):
@@ -139,7 +125,6 @@ class GenericWidget(QWidget):
 
     def restore(self) -> None:
         """Add the ui to the workspace control."""
-        print(f">>> {self.workspace_control}.restore")
         with contextlib.suppress(RuntimeError):
             from maya import OpenMayaUI
         control_ptr = OpenMayaUI.MQtUtil.findControl(self.workspace_control)
@@ -147,6 +132,20 @@ class GenericWidget(QWidget):
         layout = control_widget.layout()
         if layout is not None and not layout.count():
             layout.addWidget(self)
+
+    def set_margin(self, value: int):
+        """
+        Set widget margin
+        :param value:
+        """
+        self.layout().setContentsMargins(value, value, value, value)
+
+    def set_spacing(self, value: int):
+        """
+        Set widget spacing
+        :param value:
+        """
+        self.layout().setSpacing(value)
 
     def show_workspace_control(self, floating: bool = True, retain: bool = True,
                                restore: bool = True, ui_script: str = "") -> str:

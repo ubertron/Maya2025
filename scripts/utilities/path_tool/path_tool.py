@@ -30,15 +30,13 @@ from widgets.button_bar import ButtonBar
 from widgets.generic_widget import GenericWidget
 from widgets.path_dialog import PathDialog
 
-# MAYA: Path = Path(r"C:\Program Files\Autodesk\Maya2022\bin\maya.exe")
-# VS_CODE: Path = Path(r"C:\Program Files\Microsoft VS Code\Code.exe")
 DEFAULT_DATA: Path = Path(__file__).parent / "data" / "path_tool.json"
 PATH_TOOL_ICON: Path = image_path("path_tool.png")
 VERSIONS = (
     VersionInfo(name=TOOL_NAME, version="1.0", codename="lotus", info="Initial Pyside6 port"),
 )
 
-LOGGER = logging_utils.get_logger(TOOL_NAME)
+LOGGER = logging_utils.get_logger(name=TOOL_NAME, level=logging.DEBUG)
 
 
 class PathToolMode(Enum):
@@ -67,7 +65,7 @@ class PathTool(GenericWidget):
             name=self.settings.value("mode", "path"))
         self.button_bar: ButtonBar = self.add_widget(ButtonBar())
         self.button_bar.add_icon_button(
-            icon_path=image_path("refresh.png"),
+            icon_path=image_path("refresh_grey.png"),
             tool_tip="Refresh", clicked=self.update_path_widget)
         self.button_bar.add_icon_button(
             icon_path=image_path("new.png"),
@@ -305,6 +303,7 @@ class PathTool(GenericWidget):
         """Update the data and the json file."""
         self.paths = [x.path for x in self.path_widget.widgets if x.path]
         self.descriptions = [x.description for x in self.path_widget.widgets if x.path]
+
         data = {}
 
         for i in range(len(self.paths)):

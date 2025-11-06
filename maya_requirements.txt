@@ -1,5 +1,5 @@
 # Requirements for Maya 2025 only
-numpy==1.16.6
+
 pillow
 pyperclip
 python-dotenv

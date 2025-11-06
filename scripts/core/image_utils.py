@@ -73,4 +73,5 @@ if __name__ == "__main__":
     # my_path = image_path("open.png")
     # resize_image(path=image_path("maya_large.png"), output_path=IMAGE_DIR / "maya.png", width=128, height=128, show=True)
     # tint_image(path=image_path("browse_og.png"), output_path=IMAGE_DIR / "browse.png", rgb=RGBColor.LIGHT_GREY)
-    tint_image(path=image_path("from-a-to-z.png"), output_path=IMAGE_DIR / "sort_description.png", rgb=RGBColor.LIGHT_GREY)
+    # tint_image(path=image_path("from-a-to-z.png"), output_path=IMAGE_DIR / "sort_description.png", rgb=RGBColor.LIGHT_GREY)
+    tint_image(path=Path("/Users/andrewdavis/Dropbox/Pictures/Icons/path_tree.png"), output_path=IMAGE_DIR / "path_tool.png", rgb=RGBColor.LIGHT_GREY)

@@ -3,22 +3,27 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT: Path = Path(__file__).parents[2]
-IMAGE_DIR: Path = PROJECT_ROOT.joinpath('images')
-REQUIREMENTS: Path = PROJECT_ROOT.joinpath('requirements.txt')
-MAYA_REQUIREMENTS: Path = PROJECT_ROOT.joinpath('maya_requirements.txt')
-SITE_PACKAGES: Path = PROJECT_ROOT.joinpath('site-packages')
+MAYA_REQUIREMENTS: Path = PROJECT_ROOT / 'maya_requirements.txt'
 AUTODESK_DIR = Path('/Applications/Autodesk')
+CONFIG_DIR = PROJECT_ROOT / 'config'
+IMAGE_DIR: Path = PROJECT_ROOT / 'images'
+MAYA_CONFIG: Path = CONFIG_DIR / 'maya_config.ini'
+MODELS_DIR: Path = PROJECT_ROOT / 'models'
+PRESETS_DIR: Path = PROJECT_ROOT.joinpath('scripts/startup/presets')
+REQUIREMENTS: Path = PROJECT_ROOT / 'requirements.txt'
+SCENES_DIR: Path = PROJECT_ROOT / 'scenes'
+SHELVES_DATA: Path = PROJECT_ROOT / 'config' / 'shelves.json'
+SITE_PACKAGES: Path = PROJECT_ROOT / 'site-packages'
 MAYA_VERSIONS = ("maya2025", "maya2026")
 MAYA_APP_DIR: Path = next(AUTODESK_DIR / y for y in MAYA_VERSIONS if AUTODESK_DIR.joinpath(y).exists())
 MAYA_INTERPRETER_PATH: Path = MAYA_APP_DIR.joinpath('Maya.app/Contents/bin/mayapy')
-MAYA_CONFIG: Path = PROJECT_ROOT.joinpath('bin/maya_config.ini')
-MODELS_DIR: Path = PROJECT_ROOT.joinpath('models')
-SCENES_DIR: Path = PROJECT_ROOT.joinpath('scenes')
-PRESETS_DIR: Path = PROJECT_ROOT.joinpath('scripts/startup/presets')
+MAYA_WINDOWS: Path = Path(r"C:\Program Files\Autodesk\Maya2022\bin\maya.exe")
+VS_CODE_WINDOWS: Path = Path(r"C:\Program Files\Microsoft VS Code\Code.exe")
 
 
 def image_path(file_name: str) -> Path:
-    return IMAGE_DIR.joinpath(file_name)
+    """Get the path of a file from the project image directory."""
+    return next((x for x in IMAGE_DIR.rglob(file_name)), None)
 
 
 def query_path(path_constant: Path):
@@ -26,11 +31,5 @@ def query_path(path_constant: Path):
 
 
 if __name__ == '__main__':
-    # print(PROJECT_ROOT, PROJECT_ROOT.exists())
-    # print(icon_path('base_female.png').exists())
-    query_path(PROJECT_ROOT)
-    query_path(image_path('base_female.png'))
-    query_path(SITE_PACKAGES)
-    query_path(MAYA_REQUIREMENTS)
-    query_path(MAYA_APP_DIR)
-    query_path(MAYA_INTERPRETER_PATH)
+    print(image_path("mirror_geometry.png"))
+    print(image_path("mirror_geometry_.png"))

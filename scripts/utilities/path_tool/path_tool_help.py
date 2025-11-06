@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QWidget, QLabel
 
-from help_widget import HelpWidget
+from widgets.help_widget import HelpWidget
 
 
 class PathToolHelp(HelpWidget):

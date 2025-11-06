@@ -10,17 +10,15 @@ from typing import Callable, Sequence
 from maya import cmds, mel
 from PySide6.QtCore import QSettings
 
-from core import DEVELOPER
+from core import DEVELOPER, logging_utils
 from core.core_enums import Language
 from core.core_paths import image_path
 
+LOGGER = logging_utils.get_logger(name=__name__, level=logging.DEBUG)
+SCRIPT_ICON: Path = image_path("script.png")
 SHELF_LAYOUT = mel.eval("$tmpVar=$gShelfTopLevel")
 SHELVES: list = cmds.shelfTabLayout(SHELF_LAYOUT, query=True, childArray=True)
-SCRIPT_ICON: Path = image_path("script.png")
 SHELF_CONFIG: Path = Path(__file__).parents[2] / "config" / "shelf_config.ini"
-
-
-logging.basicConfig(format="$(levelname)s: $(message)s", level=logging.INFO)
 
 
 class ShelfManager(ABC):
@@ -120,7 +118,7 @@ class ShelfManager(ABC):
             try:
                 cmds.deleteUI(self.title)
             except RuntimeError as err:
-                logging.error(f"Nope: {err}")
+                LOGGER.exception(f"Tried : {err}")
 
     def delete_button(self, label: str) -> None:
         """Remove a button from the shelf."""
@@ -159,8 +157,7 @@ class ShelfManager(ABC):
         elif language is Language.mel:
             mel.eval(script)
         else:
-            logging.info(f"Language not supported: {language}")
-
+            LOGGING.info(f"Language not supported: {language}")
 
     def toggle_icon_button(self, label: str) -> bool | None:
         """Toggle an icon button."""

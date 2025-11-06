@@ -1,5 +1,5 @@
 /site-packages/
 /venv/
 /.venv/
-/bin/maya_config.ini
+/config/maya_config.ini
 /scripts/startup/Robotools_Hotkeys.mhk

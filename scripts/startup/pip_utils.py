@@ -4,7 +4,12 @@ import os
 import shutil
 
 from core.core_paths import SITE_PACKAGES, MAYA_INTERPRETER_PATH, MAYA_REQUIREMENTS
-from maya_tools.robotools_utils import MAYA_CONFIG
+from core.config_utils import MayaConfig
+from core import logging_utils
+
+MAYA_CONFIG: MayaConfig = MayaConfig()
+LOGGER = logging_utils.get_logger(name=__name__, level=logging.INFO)
+OVERRIDE: bool = True
 
 
 def install_requirements():
@@ -12,13 +17,13 @@ def install_requirements():
     Install requirements to the site-packages directory
     @return:
     """
-    if  check_requirements_hash() is False or not SITE_PACKAGES.exists():
+    if  check_requirements_hash() is False or not SITE_PACKAGES.exists() or OVERRIDE:
         SITE_PACKAGES.mkdir(exist_ok=True)
         cmd = f'{MAYA_INTERPRETER_PATH} -m pip install -r {MAYA_REQUIREMENTS} -t {SITE_PACKAGES} --upgrade'
-        logging.debug(f'Terminal command: {cmd}')
+        LOGGER.debug(f'Terminal command: {cmd}')
         os.system(cmd)
         installed = [x.strip() for x in open(MAYA_REQUIREMENTS, 'r').readlines()]
-        logging.info(f'>>> Packages installed: {", ".join(installed)}')
+        LOGGER.info(f'>>> Packages installed: {", ".join(installed)}')
 
 
 def uninstall_requirements():

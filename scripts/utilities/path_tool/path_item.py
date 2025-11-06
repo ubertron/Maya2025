@@ -1,5 +1,7 @@
+"""A path item in the path tool."""
 from __future__ import annotations
 
+import logging
 import subprocess
 from functools import partial
 from pathlib import Path
@@ -8,17 +10,17 @@ from PySide6.QtCore import Signal, Qt
 from PySide6.QtGui import QAction, QClipboard
 from PySide6.QtWidgets import QWidget, QLineEdit, QSizePolicy, QApplication, QMenu
 
-from clickable_label import ClickableLabel
 from core import environment_utils, file_utils, logging_utils
 from core.core_enums import Alignment
 from core.core_paths import image_path
 from core.file_utils import sanitize_path_string
-from generic_widget import GenericWidget
-from icon_button import IconButton
-from path_dialog import PathDialog
+from widgets.clickable_label import ClickableLabel
+from widgets.generic_widget import GenericWidget
+from widgets.icon_button import IconButton
+from widgets.path_dialog import PathDialog
 from utilities.path_tool import TOOL_NAME, PathType, SOURCE_CONTROL_ROOT
 
-LOGGER = logging_utils.get_logger(TOOL_NAME)
+LOGGER = logging_utils.get_logger(TOOL_NAME, level=logging.DEBUG)
 
 
 class PathItem(GenericWidget):
@@ -40,63 +42,17 @@ class PathItem(GenericWidget):
         self.add_icon_button(icon_path=image_path("delete.png"),
                              tool_tip="Remove path", clicked=self.delete_button_clicked)
         self.path = path
-        self.setup_ui()
+        self._setup_ui()
 
-    def setup_ui(self) -> None:
+    def _setup_ui(self) -> None:
         """Set up ui."""
         self.description_line_edit.setPlaceholderText("Description...")
         self.description_line_edit.returnPressed.connect(self.description_updated)
         self.description_line_edit.setFixedWidth(200)
-        self.path_label.setSizePolicy(QSizePolicy.Preferred,
-                                      QSizePolicy.Preferred)
+        self.path_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         self.path_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.path_label.clicked.connect(partial(self.context_menu, self.path))
-        self.browse_button.clicked.connect(
-            partial(self.browse_button_clicked, self.path))
-
-
-    def browse_button_clicked(self, arg: Path) -> None:
-        """Event for browse button."""
-        dialog: PathDialog = PathDialog()
-
-        if self.directory:
-            dialog.text = arg.as_posix()
-            dialog.directory = self.directory.as_posix()
-
-        if dialog.exec() and dialog.path:
-            self.path = dialog.path
-
-    def open_button_clicked(self) -> None:
-        """Event for open button."""
-        if self.path.exists():
-            if self.path_type is PathType.script:
-                subprocess.Popen([NOTEPAD.as_posix(), self.path.as_posix()])  # noqa: S603
-            elif self.is_maya_file and environment_utils.is_using_maya_python():
-                from maya import cmds
-                cmds.file(self.path.as_posix(), open=True, force=True)
-            else:
-                self.find_button_clicked()
-
-    def open_in_code_button_clicked(self) -> None:
-        """Event for open in code button."""
-        if self.path.exists():
-            subprocess.Popen([VS_CODE.as_posix(), self.path.as_posix()])  # noqa: S603
-
-
-    def copy_button_clicked(self) -> None:
-        """Event for copy button."""
-        QApplication.clipboard().setText(str(self.path))
-
-    def find_button_clicked(self) -> None:
-        """Open the path in explorer."""
-        self.parent_widget.info = f"Finding {self.path.name}"
-
-        if not file_utils.open_in_finder(path=self.path):
-            self.parent_widget.info += ": Nope"
-
-    def delete_button_clicked(self) -> None:
-        """Event for delete button."""
-        self.deleted.emit(self.path)
+        self.browse_button.clicked.connect( partial(self.browse_button_clicked, self.path))
 
     @property
     def description(self) -> str:
@@ -108,16 +64,26 @@ class PathItem(GenericWidget):
         self.description_line_edit.setText(value)
 
     @property
-    def path(self) -> Path | None:
-        """Current path."""
-        return self._path
-
-    @property
     def directory(self) -> Path | None:
         """Current directory."""
         if self.path:
             return self.path if self.path.is_dir() else self.path.parent
         return None
+
+    @property
+    def is_workspace_path(self) -> bool:
+        """Is path in workspace."""
+        return VE_APPLE_PROJECT_ROOT in self.path.parents
+
+    @property
+    def is_depot_path(self) -> bool:
+        """Is path is depot."""
+        return HERC_ROOT in self.path.parents
+
+    @property
+    def path(self) -> Path | None:
+        """Current path."""
+        return self._path
 
     @path.setter
     def path(self, value: Path) -> None:
@@ -146,10 +112,29 @@ class PathItem(GenericWidget):
             return PathType.local_file
         return PathType.local_dir
 
+    def browse_button_clicked(self, arg: Path) -> None:
+        """Event for browse button."""
+        dialog: PathDialog = PathDialog()
+
+        if self.directory:
+            dialog.text = arg.as_posix()
+            dialog.directory = self.directory.as_posix()
+
+        if dialog.exec() and dialog.path:
+            self.path = dialog.path
+
+    def copy_button_clicked(self) -> None:
+        """Event for copy button."""
+        QApplication.clipboard().setText(str(self.path))
+
+    def delete_button_clicked(self) -> None:
+        """Event for delete button."""
+        self.deleted.emit(self.path)
+
     def description_updated(self) -> None:
         """Event for update of description label."""
         # check description to see if it's a path
-        if SOURCE_CONTROL_ROOT in Path(self.description).parents:
+        if Path(self.description).exists():
             self.path = Path(self.description)
             self.description = self.path.name
         else:
@@ -159,9 +144,31 @@ class PathItem(GenericWidget):
             self.path = Path(self.description)
             self.description = self.path.name
 
-        self.description = self.path.name
         self.updated.emit((self.path, self.description))
         self.path_label.clicked.connect(partial(self.context_menu, self.path))
+
+    def find_button_clicked(self) -> None:
+        """Open the path in explorer."""
+        self.parent_widget.info = f"Finding {self.path.name}"
+
+        if not file_utils.open_in_finder(path=self.path):
+            self.parent_widget.info += ": Nope"
+
+    def open_button_clicked(self) -> None:
+        """Event for open button."""
+        if self.path.exists():
+            if self.path_type is PathType.script:
+                subprocess.Popen([NOTEPAD.as_posix(), self.path.as_posix()])  # noqa: S603
+            elif self.is_maya_file and environment_utils.is_using_maya_python():
+                from maya import cmds
+                cmds.file(self.path.as_posix(), open=True, force=True)
+            else:
+                self.find_button_clicked()
+
+    def open_in_code_button_clicked(self) -> None:
+        """Event for open in code button."""
+        if self.path.exists():
+            subprocess.Popen([VS_CODE.as_posix(), self.path.as_posix()])  # noqa: S603
 
     @property
     def is_using_maya_python(self) -> bool:
@@ -195,24 +202,16 @@ class PathItem(GenericWidget):
             menu.addAction(QAction("Delete path", self, triggered=self.delete_button_clicked))
             menu.exec(point)
 
-    @property
-    def is_workspace_path(self) -> bool:
-        """Is path in workspace."""
-        return VE_APPLE_PROJECT_ROOT in self.path.parents
-
-    @property
-    def is_depot_path(self) -> bool:
-        """Is path is depot."""
-        return HERC_ROOT in self.path.parents
-
     @staticmethod
     def is_location(value: str) -> bool:
         """Is path a location."""
-        return (
-            value[0].isalpha()
-            and value[1] == ":"
-            and value[2] in ("\\", "/")
-        )
+        if environment_utils.is_using_windows():
+            return (
+                value[0].isalpha()
+                and value[1] == ":"
+                and value[2] in ("\\", "/")
+            )
+        return value[0] == "/" and len(value) > 1 and value[1].isalpha()
 
     def copy_herc_path(self) -> None:
         """Event for copy herc path action."""

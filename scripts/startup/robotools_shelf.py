@@ -6,7 +6,7 @@ from maya import cmds, mel
 from core.version_info import VersionInfo
 from core.core_paths import image_path
 from core import logging_utils
-from maya_tools.utilities.shelf_manager import ShelfManager
+from legacy.shelf_manager import ShelfManager
 from maya_tools import display_utils, geometry_utils, mirror_utils, node_utils, layer_utils, scene_utils
 
 TOOL_TITLE = 'Robotools'
@@ -15,7 +15,7 @@ VERSIONS = (
     VersionInfo(name=TOOL_TITLE, version="2.0", codename="Thunderball", info="Update to new ShelfManager"),
 )
 SCRIPT_ICON = image_path("custom_script.png")
-LOGGER = logging_utils.get_logger(name=__name__, level=logging.INFO, log_format="%(message)s")
+LOGGER = logging_utils.get_logger(name=__name__, level=logging.INFO)
 
 
 class RobotoolsShelf(ShelfManager):
@@ -55,7 +55,7 @@ class RobotoolsShelf(ShelfManager):
         self.add_button(label='Toggle Xray', icon=SCRIPT_ICON, overlay_label="Xray", command=geometry_utils.toggle_xray)
         self.add_separator()
         self.add_panel_button(label='Geometry', overlay_label='Geo', linked_labels=["Create Cube", 'Slice', 'Mirror', 'Quadrangulate', 'Merge Vertices'], state=True)
-        self.add_button(label='Create Cube', icon=image_path("cube.png"), command=lambda: mel.eval("polyCube"))
+        self.add_button(label='Create Cube', icon=image_path("cube.png"), command=lambda: mel.eval("polyCube;"))
         self.add_button(label='Slice', icon=image_path('slice.png'), command=mirror_utils.slice_geometry)
         self.add_button(label='Mirror', icon=image_path('mirror.png'), command=mirror_utils.mirror_geometry)
         self.add_button(label='Quadrangulate', overlay_label='Quad', icon=SCRIPT_ICON, command=lambda: exec('from maya import cmds\ncmds.polyQuad()'))
@@ -83,9 +83,12 @@ class RobotoolsShelf(ShelfManager):
         self.add_button(label='Pivot Match', icon=SCRIPT_ICON, overlay_label="Pv M",
                         command=node_utils.match_pivot_to_last)
         self.add_separator()
-        self.add_panel_button(label="Utilities", overlay_label="Utils", linked_labels=["File Path Editor"], state=True)
+        self.add_panel_button(label="Utilities", overlay_label="Utils",
+                              linked_labels=["File Path Editor", "Path Tool", "Combine"], state=True)
         self.add_button(label="File Path Editor", icon=image_path("file_path_editor.png"),
                         command=lambda: mel.eval("filePathEditorWin;"))
+        self.add_button(label='Combine', overlay_label='Cmbn', icon=SCRIPT_ICON, command=self.combine)
+        self.add_button(label='Path Tool', icon=image_path("path_tool.png"), command=self.path_tool)
         self.add_separator()
 
     @staticmethod
@@ -102,8 +105,13 @@ class RobotoolsShelf(ShelfManager):
     def character_tools():
         """Launch character tools."""
         from maya_tools.utilities import character_tools
-        ui_script = "from maya_tools.utilities import character_tools; character_tools.CharacterTools.restore()"
+        ui_script = "from maya_tools.utilities import character_tools; character_tools.CharacterTools().restore()"
         character_tools.CharacterTools().show_workspace_control(ui_script=ui_script)
+
+    @staticmethod
+    def combine():
+        from maya_tools import geometry_utils, node_utils
+        geometry_utils.combine(node_utils.get_selected_transforms())
 
     @staticmethod
     def get_dimensions():
@@ -112,10 +120,16 @@ class RobotoolsShelf(ShelfManager):
 
     @staticmethod
     def merge_vertices() -> None:
-        from maya_tools.geometry_utils import merge_vertices
         nmerge_vertices(cmds.ls(sl=True)[0])
 
     @staticmethod
     def scene_info():
         scene_path = scene_utils.get_scene_path()
         display_utils.info_message(scene_path if scene_path else "No scene loaded.")
+
+    @staticmethod
+    def path_tool():
+        """Launch Path Tool."""
+        from utilities.path_tool import path_tool
+        ui_script = "from utilities.path_tool import path_tool; path_tool.PathTool().restore()"
+        path_tool.PathTool().show_workspace_control(ui_script=ui_script)

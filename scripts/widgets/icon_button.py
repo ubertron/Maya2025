@@ -3,8 +3,6 @@ import os
 import sys
 from pathlib import Path
 
-import qdarktheme
-
 from PySide6.QtWidgets import QApplication, QPushButton
 from PySide6.QtCore import QSize, Signal
 from PySide6.QtGui import QPixmap, QIcon
@@ -29,7 +27,7 @@ class IconButton(QPushButton):
         :param size:
         :param text: optional text accompaniment
         """
-        assert icon_path is not None, "Icon path invalid"
+        assert icon_path is not None, f"Icon path invalid: {icon_path}"
         super(IconButton, self).__init__()
         self.setToolTip(tool_tip if tool_tip else icon_path.stem)
         if icon_path.exists():
@@ -48,6 +46,8 @@ class IconButton(QPushButton):
 if __name__ == "__main__":
     from PySide6.QtWidgets import QApplication
     from core.core_paths import image_path
+
+    import qdarktheme
     app = QApplication(sys.argv)
     widget = IconButton(icon_path=image_path("file.png"), size=128)
     widget.show()
