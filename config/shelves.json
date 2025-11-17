@@ -18,6 +18,12 @@
                 "language": "python",
                 "tool_tip": "Path Tool",
                 "script": "from utilities.path_tool import UI_SCRIPT, path_tool\npath_tool.PathTool().show_workspace_control(ui_script=UI_SCRIPT)"
+            },
+            "Billboard Creator": {
+                "icon": "billboard_creator.png",
+                "language": "python",
+                "tool_tip": "Billboard Creator",
+                "script": "from maya_tools.utilities.billboard_creator import UI_SCRIPT, billboard_creator\nbillboard_creator.BillboardCreator().show_workspace_control(ui_script=UI_SCRIPT)"
             }
         },
         "Characters": {
@@ -140,6 +146,14 @@
                 "language": "python",
                 "tool_tip": "Toggle transform constraints",
                 "script": "from maya_tools import display_utils\ndisplay_utils.toggle_transform_constraints()"
+            }
+        },
+        "Scene": {
+            "Fix Maya Ascii": {
+                "icon": "fix.png",
+                "language": "python",
+                "tool tip": "Fix the Maya ascii",
+                "script": "from maya_tools.utilities import maya_ascii_editor\nmaya_ascii_editor.fix_maya_ascii()"
             }
         }
     },

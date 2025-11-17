@@ -158,6 +158,79 @@ def fix_cap(transform: str, face_id: int):
     merge_vertices(transform=transform, vertices=vertex_ids)
 
 
+def get_component_mode() -> ComponentType or None:
+    """
+    Determine which component mode Maya is currently in
+    @return: ComponentType or None
+    """
+    if cmds.selectMode(query=True, object=True):
+        return ComponentType.object
+    elif cmds.selectType(query=True, vertex=True):
+        return ComponentType.vertex
+    elif cmds.selectType(query=True, edge=True):
+        return ComponentType.edge
+    elif cmds.selectType(query=True, facet=True):
+        return ComponentType.face
+    elif cmds.selectType(query=True, polymeshUV=True):
+        return ComponentType.uv
+    else:
+        return None
+
+
+def get_component_type_tag(component_type: ComponentType) -> str or None:
+    """
+    Gets the tag for a component Type
+    :param component_type:
+    :return:
+    """
+    component_tag = {
+        ComponentType.edge: 'e',
+        ComponentType.vertex: 'vtx',
+        ComponentType.face: 'f'
+    }
+
+    return component_tag.get(component_type)
+
+
+def get_component_indices(component_list: list[str], component_type: ComponentType) -> list[int]:
+    """
+    Converts a component list to indices
+    :param component_list:
+    :type component_type:
+    :return:
+    """
+    flat_list = cmds.ls(component_list, flatten=True)
+
+    return [int(x.split(f'.{get_component_type_tag(component_type)}[')[1].split(']')[0]) for x in flat_list]
+
+
+def get_component_list(transform: str, indices: list[int], component_type: ComponentType):
+    """
+    Get a component list from a list of indices
+    :param transform:
+    :param indices:
+    :param component_type:
+    :return:
+    """
+    return [f'{transform}.{get_component_type_tag(component_type)}[{x}]' for x in indices]
+
+
+def get_open_edges(transform: str, select=False):
+    """
+    Gets the open edges on a mesh
+    :param transform:
+    :param select:
+    :return:
+    """
+    cmds.select(transform)
+    cmds.polySelectConstraint(mode=3, type=0x8000, where=1)
+    border_edges = cmds.ls(sl=True)
+    cmds.polySelectConstraint(mode=0)
+    if select:
+        cmds.select(border_edges)
+    return get_component_indices(component_list=border_edges, component_type=ComponentType.edge)
+
+
 def get_perimeter_edges_from_faces(transform: str, faces: list[int]):
     """
     Gets a list of the edges that represent the perimeter af a group of specified faces
@@ -171,7 +244,6 @@ def get_perimeter_edges_from_faces(transform: str, faces: list[int]):
     internal_edges = get_component_indices(
         cmds.polyListComponentConversion(face_components, fromFace=True, toEdge=True, internal=True),
         component_type=ComponentType.edge)
-
     return [x for x in all_edges if x not in internal_edges]
 
 
@@ -185,7 +257,6 @@ def get_faces_by_plane(transform: str, axis: Axis, value: float, threshold: floa
     :return:
     """
     face_centers = get_face_positions(transform)
-
     return [i for i, position in enumerate(face_centers) if abs(position.values[axis.value] - value) < threshold]
 
 
@@ -200,7 +271,6 @@ def get_transforms(node: str = '', single: bool = True) -> str or list[str] or N
     set_component_mode(component_type=ComponentType.object)
     node_list = cmds.ls(node) if node else cmds.ls(sl=True, tr=True)
     state.restore()
-
     if single:
         return node_list[0] if len(node_list) == 1 else None
     else:
@@ -279,7 +349,6 @@ def get_vertex_positions_cmds(transform: str) -> list[Point3]:
     :return:
     """
     vertex_list = range(get_vertex_count(transform))
-
     return [get_vertex_position(transform=transform, vertex_id=i) for i in vertex_list]
 
 
@@ -291,11 +360,9 @@ def get_vertex_positions(transform: str) -> om.MPointArray:
     """
     vertex_iterator: om.MItMeshVertex = get_vertex_iterator(transform)
     vertex_positions: list = []
-
     while not vertex_iterator.isDone():
         vertex_positions.append(ertex_iterator.position(om.MSpace.kWorld))
         next(vertex_iterator)
-
     return vertex_positions
 
 
@@ -307,7 +374,6 @@ def get_vertex_position(transform: str, vertex_id: int) -> Point3:
     :return:
     """
     component_prefix = {'nurbsSurface': 'cv', 'mesh': 'vtx'}[get_type_from_transform(transform)]
-
     return Point3(*cmds.pointPosition(f'{transform}.{component_prefix}[{vertex_id}]', world=True))
 
 
@@ -332,7 +398,6 @@ def get_face_positions(transform: str) -> list[Point3]:
     :return:
     """
     num_faces = cmds.polyEvaluate(transform, face=True)
-
     return [get_face_position(transform=transform, face_id=i) for i in range(num_faces)]
 
 
@@ -349,7 +414,6 @@ def get_face_position(transform: str, face_id: int) -> Point3:
     dag_path, component = selection_iterator.getComponent()
     polygon_iterator = om.MItMeshPolygon(dag_path, component)
     c = None
-
     while not polygon_iterator.isDone():
         c = polygon_iterator.center(space=om.MSpace.kWorld)
         polygon_iterator.next()
@@ -422,15 +486,6 @@ def get_triangular_faces(transform=None, select=False):
     get_faces_by_vert_count(transform=transform, select=select, face_type='triangle')
 
 
-def get_quads(transform=None, select=False):
-    """
-    Get a list of triangular faces
-    @param transform:
-    @param select:
-    """
-    get_faces_by_vert_count(transform=transform, select=select, face_type='quad')
-
-
 def get_ngons(transform=None, select=False):
     """
     Get a list of ngons
@@ -479,6 +534,15 @@ def get_faces_by_vert_count(transform: Optional[str] = None, select: bool = Fals
         return vertex_dict[return_type]
 
 
+def get_quads(transform=None, select=False):
+    """
+    Get a list of triangular faces
+    @param transform:
+    @param select:
+    """
+    get_faces_by_vert_count(transform=transform, select=select, face_type='quad')
+
+
 def select_vertices(transform: str, vertices: Sequence[int]):
     """
     Select vertices on a mesh
@@ -523,62 +587,6 @@ def set_edge_softness(nodes: Union[str, list[str]], angle: float = 30):
     cmds.select(nodes)
     cmds.polySoftEdge(angle=angle)
     state.restore()
-
-
-def get_component_type_tag(component_type: ComponentType) -> str or None:
-    """
-    Gets the tag for a component Type
-    :param component_type:
-    :return:
-    """
-    component_tag = {
-        ComponentType.edge: 'e',
-        ComponentType.vertex: 'vtx',
-        ComponentType.face: 'f'
-    }
-
-    return component_tag.get(component_type)
-
-
-def get_component_indices(component_list: list[str], component_type: ComponentType) -> list[int]:
-    """
-    Converts a component list to indices
-    :param component_list:
-    :type component_type:
-    :return:
-    """
-    flat_list = cmds.ls(component_list, flatten=True)
-
-    return [int(x.split(f'.{get_component_type_tag(component_type)}[')[1].split(']')[0]) for x in flat_list]
-
-
-def get_component_list(transform: str, indices: list[int], component_type: ComponentType):
-    """
-    Get a component list from a list of indices
-    :param transform:
-    :param indices:
-    :param component_type:
-    :return:
-    """
-    return [f'{transform}.{get_component_type_tag(component_type)}[{x}]' for x in indices]
-
-
-def get_open_edges(transform: str, select=False):
-    """
-    Gets the open edges on a mesh
-    :param transform:
-    :param select:
-    :return:
-    """
-    cmds.select(transform)
-    cmds.polySelectConstraint(mode=3, type=0x8000, where=1)
-    border_edges = cmds.ls(sl=True)
-    cmds.polySelectConstraint(mode=0)
-
-    if select:
-        cmds.select(border_edges)
-
-    return get_component_indices(component_list=border_edges, component_type=ComponentType.edge)
 
 
 def toggle_backface_culling(transforms: Optional[Sequence[str]] = None):
@@ -771,7 +779,6 @@ def get_faces_from_edge(transform: str, edge_id: int, as_components: bool = Fals
     :return:
     """
     faces = cmds.polyListComponentConversion(f'{transform}.e[{edge_id}]', fromEdge=True, toFace=True)
-
     return faces if as_components else get_component_indices(component_list=faces, component_type=ComponentType.face)
 
 
@@ -785,14 +792,12 @@ def filter_face_list_by_face_normal(transform: str, faces: list[int], axis: Poin
     :return:
     """
     filtered = []
-
     for face_id in faces:
         normal_vector = get_face_normal(transform=transform, face_id=face_id)
         dp = dot_product(vector_a=axis, vector_b=normal_vector, normalize=True)
 
         if 1 - dp < threshold:
             filtered.append(face_id)
-
     return filtered
 
 

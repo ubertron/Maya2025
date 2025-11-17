@@ -224,6 +224,7 @@ class ShelfManager:
             cmds.deleteUI(shelf)
 
     def get_shelf_index(self, shelf: str) -> int | None:
+        """Get the index of a named shelf."""
         return self.names.index(shelf) + 1 if shelf in self.names else None
 
     def save(self):

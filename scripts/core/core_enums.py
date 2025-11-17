@@ -28,7 +28,7 @@ class AssetType(Enum):
         return AssetType.__members__[key]
 
 
-class Attr(Enum):
+class Attributes(Enum):
     translate = '.translate'
     rotate = '.rotate'
     scale = '.scale'
@@ -230,6 +230,18 @@ class SoftwarePlatform(Enum):
     Standalone = auto()
     Substance = auto()
     Unreal = auto()
+
+
+@unique
+class Unit(Enum):
+    millimeter = "mm"
+    centimeter = "cm"
+    meter = "m"
+    kilometer = "km"
+    inch = "in"
+    foot = "ft"
+    yard = "yd"
+    mile = "mi"
 
 
 @unique

@@ -1,14 +1,18 @@
+# Grid Widget
+import contextlib
 import enum
 import platform
+import shiboken6
 
-from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QPushButton, QSpacerItem, QMainWindow
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QPushButton, QSpacerItem, QMainWindow
 from typing import Callable, Optional
-from shiboken6 import wrapInstance
 
+from core import DARWIN_STR
 from core.environment_utils import is_using_maya_python
+from core.logging_utils import get_logger
 
-DARWIN_STR = 'Darwin'
+LOGGER = get_logger(name=__name__)
 
 
 class GridWidget(QWidget):
@@ -21,9 +25,19 @@ class GridWidget(QWidget):
         self.setLayout(layout)
         self._init_maya_properties()
 
+    def _init_maya_properties(self):
+        """
+        Initializes widget properties for Maya
+        """
+        if is_using_maya_python():
+            from maya import OpenMayaUI
+            self.mayaMainWindow = shiboken6.wrapInstance(int(OpenMayaUI.MQtUtil.mainWindow()), QMainWindow)
+            self.setWindowFlags(Qt.Window)
+            self.setWindowFlags(Qt.Tool if platform.system() == DARWIN_STR else Qt.Window)
+
     @property
-    def row_count(self) -> int:
-        return self.layout().rowCount()
+    def column_count(self) -> int:
+        return self.layout().columnCount()
 
     @property
     def first_row_empty(self) -> bool:
@@ -33,34 +47,39 @@ class GridWidget(QWidget):
         """
         for i in range(self.column_count):
             item = self.layout().itemAtPosition(0, i)
-
             if item and item.widget is not None:
                 return False
-
         return True
 
     @property
-    def column_count(self) -> int:
-        return self.layout().columnCount()
+    def row_count(self) -> int:
+        return self.layout().rowCount()
 
-    def add_widget(self, widget: QWidget, row: int, column: int, row_span: int = 1, col_span: int = 1,
-                   replace: bool = False) -> QWidget:
+    @property
+    def workspace_control(self) -> str:
+        """Name of the Maya workspace control."""
+        return f"{self.windowTitle()}_WorkspaceControl"
+
+    def add_button(self, label: str, row: int, column: int, row_span: int = 1, col_span: int = 1,
+                   tool_tip: Optional[str] = None, event: Optional[Callable] = None, replace: bool = False):
         """
-        Adds a widget to the layout
-        :param widget:
+        Add button to the layout
+        :param label:
         :param row:
         :param column:
         :param row_span:
         :param col_span:
-        :param replace:
+        :param tool_tip:
+        :param event:
+        :param replace: object
         :return:
         """
-        if replace:
-            self.delete_widget(row=row, column=column)
-
-        self.layout().addWidget(widget, row, column, row_span, col_span)
-
-        return widget
+        button = QPushButton(label)
+        button.setToolTip(tool_tip)
+        if event:
+            button.clicked.connect(event)
+        return self.add_widget(
+            widget=button, row=row, column=column, row_span=row_span, col_span=col_span, replace=replace)
 
     def add_label(self, text: str, row: int, column: int, row_span: int = 1, col_span: int = 1,
                   alignment: enum = Qt.AlignmentFlag.AlignCenter, replace: bool = False,
@@ -80,81 +99,39 @@ class GridWidget(QWidget):
         """
         label = QLabel(text.replace('_', ' ') if nice else text)
         label.setAlignment(alignment)
-
         if style:
             label.setStyleSheet(style)
-
-        result = self.add_widget(widget=label, row=row, column=column, row_span=row_span, col_span=col_span,
-                                 replace=replace)
-
+        result = self.add_widget(
+            widget=label, row=row, column=column, row_span=row_span, col_span=col_span, replace=replace)
         return result
 
-    def set_text(self, row: int, column: int, text: str, style: Optional[str] = None, nice: bool = False):
+    def add_widget(self, widget: QWidget, row: int, column: int, row_span: int = 1, col_span: int = 1,
+                   replace: bool = False) -> QWidget:
         """
-        Set the text of an existing widget
-        :param row:
-        :param column:
-        :param text:
-        :param style:
-        :param nice:
-        """
-        item = self.layout().itemAtPosition(row, column)
-
-        if item:
-            widget: QWidget = item.widget()
-
-            if type(widget) in (QLabel, QPushButton):
-                if nice:
-                    text = text.replace('_', ' ')
-
-                widget.setText(text)
-
-                if style:
-                    widget.setStyleSheet(style)
-
-    def add_button(self, label: str, row: int, column: int, row_span: int = 1, col_span: int = 1,
-                   tool_tip: Optional[str] = None, event: Optional[Callable] = None, replace: bool = False):
-        """
-        Add button to the layout
-        :param label:
+        Adds a widget to the layout
+        :param widget:
         :param row:
         :param column:
         :param row_span:
         :param col_span:
-        :param tool_tip:
-        :param event:
-        :param replace: object
+        :param replace:
         :return:
         """
-        button = QPushButton(label)
-        button.setToolTip(tool_tip)
-        button.clicked.connect(event)
+        if replace:
+            self.delete_widget(row=row, column=column)
+        self.layout().addWidget(widget, row, column, row_span, col_span)
+        return widget
 
-        return self.add_widget(widget=button, row=row, column=column, row_span=row_span, col_span=col_span,
-                               replace=replace)
-
-    def get_row_by_text(self, text: str, column: int = 0) -> int or None:
+    def clear_layout(self):
         """
-        Gets the index of the row whose widget has the value 'text'
-        Works for QLabels and QPushButtons
-        :param text:
-        :param column:
-        :return:
+        Remove all widgets and spacer items from the current layout
         """
-        values = self.get_column_values(column=column)
-
-        if text in values:
-            return values.index(text)
-        else:
-            return None
-
-    def get_column_values(self, column: int) -> list:
-        values = []
-        for i in range(self.row_count):
-            item = self.layout().itemAtPosition(i, column)
-            values.append(item.widget().text() if item else None)
-
-        return values
+        for i in reversed(range(self.layout().count())):
+            item = self.layout().itemAt(i)
+            if isinstance(item, QSpacerItem):
+                self.layout().takeAt(i)
+            else:
+                item.widget().setParent(None)
 
     def delete_widget(self, row: int, column: int):
         """
@@ -165,7 +142,6 @@ class GridWidget(QWidget):
         assert row < self.row_count, 'Invalid row id'
         assert column < self.column_count, 'Invalid column id'
         item = self.layout().itemAtPosition(row, column)
-
         if item is not None:
             widget = item.widget()
             self.layout().removeWidget(widget)
@@ -177,31 +153,76 @@ class GridWidget(QWidget):
         :param row:
         """
         assert row < self.row_count, 'Invalid row id'
-
         for i in range(self.column_count):
             self.delete_widget(row=row, column=i)
 
-    def clear_layout(self):
-        """
-        Remove all widgets and spacer items from the current layout
-        """
-        for i in reversed(range(self.layout().count())):
-            item = self.layout().itemAt(i)
+    def get_column_values(self, column: int) -> list:
+        values = []
+        for i in range(self.row_count):
+            item = self.layout().itemAtPosition(i, column)
+            values.append(item.widget().text() if item else None)
+        return values
 
-            if isinstance(item, QSpacerItem):
-                self.layout().takeAt(i)
-            else:
-                item.widget().setParent(None)
+    def get_row_by_text(self, text: str, column: int = 0) -> int or None:
+        """
+        Gets the index of the row whose widget has the value 'text'
+        Works for QLabels and QPushButtons
+        :param text:
+        :param column:
+        :return:
+        """
+        values = self.get_column_values(column=column)
+        return values.index(text) if text in values else None
 
-    def _init_maya_properties(self):
-        """
-        Initializes widget properties for Maya
-        """
-        if is_using_maya_python():
+    def restore(self) -> None:
+        """Add the ui to the workspace control."""
+        with contextlib.suppress(RuntimeError):
             from maya import OpenMayaUI
-            self.mayaMainWindow = wrapInstance(int(OpenMayaUI.MQtUtil.mainWindow()), QMainWindow)
-            self.setWindowFlags(Qt.Window)
-            self.setWindowFlags(Qt.Tool if platform.system() == DARWIN_STR else Qt.Window)
+        control_ptr = OpenMayaUI.MQtUtil.findControl(self.workspace_control)
+        control_widget = shiboken6.wrapInstance(int(control_ptr), QWidget)
+        layout = control_widget.layout()
+        if layout is not None and not layout.count():
+            layout.addWidget(self)
+
+    def set_text(self, row: int, column: int, text: str, style: Optional[str] = None, nice: bool = False):
+        """
+        Set the text of an existing widget
+        :param row:
+        :param column:
+        :param text:
+        :param style:
+        :param nice:
+        """
+        item = self.layout().itemAtPosition(row, column)
+        if item:
+            widget: QWidget = item.widget()
+            if type(widget) in (QLabel, QPushButton):
+                if nice:
+                    text = text.replace('_', ' ')
+                widget.setText(text)
+                if style:
+                    widget.setStyleSheet(style)
+
+    def show_workspace_control(
+            self, floating: bool = True, retain: bool = True, restore: bool = True, ui_script: str = "") -> str:
+        """Build the workspace control."""
+        LOGGER.info(f">>> {self.workspace_control}.show_workspace_control | retain={retain} | restore={restore}")
+        with contextlib.suppress(RuntimeError):
+            from maya import cmds
+        if cmds.workspaceControl(self.workspace_control, query=True, exists=True):
+            cmds.deleteUI(self.workspace_control)
+        control = cmds.workspaceControl(
+            self.workspace_control,
+            label=self.windowTitle(),
+            floating=floating,
+            resizeHeight=self.sizeHint().width(),
+            resizeWidth=self.sizeHint().height(),
+            retain=retain,
+            restore=restore,
+            uiScript=ui_script,
+        )
+        self.restore()
+        return control
 
 
 class GridWidgetTest(GridWidget):

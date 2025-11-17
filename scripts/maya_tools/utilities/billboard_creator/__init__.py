@@ -1,0 +1,1 @@
+UI_SCRIPT = "from maya_tools.utilities.billboard_creator import billboard_creator; billboard_creator.BillboardCreator().restore()"

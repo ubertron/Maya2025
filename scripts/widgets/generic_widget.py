@@ -29,6 +29,15 @@ class GenericWidget(QWidget):
         self._init_maya_properties()
         self.setWindowTitle(title)
 
+    def _init_maya_properties(self):
+        """
+        Initializes widget properties for Maya
+        """
+        if environment_utils.is_using_maya_python():
+            from maya_tools.maya_environment_utils import MAYA_MAIN_WINDOW
+            self.setParent(MAYA_MAIN_WINDOW)
+            self.setWindowFlags(Qt.WindowType.Tool if environment_utils.is_using_mac_os() else Qt.WindowType.Window)
+
     @property
     def count(self) -> int:
         return len(self.widgets)
@@ -42,15 +51,6 @@ class GenericWidget(QWidget):
     def workspace_control(self) -> str:
         """Name of the Maya workspace control."""
         return f"{self.windowTitle()}_WorkspaceControl"
-
-    def _init_maya_properties(self):
-        """
-        Initializes widget properties for Maya
-        """
-        if environment_utils.is_using_maya_python():
-            from maya_tools.maya_environment_utils import MAYA_MAIN_WINDOW
-            self.setParent(MAYA_MAIN_WINDOW)
-            self.setWindowFlags(Qt.WindowType.Tool if environment_utils.is_using_mac_os() else Qt.WindowType.Window)
 
     def add_button(self, text: str, tool_tip: str = '', clicked: Optional[Callable] = None) -> QPushButton:
         """

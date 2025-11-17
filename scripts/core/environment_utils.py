@@ -38,7 +38,7 @@ def is_using_maya_python() -> bool:
     Determine if code is being used in a Maya environment
     :return: bool
     """
-    return get_python_platform() is PythonPlatform.maya
+    return get_python_platform().name == PythonPlatform.maya.name
 
 
 def is_using_standalone_python() -> bool:

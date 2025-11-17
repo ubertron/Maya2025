@@ -7,6 +7,7 @@ MAYA_REQUIREMENTS: Path = PROJECT_ROOT / 'maya_requirements.txt'
 AUTODESK_DIR = Path('/Applications/Autodesk')
 CONFIG_DIR = PROJECT_ROOT / 'config'
 IMAGE_DIR: Path = PROJECT_ROOT / 'images'
+ICON_DIR: Path = IMAGE_DIR / 'icons'
 MAYA_CONFIG: Path = CONFIG_DIR / 'maya_config.ini'
 MODELS_DIR: Path = PROJECT_ROOT / 'models'
 PRESETS_DIR: Path = PROJECT_ROOT.joinpath('scripts/startup/presets')

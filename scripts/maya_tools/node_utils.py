@@ -1,10 +1,16 @@
+from __future__ import annotations
+
 from maya import cmds
 from typing import Optional, Union
 
+from core.logging_utils import  get_logger
 from core.point_classes import Point2, Point3, Point3Pair
-from core.core_enums import ComponentType, Attr, DataType
-from maya_tools.maya_enums import ObjectType
+from core.core_enums import ComponentType, Attributes, DataType
+from maya_tools.maya_enums import ObjectType, MayaAttributes
 from maya_tools.display_utils import warning_message
+
+LOGGER = get_logger(__name__)
+TRANSFORMATION_ATTRS = MayaAttributes.transformation_attribute_names()
 
 
 class State:
@@ -87,6 +93,29 @@ def align_transform_to_joint():
     rotate(nodes=transform, value=Point3(*orientation))
 
 
+def delete_history(nodes=None):
+    """
+    Delete construction history
+    @param nodes:
+    """
+    state = State()
+    set_component_mode(ComponentType.object)
+    cmds.delete(cmds.ls(nodes, tr=True) if nodes else cmds.ls(sl=True, tr=True), constructionHistory=True)
+    state.restore()
+
+
+def freeze_transformations(nodes: list[str] | None = None):
+    """
+    Freeze transformations on supplied nodes
+    @param nodes:
+    """
+    for node in nodes if nodes else cmds.ls(sl=True, tr=True):
+        lock_states = get_lock_states(node=node)
+        set_lock_states(node=node, states=False)
+        cmds.makeIdentity(node, apply=True, translate=True, rotate=True, scale=True)
+        set_lock_states(node=node, states=lock_states)
+
+
 def get_all_child_transforms(transform: str, ordered: bool = False, reverse: bool = False) -> list[str]:
     """
     Find all children of a transform
@@ -98,11 +127,16 @@ def get_all_child_transforms(transform: str, ordered: bool = False, reverse: boo
     """
     transform_type: str = ObjectType.transform.name
     children = cmds.listRelatives(transform, allDescendents=True, type=transform_type, fullPath=True)
-
     if ordered:
         children = sort_transforms_by_depth(transforms=children, reverse=reverse)
-
     return children if children else []
+
+
+def get_all_root_transforms() -> list[str]:
+    """
+    @return: Finds transforms that are children of the world
+    """
+    return [x for x in cmds.ls(transforms=True) if not cmds.listRelatives(x, parent=True)]
 
 
 def get_child_geometry(transform: str) -> list[str]:
@@ -151,8 +185,19 @@ def get_locators() -> list[str]:
     :return:
     """
     locator_shapes = cmds.ls(exactType=ObjectType.locator.name, long=True)
-
     return [get_transform_from_shape(shape) for shape in locator_shapes]
+
+
+def get_lock_states(node: str) -> dict[str, bool]:
+    """
+    Get the lock states of the transformation attributes
+    :param node:
+    :return: dict[str, bool]
+    """
+    lock_states = {}
+    for param in TRANSFORMATION_ATTRS:
+        lock_states[param] = cmds.getAttr(f"{node}.{param}", lock=True)
+    return lock_states
 
 
 def get_pivot_position(transform: str) -> Point3:
@@ -176,13 +221,6 @@ def get_root_transform(transform: str):
     return transform if parent is None else get_root_transform(parent[0])
 
 
-def get_all_root_transforms() -> list[str]:
-    """
-    @return: Finds transforms that are children of the world
-    """
-    return [x for x in cmds.ls(transforms=True) if not cmds.listRelatives(x, parent=True)]
-
-
 def get_component_mode() -> ComponentType or False:
     """
     Query the component mode
@@ -200,182 +238,6 @@ def get_component_mode() -> ComponentType or False:
         return ComponentType.uv
     else:
         return False
-
-
-def set_component_mode(component_type=ComponentType.object):
-    """
-    Set component mode
-    @param component_type:
-    """
-    if component_type == ComponentType.object:
-        cmds.selectMode(object=True)
-    else:
-        cmds.selectMode(component=True)
-        if component_type == ComponentType.vertex:
-            cmds.selectType(vertex=True)
-        elif component_type == ComponentType.edge:
-            cmds.selectType(edge=True)
-        elif component_type == ComponentType.face:
-            cmds.selectType(facet=True)
-        elif component_type == ComponentType.uv:
-            cmds.selectType(polymeshUV=True)
-        else:
-            cmds.warning('Unknown component type')
-
-
-def set_component_mode_to_vertex():
-    """
-    Set the component mode to vertex mode
-    """
-    set_component_mode(ComponentType.vertex)
-
-
-def set_component_mode_to_edge():
-    """
-    Set the component mode to edge mode
-    """
-    set_component_mode(ComponentType.edge)
-
-
-def set_component_mode_to_face():
-    """
-    Set the component mode to face mode
-    """
-    set_component_mode(ComponentType.face)
-
-
-def set_component_mode_to_object():
-    """
-    Set the component mode to object mode
-    """
-    set_component_mode(ComponentType.object)
-
-
-def set_component_mode_to_uv():
-    """
-    Set the component mode to uv mode
-    """
-    set_component_mode(ComponentType.uv)
-
-
-def select_components(transform, components, component_type=ComponentType.face, hilite=True):
-    """
-    Select geometry components
-    @param transform:
-    @param components:
-    @param component_type:
-    @param hilite:
-    """
-    state = State()
-
-    if component_type == ComponentType.vertex:
-        cmds.select(transform.vtx[components])
-    elif component_type == ComponentType.edge:
-        cmds.select(transform.e[components])
-    elif component_type == ComponentType.face:
-        cmds.select(transform.f[components])
-    elif component_type == ComponentType.uv:
-        cmds.select(transform.map[components])
-    else:
-        cmds.warning('Component type not supported')
-
-    if hilite:
-        cmds.hilite(transform)
-    else:
-        state.restore()
-
-
-def delete_history(nodes=None):
-    """
-    Delete construction history
-    @param nodes:
-    """
-    state = State()
-    set_component_mode(ComponentType.object)
-    cmds.delete(cmds.ls(nodes, tr=True) if nodes else cmds.ls(sl=True, tr=True), constructionHistory=True)
-    state.restore()
-
-
-def freeze_transformations(nodes=None):
-    """
-    Freeze transformations on supplied nodes
-    @param nodes:
-    """
-    for node in [nodes] if nodes else cmds.ls(sl=True, tr=True):
-        cmds.makeIdentity(node, apply=True, translate=True, rotate=True, scale=True)
-
-
-def reset_pivot(nodes=None):
-    """
-    Fix transformations on the pivot so that it is relative to the origin
-    @param nodes:
-    """
-    for item in cmds.ls(nodes, tr=True) if nodes else cmds.ls(sl=True, tr=True):
-        pivot_node = cmds.xform(item, query=True, worldSpace=True, rotatePivot=True)
-        cmds.xform(item, relative=True, translation=[-i for i in pivot_node])
-        cmds.makeIdentity(item, apply=True, translate=True)
-        cmds.xform(item, translation=pivot_node)
-
-
-def super_reset(nodes=None):
-    """
-    Reset transformations, reset pivot and delete construction history
-    @param nodes:
-    """
-    nodes = cmds.ls(nodes, tr=True) if nodes else cmds.ls(sl=True, tr=True)
-    freeze_transformations(nodes)
-    reset_pivot(nodes)
-    delete_history(nodes)
-
-
-def pivot_to_base(transform=None, reset=True):
-    """
-    Send pivot to the base of the object
-    @param transform:
-    @param reset:
-    """
-    for item in [transform] if transform else cmds.ls(sl=True, tr=True):
-        bounding_box = cmds.exactWorldBoundingBox(item)  # [x_min, y_min, z_min, x_max, y_max, z_max]
-        base = [(bounding_box[0] + bounding_box[3]) / 2, bounding_box[1], (bounding_box[2] + bounding_box[5]) / 2]
-        cmds.xform(item, piv=base, ws=True)
-
-    if reset:
-        reset_pivot(transform)
-
-
-def pivot_to_center(transform: Optional[Union[str, list[str]]] = None, reset=True):
-    """
-    Send pivot to the center of the object
-    @param transform:
-    @param reset:
-    """
-    for item in [transform] if transform else cmds.ls(sl=True, tr=True):
-        cmds.xform(item, centerPivotsOnComponents=True)
-
-    if reset:
-        reset_pivot(transform)
-
-
-def pivot_to_origin(transform=None, reset=True):
-    """
-    Send pivot to the origin
-    @param transform:
-    @param reset:
-    """
-    for item in [transform] if transform else cmds.ls(sl=True, tr=True):
-        cmds.xform(item, piv=[0, 0, 0], ws=True)
-
-    if reset:
-        reset_pivot(transform)
-
-
-def move_to_origin(transform=None):
-    """
-    Move objects to the origin
-    @param transform:
-    """
-    for item in [transform] if transform else cmds.ls(sl=True, tr=True):
-        cmds.setAttr(f'{item}{Attr.translate.value}', 0, 0, 0, type=DataType.float3.name)
 
 
 def get_hierarchy_path(transform: Optional[str] = None, full_path: bool = False) -> list[str] or False:
@@ -413,6 +275,24 @@ def get_hierarchy_path(transform: Optional[str] = None, full_path: bool = False)
     return hierarchy[::-1]
 
 
+def get_rotation(transform: str) -> Point3:
+    """
+    Get the rotation of a transform
+    :param transform:
+    :return:
+    """
+    return Point3(*cmds.getAttr(f'{transform}.rotate')[0])
+
+
+def get_scale(transform: str) -> Point3:
+    """
+    Get the scale of a transform
+    :param transform:
+    :return:
+    """
+    return Point3(*cmds.getAttr(f'{transform}.scale')[0])
+
+
 def get_selected_geometry() -> list[str]:
     """
     Get selected geometry transforms
@@ -445,14 +325,6 @@ def get_selected_transforms(first_only: bool = False, full_path: bool = False) -
         return []
 
 
-def get_transforms(nodes=None, first_only: bool = False) -> list or str:
-    state = State()
-    set_component_mode(ComponentType.object)
-    selection = cmds.ls(nodes, tr=True) if nodes else cmds.ls(sl=True, tr=True)
-    state.restore()
-    return selection[0] if selection and first_only else selection
-
-
 def get_shape_from_transform(transform, full_path=False) -> str or None:
     """
     Gets the shape node if any from a transform
@@ -480,6 +352,41 @@ def get_transform_from_shape(shape: str, full_path: bool = False) -> str or Fals
     """
     result = cmds.listRelatives(shape, fullPath=full_path, parent=True)
     return result[0] if result else False
+
+
+def get_transforms(nodes=None, first_only: bool = False) -> list or str:
+    state = State()
+    set_component_mode(ComponentType.object)
+    selection = cmds.ls(nodes, tr=True) if nodes else cmds.ls(sl=True, tr=True)
+    state.restore()
+    return selection[0] if selection and first_only else selection
+
+
+def get_translation(transform: str, absolute: bool = False) -> Point3:
+    """
+    Get the translation of a transform
+    :param transform:
+    :param absolute: use xform to calculate translation in world space
+    :return:
+    """
+    if absolute:
+        translation = cmds.xform(transform, query=True, translation=True, worldSpace=True)
+    else:
+        translation = cmds.getAttr(f'{transform}.translate')[0]
+
+    return Point3(*translation)
+
+
+def get_top_node(node):
+    """
+    Finds the top node in a hierarchy
+    :param node:
+    :return:
+    """
+    assert cmds.objExists(node), f'Node not found: {node}'
+    parent = cmds.listRelatives(node, parent=True, fullPath=True)
+
+    return node if parent is None else get_top_node(parent[0])
 
 
 def get_type_from_transform(transform: str):
@@ -525,16 +432,6 @@ def is_object_type(transform: str, object_type: ObjectType):
         return cmds.objectType(shape) == object_type.name if shape else False
 
 
-def match_rotation():
-    """Rotate selected objects to the rotation of the last selected object."""
-    transforms = get_selected_transforms()
-    if len(transforms) < 2:
-        warning_message(text='Select more than one node')
-        return
-    rotation = get_rotation(transform=transforms[-1])
-    rotate(nodes=transforms[:-1], value=rotation, absolute=True)
-
-
 def match_pivot_to_last(transforms: Optional[Union[str, list[str]]] = None):
     """
     Relocate selected pivots to the location of the pivot of the last object
@@ -550,6 +447,28 @@ def match_pivot_to_last(transforms: Optional[Union[str, list[str]]] = None):
     reset_pivot(selection[:-1])
 
 
+def match_rotation():
+    """Rotate selected objects to the rotation of the last selected object."""
+    transforms = get_selected_transforms()
+    if len(transforms) < 2:
+        warning_message(text='Select more than one node')
+        return
+    rotation = get_rotation(transform=transforms[-1])
+    rotate(nodes=transforms[:-1], value=rotation, absolute=True)
+
+
+def match_translation():
+    """
+    Move selected objects to the location of the last selected object
+    """
+    transforms = get_selected_transforms()
+    if len(transforms) < 2:
+        warning_message(text='Select more than one node')
+        return
+    location: Point3 = get_translation(transform=transforms[-1], absolute=True)
+    translate(nodes=transforms[:-1], value=location, absolute=True)
+
+
 def move_to_last():
     """Move selected objects to the location of the last selected object."""
     transforms = cmds.ls(sl=True, tr=True)
@@ -557,6 +476,69 @@ def move_to_last():
     location = get_translation(transform=transforms[-1], absolute=True)
     for i in range(len(transforms) - 1):
         cmds.setAttr(f'{transforms[i]}.translate', *location.values, type=DataType.float3.name)
+
+
+def move_to_origin(transform=None):
+    """
+    Move objects to the origin
+    @param transform:
+    """
+    for item in [transform] if transform else cmds.ls(sl=True, tr=True):
+        cmds.setAttr(f'{item}{Attributes.translate.value}', 0, 0, 0, type=DataType.float3.name)
+
+def pivot_to_base(transform=None, reset=True):
+    """
+    Send pivot to the base of the object
+    @param transform:
+    @param reset:
+    """
+    for item in [transform] if transform else cmds.ls(sl=True, tr=True):
+        bounding_box = cmds.exactWorldBoundingBox(item)  # [x_min, y_min, z_min, x_max, y_max, z_max]
+        base = [(bounding_box[0] + bounding_box[3]) / 2, bounding_box[1], (bounding_box[2] + bounding_box[5]) / 2]
+        cmds.xform(item, piv=base, ws=True)
+
+    if reset:
+        reset_pivot(transform)
+
+
+def pivot_to_center(transform: Optional[Union[str, list[str]]] = None, reset=True):
+    """
+    Send pivot to the center of the object
+    @param transform:
+    @param reset:
+    """
+    for item in [transform] if transform else cmds.ls(sl=True, tr=True):
+        cmds.xform(item, centerPivotsOnComponents=True)
+
+    if reset:
+        reset_pivot(transform)
+
+
+def pivot_to_origin(transform=None, reset=True):
+    """
+    Send pivot to the origin
+    @param transform:
+    @param reset:
+    """
+    for item in [transform] if transform else cmds.ls(sl=True, tr=True):
+        cmds.xform(item, piv=[0, 0, 0], ws=True)
+
+    if reset:
+        reset_pivot(transform)
+
+
+def place_transform_on_ellipse(transform: str, angle: float, ellipse_radius_pair: Point2):
+    """
+    Translates a transform to an ellipse along the X-Y axes.
+    Rotates to match the normal of the ellipse.
+    :param transform:
+    :param angle:
+    :param ellipse_radius_pair:
+    """
+    position = math_funcs.get_point_position_on_ellipse(degrees=angle, ellipse_radius_pair=ellipse_radius_pair)
+    angle = math_funcs.get_point_normal_angle_on_ellipse(point=position, ellipse_radius_pair=ellipse_radius_pair)
+    node_utils.translate(transform, Point3(*position.values, 0))
+    node_utils.rotate(transform, Point3(0, 0, angle))
 
 
 def rename_transforms(transforms: Optional[list] = None, token: str = "node",
@@ -575,26 +557,30 @@ def rename_transforms(transforms: Optional[list] = None, token: str = "node",
     return name_list
 
 
-def match_translation():
+def reset_pivot(nodes=None):
     """
-    Move selected objects to the location of the last selected object
+    Fix transformations on the pivot so that it is relative to the origin
+    @param nodes:
     """
-    transforms = get_selected_transforms()
-    if len(transforms) < 2:
-        warning_message(text='Select more than one node')
-        return
-    location: Point3 = get_translation(transform=transforms[-1], absolute=True)
-    translate(nodes=transforms[:-1], value=location, absolute=True)
+    for node in cmds.ls(nodes, tr=True) if nodes else cmds.ls(sl=True, tr=True):
+        lock_states = get_lock_states(node=node)
+        set_lock_states(node=node, states=False)
+        pivot_node = cmds.xform(node, query=True, worldSpace=True, rotatePivot=True)
+        cmds.xform(node, relative=True, translation=[-i for i in pivot_node])
+        cmds.makeIdentity(node, apply=True, translate=True)
+        cmds.xform(node, translation=pivot_node)
+        set_lock_states(node=node, states=lock_states)
 
 
-def translate(nodes: Union[str, list[str]], value: Point3, absolute: bool = True):
+def restore_rotation(transform: str, value: Point3):
     """
-    Set the translation of passed nodes
-    :param nodes:
+    Set the rotation value of a transform without rotating the object itself
+    :param transform:
     :param value:
-    :param absolute:
     """
-    cmds.move(*value.values, nodes, absolute=absolute)
+    rotate(transform, Point3(*[-x for x in value.values]))
+    cmds.makeIdentity(transform, apply=True, rotate=True)
+    rotate(transform, value)
 
 
 def rotate(nodes: Union[str, list[str]], value: Point3, absolute: bool = True):
@@ -617,82 +603,115 @@ def scale(nodes: Union[str, list[str]], value: Point3, absolute: bool = True):
     cmds.scale(*value.values, nodes, absolute=absolute)
 
 
-def get_translation(transform: str, absolute: bool = False) -> Point3:
+def select_components(transform, components, component_type=ComponentType.face, hilite=True):
     """
-    Get the translation of a transform
-    :param transform:
-    :param absolute: use xform to calculate translation in world space
-    :return:
+    Select geometry components
+    @param transform:
+    @param components:
+    @param component_type:
+    @param hilite:
     """
-    if absolute:
-        translation = cmds.xform(transform, query=True, translation=True, worldSpace=True)
+    state = State()
+
+    if component_type == ComponentType.vertex:
+        cmds.select(transform.vtx[components])
+    elif component_type == ComponentType.edge:
+        cmds.select(transform.e[components])
+    elif component_type == ComponentType.face:
+        cmds.select(transform.f[components])
+    elif component_type == ComponentType.uv:
+        cmds.select(transform.map[components])
     else:
-        translation = cmds.getAttr(f'{transform}.translate')[0]
+        cmds.warning('Component type not supported')
 
-    return Point3(*translation)
+    if hilite:
+        cmds.hilite(transform)
+    else:
+        state.restore()
 
 
-def get_rotation(transform: str) -> Point3:
+def set_component_mode(component_type=ComponentType.object):
     """
-    Get the rotation of a transform
-    :param transform:
-    :return:
+    Set component mode
+    @param component_type:
     """
-    return Point3(*cmds.getAttr(f'{transform}.rotate')[0])
+    if component_type == ComponentType.object:
+        cmds.selectMode(object=True)
+    else:
+        cmds.selectMode(component=True)
+        if component_type == ComponentType.vertex:
+            cmds.selectType(vertex=True)
+        elif component_type == ComponentType.edge:
+            cmds.selectType(edge=True)
+        elif component_type == ComponentType.face:
+            cmds.selectType(facet=True)
+        elif component_type == ComponentType.uv:
+            cmds.selectType(polymeshUV=True)
+        else:
+            cmds.warning('Unknown component type')
 
 
-def get_scale(transform: str) -> Point3:
+def set_component_mode_to_edge():
     """
-    Get the scale of a transform
-    :param transform:
-    :return:
+    Set the component mode to edge mode
     """
-    return Point3(*cmds.getAttr(f'{transform}.scale')[0])
+    set_component_mode(ComponentType.edge)
 
 
-def restore_rotation(transform: str, value: Point3):
+def set_component_mode_to_face():
     """
-    Set the rotation value of a transform without rotating the object itself
-    :param transform:
-    :param value:
+    Set the component mode to face mode
     """
-    rotate(transform, Point3(*[-x for x in value.values]))
-    cmds.makeIdentity(transform, apply=True, rotate=True)
-    rotate(transform, value)
+    set_component_mode(ComponentType.face)
+
+
+def set_component_mode_to_object():
+    """
+    Set the component mode to object mode
+    """
+    set_component_mode(ComponentType.object)
+
+
+def set_component_mode_to_uv():
+    """
+    Set the component mode to uv mode
+    """
+    set_component_mode(ComponentType.uv)
+
+
+def set_component_mode_to_vertex():
+    """
+    Set the component mode to vertex mode
+    """
+    set_component_mode(ComponentType.vertex)
+
+
+def set_lock_states(node: str, states: bool | dict[str, bool]):
+    """Set the lock state of the transformation attributes"""
+    if type(states) is bool:
+        lock_states = {attr: states for attr in TRANSFORMATION_ATTRS}
+    elif type(states) is dict:
+        lock_states = states
+    else:
+        msg = f"Invalid states type: {type(states)}"
+        raise TypeError(msg)
+    for attr, state in lock_states.items():
+        cmds.setAttr(f"{node}.{attr}", lock=state)
 
 
 def set_pivot(nodes: Union[str, list[str]], value: Point3, reset: bool = False):
+    """
+    Set the pivot of an object
+    :param nodes:
+    :param value:
+    :param reset:
+    :return:
+    """
     for node in cmds.ls(nodes):
         cmds.xform(node, worldSpace=True, pivots=value.values)
 
     if reset:
         reset_pivot(nodes)
-
-
-def place_transform_on_ellipse(transform: str, angle: float, ellipse_radius_pair: Point2):
-    """
-    Translates a transform to an ellipse along the X-Y axes.
-    Rotates to match the normal of the ellipse.
-    :param transform:
-    :param angle:
-    :param ellipse_radius_pair:
-    """
-    position = math_funcs.get_point_position_on_ellipse(degrees=angle, ellipse_radius_pair=ellipse_radius_pair)
-    angle = math_funcs.get_point_normal_angle_on_ellipse(point=position, ellipse_radius_pair=ellipse_radius_pair)
-    node_utils.translate(transform, Point3(*position.values, 0))
-    node_utils.rotate(transform, Point3(0, 0, angle))
-
-
-def get_top_node(node):
-    """
-    Finds the top node in a hierarchy
-    :param node:
-    :return:
-    """
-    assert cmds.objExists(node), f'Node not found: {node}'
-    parent = cmds.listRelatives(node, parent=True, fullPath=True)
-
-    return node if parent is None else get_top_node(parent[0])
 
 
 def sort_transforms_by_depth(transforms: list[str], reverse: bool = False) -> list[str]:
@@ -705,3 +724,24 @@ def sort_transforms_by_depth(transforms: list[str], reverse: bool = False) -> li
     transform_list.sort(key=lambda x: len(x.split('|')), reverse=reverse)
 
     return transform_list
+
+
+def super_reset(nodes=None):
+    """
+    Reset transformations, reset pivot and delete construction history
+    @param nodes:
+    """
+    nodes = cmds.ls(nodes, tr=True) if nodes else cmds.ls(sl=True, tr=True)
+    freeze_transformations(nodes=nodes)
+    reset_pivot(nodes=nodes)
+    delete_history(nodes=nodes)
+
+
+def translate(nodes: Union[str, list[str]], value: Point3, absolute: bool = True):
+    """
+    Set the translation of passed nodes
+    :param nodes:
+    :param value:
+    :param absolute:
+    """
+    cmds.move(*value.values, nodes, absolute=absolute)

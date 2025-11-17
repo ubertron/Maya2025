@@ -9,6 +9,21 @@ from typing import List
 from core.core_enums import ComponentType, FileExtension
 
 
+def create_reference(file_path: Path, force: bool = False):
+    """
+    Creates a reference in the Maya scene
+    @param file_path: str path of the source file
+    @param force: bool to create reference in a new scene
+    @return: cmds.system.FileReference
+    """
+    assert file_path.exists()
+
+    if force:
+        cmds.system.newFile(force=True)
+
+    return cmds.system.createReference(file_path.as_posix())
+
+
 def export_selected(export_path: Path):
     """
     Export selected objects
@@ -40,12 +55,9 @@ def get_scene_name(include_extension: bool = True) -> str:
     :return:
     """
     scene_path = get_scene_path()
-
     if scene_path:
-        if include_extension:
-            return scene_path.name
-        else:
-            return '.'.join(scene_path.name.split('.')[:-1])
+        return scene_path.name if include_extension else '.'.join(scene_path.name.split('.')[:-1])
+    return None
 
 
 def get_scene_path() -> Path | None:
@@ -78,6 +90,18 @@ def load_scene(file_path: Path, force: bool = True):
     @param force:
     """
     return cmds.file(file_path.as_posix(), force=force, open=True, returnNewNodes=True)
+
+
+def message_script(text: str, execute: bool = True):
+    """
+    Creates a script which launches an in-view message
+    @param text:
+    @return:
+    @param execute:
+    """
+    if execute:
+        cmds.inViewMessage(assistMessage=text, fade=True, pos="midCenter")
+    return f'from maya import cmds\ncmds.inViewMessage(assistMessage="{text}", fade=True, pos="midCenter")'
 
 
 def new_scene():
@@ -113,21 +137,6 @@ def save_scene(force: bool = False):
     except RuntimeError as err:
         logging.error(f'Please check file out in source control prior to save.: {err}')
         return False
-
-
-def create_reference(file_path: Path, force: bool = False):
-    """
-    Creates a reference in the Maya scene
-    @param file_path: str path of the source file
-    @param force: bool to create reference in a new scene
-    @return: cmds.system.FileReference
-    """
-    assert file_path.exists()
-
-    if force:
-        cmds.system.newFile(force=True)
-
-    return cmds.system.createReference(file_path.as_posix())
 
 
 class State:
@@ -174,25 +183,6 @@ class State:
         for item in list(objects):
             if item in self.object_selection:
                 self.object_selection.remove(item)
-
-
-def get_component_mode() -> ComponentType or None:
-    """
-    Determine which component mode Maya is currently in
-    @return: ComponentType or None
-    """
-    if cmds.selectMode(query=True, object=True):
-        return ComponentType.object
-    elif cmds.selectType(query=True, vertex=True):
-        return ComponentType.vertex
-    elif cmds.selectType(query=True, edge=True):
-        return ComponentType.edge
-    elif cmds.selectType(query=True, facet=True):
-        return ComponentType.face
-    elif cmds.selectType(query=True, polymeshUV=True):
-        return ComponentType.uv
-    else:
-        return None
 
 
 def set_component_mode(component_type: ComponentType):
@@ -245,18 +235,5 @@ def get_top_level_transforms() -> List:
     :@return: Finds transforms that are children of the world
     """
     return [x for x in cmds.ls(transforms=True) if not cmds.listRelatives(x, parent=True)]
-
-
-def message_script(text: str, execute: bool = True):
-    """
-    Creates a script which launches an in-view message
-    @param text:
-    @return:
-    @param execute:
-    """
-    if execute:
-        cmds.inViewMessage(assistMessage=text, fade=True, pos="midCenter")
-
-    return f'from maya import cmds\ncmds.inViewMessage(assistMessage="{text}", fade=True, pos="midCenter")'
 
 
