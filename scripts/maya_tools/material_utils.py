@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from maya import cmds
 
 from pathlib import Path

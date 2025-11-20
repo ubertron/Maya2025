@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+
 from collections import Counter
 
 
@@ -59,6 +61,13 @@ nested_data = {
     ]
 }
 
+
+def print_paths():
+    for path in sys.path:
+        print(path)
+
+
 if __name__ == '__main__':
-    type_counts = count_types_recursive(nested_data, key_to_count='type')
-    print(type_counts)
+    # type_counts = count_types_recursive(nested_data, key_to_count='type')
+    # print(type_counts)
+    print_paths()

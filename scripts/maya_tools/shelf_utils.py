@@ -9,6 +9,8 @@ import threading
 from functools import partial
 from importlib import reload
 from pathlib import Path
+from turtledemo.sorting_animate import init_shelf
+
 from PySide6.QtWidgets import QLayout, QWidget
 from PySide6.QtCore import QSettings
 from shiboken6 import wrapInstance
@@ -204,17 +206,20 @@ class ShelfManager:
 
         Needs to be threaded, otherwise the routine deletes itself
         """
-        def routine():
+        current_shelf = get_current_shelf()
+        def routine(initial_shelf: str):
             msg = f"Creating shelves: {', '.join(self.shelves)}"
             LOGGER.info(msg)
             for shelf, shelf_data in self.data.items():
                 Shelf(title=shelf, data=shelf_data).create()
+            set_current_shelf(initial_shelf)
 
         def target_thread():
-            utils.executeInMainThreadWithResult(routine)
+            utils.executeInMainThreadWithResult(partial(routine, current_shelf))
 
         my_thread = threading.Thread(target=target_thread, daemon=True)
         my_thread.start()
+        set_current_shelf(current_shelf)
 
     def delete(self) -> None:
         """Remove shelves specified in the data file."""

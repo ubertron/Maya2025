@@ -13,7 +13,7 @@ def create_billboard(path: Path, width: float | None = None,
     height: float | None = None, axis: Axis = Axis.y) -> str:
     """Create a plane with a texture applied."""
     image_x, image_y = image_utils.get_image_size(path=path)
-    lambert_shader, lambert_sg = material_utils.create_lambert_material(path=path)
+    lambert_shader, lambert_sg = material_utils.lambert_file_texture_shader(texture_path=path)
 
     if not width and not height:
         width = 1.0
@@ -29,7 +29,7 @@ def create_billboard(path: Path, width: float | None = None,
     }[axis]
     billboard, _ = cmds.polyPlane(name=f"{path.stem}_billboard", width=width, height=height,
         axis=axis_value, subdivisionsWidth=1, subdivisionsHeight=1)
-    material_utils.apply_shader(transform=billboard, shader=lambert_shader)
+    material_utils.apply_shader(shading_group=lambert_sg, transforms=billboard)
 
     return billboard
 

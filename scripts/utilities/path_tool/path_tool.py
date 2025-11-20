@@ -85,10 +85,12 @@ class PathTool(GenericWidget):
         self.add_current_scene_button = self.button_bar.add_icon_button(
             icon_path=image_path("maya.png"), tool_tip="Add Current Scene",
             clicked=self.add_current_scene_button_clicked)
-        self.button_bar.add_icon_button(icon_path=image_path("sort_description.png"), tool_tip="Sort By Description", clicked=partial(
-            self.set_mode, PathToolMode.description))
-        self.button_bar.add_icon_button(icon_path=image_path("sort_path.png"), tool_tip="Sort By Path", clicked=partial(
-            self.set_mode, PathToolMode.description))
+        self.button_bar.add_icon_button(
+            icon_path=image_path("sort_description.png"), tool_tip="Sort By Description",
+            clicked=partial(self.set_mode, PathToolMode.description))
+        self.button_bar.add_icon_button(
+            icon_path=image_path("sort_path.png"), tool_tip="Sort By Path",
+            clicked=partial(self.set_mode, PathToolMode.description))
         self.button_bar.add_stretch()
         self.button_bar.add_icon_button(
             icon_path=image_path("help.png"), tool_tip="Help",

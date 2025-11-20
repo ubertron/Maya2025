@@ -33,16 +33,17 @@ def combine(transforms: list[str], name: str = '', position: Optional[Point3] = 
         cmds.warning('Supply mesh nodes')
 
 
-def create_cube(name: Optional[str] = None, size: float = 1, divisions: int = 1) -> str:
+def create_cube(name: Optional[str] = None, size: float = 1, divisions: int = 1, baseline: float = 0) -> str:
     """
     Mirrors geometry along an axis
     :param name: str
     :param size: int
     :param divisions: int
+    :param baseline: float
     """
     cube, _ = cmds.polyCube(
         name=name if name else 'cube',
-        width=size, height=size, depth=size,
+        width=size, height=size, depth=size, heightBaseline=baseline,
         sx=divisions, sy=divisions, sz=divisions)
 
     return cube

@@ -8,6 +8,7 @@ from widgets.generic_widget import GenericWidget
 
 class ClickableLabel(QLabel):
     clicked: Signal = Signal(QPoint)
+    clicked_right: Signal = Signal(QPoint)
 
     def __init__(self, *args, global_context: bool = True, button: enum = Qt.MouseButton.LeftButton):
         super(ClickableLabel, self).__init__(*args)
@@ -20,7 +21,9 @@ class ClickableLabel(QLabel):
         local_position = self.window().mapFromGlobal(global_position)
         position = global_position if self.global_context else local_position
 
-        if event.button() == self.button:
+        if event.button() == Qt.MouseButton.RightButton:
+            self.clicked_right.emit(position)
+        elif event.button() == self.button:
             self.clicked.emit(position)
 
 

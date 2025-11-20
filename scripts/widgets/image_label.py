@@ -18,8 +18,17 @@ class ImageLabel(QLabel):
         self.setWindowTitle(path.name)
         self.path: Path = path
         self.setFrameStyle(QFrame.StyledPanel)
-        self.pixmap: QPixmap = QPixmap(path.as_posix())
         self.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+
+    @property
+    def path(self) -> Path:
+        return self._path
+
+    @path.setter
+    def path(self, path: Path) -> None:
+        self._path = path
+        self.pixmap: QPixmap = QPixmap(path.as_posix())
+        self.update()
 
     def paintEvent(self, event) -> None:  # noqa: N802, ANN001, ARG002
         """Paint event."""

@@ -6,7 +6,7 @@ from pathlib import Path
 from core.core_enums import Language, ModifierKey
 from core.core_paths import PROJECT_ROOT
 from maya_tools.maya_environment_utils import is_using_mac_osx
-from maya_tools.utilities import hotkey_manager
+from maya_tools.utilities import hotkey_manager_
 from legacy import hotkey_manager_legacy
 
 ROBOTOOLS_HOTKEYS_NAME: str = 'Robotools_Hotkeys'

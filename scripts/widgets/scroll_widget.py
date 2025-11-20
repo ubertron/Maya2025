@@ -63,6 +63,9 @@ class TestScrollWidget(ScrollWidget):
     def __init__(self):
         super(TestScrollWidget, self).__init__(title='Test Scroll Widget')
         names = [str(i) for i in range(50)]
+        my_widget = self.widget.add_widget(GenericWidget())
+        my_widget.setMinimumSize(100, 200)
+        my_widget.setStyleSheet("color: rgb(255, 255, 255);")
         self.widget.add_label(text='\n'.join(names))
         self.widget.add_label(text='Button')
 

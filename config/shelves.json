@@ -147,14 +147,6 @@
                 "tool_tip": "Toggle transform constraints",
                 "script": "from maya_tools import display_utils\ndisplay_utils.toggle_transform_constraints()"
             }
-        },
-        "Scene": {
-            "Fix Maya Ascii": {
-                "icon": "fix.png",
-                "language": "python",
-                "tool tip": "Fix the Maya ascii",
-                "script": "from maya_tools.utilities import maya_ascii_editor\nmaya_ascii_editor.fix_maya_ascii()"
-            }
         }
     },
     "Oddities": {
@@ -175,7 +167,13 @@
                 "icon": "test.png",
                 "language": "python",
                 "tool_tip": "Test",
-                "script": "print('test2')"
+                "script": "from maya_tools import display_utils\ndisplay_utils.info_message('test message')"
+            },
+            "Time Keeper": {
+                "icon": "time.png",
+                "language": "python",
+                "tool_tip": "Time Keeper",
+                "script": "from maya_tools.utilities import my_tool\nmy_tool.MyTool().show_workspace_control(ui_script=my_tool.UI_SCRIPT)"
             }
         }
     }

@@ -69,6 +69,7 @@ class BillboardCreator(GridWidget):
     def path(self, value: Path | None):
         self.path_label.setText(value.as_posix() if value else self.no_image_label)
         self.image_label.path = value if value else DEFAULT_IMAGE
+        print(f">>> {self.image_label.path} {value}")
         if value:
             self.settings.setValue(self.image_path_key, value.as_posix())
             self.evaluate_height()
@@ -95,7 +96,7 @@ class BillboardCreator(GridWidget):
         # Open a file dialog to select an existing file
         # Parameters: parent, caption, initial_directory, filter
         image_value = self.settings.value(self.image_path_key, None)
-        start_dir = Path(image_value).parent.as_posix() if Path(image_value).parent.exists() else "."
+        start_dir = Path(image_value).parent.as_posix() if image_value and Path(image_value).parent.exists() else "."
         filename, _ = QFileDialog.getOpenFileName(
             self,
             "Open File",
@@ -106,7 +107,7 @@ class BillboardCreator(GridWidget):
 
     def create_button_clicked(self):
         """Event for create button."""
-        billboard_utils.create_billboard(path=self.path, width=self.width, height=self.height, axis=Axis.z)
+        billboard_creator_utils.create_billboard(path=self.path, width=self.width, height=self.height, axis=Axis.z)
 
     def evaluate_height(self):
         if self.path:

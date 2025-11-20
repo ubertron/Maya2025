@@ -13,7 +13,7 @@ from PySide6.QtWidgets import QWidget, QLineEdit, QSizePolicy, QApplication, QMe
 from core import environment_utils, file_utils, logging_utils
 from core.core_enums import Alignment
 from core.core_paths import image_path
-from core.file_utils import sanitize_path_string
+from core.file_utils import sanitize_path_string, open_in_pycharm, open_in_vs_code
 from widgets.clickable_label import ClickableLabel
 from widgets.generic_widget import GenericWidget
 from widgets.icon_button import IconButton
@@ -51,7 +51,7 @@ class PathItem(GenericWidget):
         self.description_line_edit.setFixedWidth(200)
         self.path_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         self.path_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        self.path_label.clicked.connect(partial(self.context_menu, self.path))
+        self.path_label.clicked_right.connect(partial(self.context_menu, self.path))
         self.browse_button.clicked.connect( partial(self.browse_button_clicked, self.path))
 
     @property
@@ -145,7 +145,7 @@ class PathItem(GenericWidget):
             self.description = self.path.name
 
         self.updated.emit((self.path, self.description))
-        self.path_label.clicked.connect(partial(self.context_menu, self.path))
+        self.path_label.clicked_right.connect(partial(self.context_menu, self.path))
 
     def find_button_clicked(self) -> None:
         """Open the path in explorer."""
@@ -158,7 +158,8 @@ class PathItem(GenericWidget):
         """Event for open button."""
         if self.path.exists():
             if self.path_type is PathType.script:
-                subprocess.Popen([NOTEPAD.as_posix(), self.path.as_posix()])  # noqa: S603
+                subprocess.call(['open', '-a', 'TextEdit', self.path.as_posix()])
+                LOGGER.info(f"Successfully opened '{file_path}' in TextEdit.")
             elif self.is_maya_file and environment_utils.is_using_maya_python():
                 from maya import cmds
                 cmds.file(self.path.as_posix(), open=True, force=True)
@@ -167,8 +168,11 @@ class PathItem(GenericWidget):
 
     def open_in_code_button_clicked(self) -> None:
         """Event for open in code button."""
-        if self.path.exists():
-            subprocess.Popen([VS_CODE.as_posix(), self.path.as_posix()])  # noqa: S603
+        open_in_vs_code(path=self.path)
+
+    def open_in_pycharm_button_clicked(self) -> None:
+        """Event for open in pycharm button."""
+        open_in_pycharm(path=self.path)
 
     @property
     def is_using_maya_python(self) -> bool:
@@ -187,15 +191,12 @@ class PathItem(GenericWidget):
             menu: QMenu = QMenu()
             menu.addAction(path.name)
             menu.addSeparator()
-
             is_maya_file = self.is_maya_file and environment_utils.is_using_maya_python()
-
             if self.path_type is PathType.script or is_maya_file:
-                menu.addAction(QAction("Open", self, triggered=self.open_button_clicked))
-
-            if self.path_type is PathType.script:
+                menu.addAction(QAction("Open In TextEdita", self, triggered=self.open_button_clicked))
+            if self.path_type is PathType.script or self.path.suffix == ".ma":
                 menu.addAction(QAction("Open In VS Code", self, triggered=self.open_in_code_button_clicked))
-
+                menu.addAction(QAction("Open In PyCharm", self, triggered=self.open_in_pycharm_button_clicked))
             menu.addAction(QAction("Find...", self, triggered=self.find_button_clicked))
             menu.addAction(QAction("Copy Path To Clipboard", self, triggered=self.copy_button_clicked))
             menu.addSeparator()

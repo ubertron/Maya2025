@@ -5,7 +5,7 @@ import logging
 import subprocess
 from pathlib import Path
 from core import environment_utils
-from core.core_paths import SHELVES_DATA
+from core.core_paths import SHELVES_CONFIG
 from core import logging_utils
 
 
@@ -14,20 +14,21 @@ LOGGER = logging.getLogger(__name__)
 
 def edit_shelves_data():
     """Edit the Maya shelves in IDE."""
-    open_in_text_edit(path=SHELVES_DATA)
+    open_in_pycharm(path=SHELVES_CONFIG)
+
+
+def open_in_vs_code(path: Path):
+    """Open a file in PyCharm."""
+    if path.exists():
+        command = ["/Applications/Visual Studio Code.app/Contents/MacOS/Electron", path.as_posix()]
+        subprocess.run(command, capture_output=False, text=True)
 
 
 def open_in_pycharm(path: Path):
     """Open a file in PyCharm."""
-    command = ["pycharm", path.as_posix()]
-    try:
-        # Run the command
-        subprocess.run(command, check=True)
-        logging.info(f"Successfully opened '{path.as_posix()}' in PyCharm.")
-    except subprocess.CalledProcessError as e:
-        logging.info(f"Error opening file in PyCharm: {e}")
-    except FileNotFoundError:
-        logging.info("PyCharm command-line launcher not found. Please ensure it is configured correctly.")
+    if path.exists():
+        command = ["/Applications/PyCharm.app/Contents/MacOS/pycharm", path.as_posix()]
+        subprocess.run(command, capture_output=False, text=True)
 
 
 def open_in_text_edit(path: Path):
@@ -57,4 +58,5 @@ def sanitize_path_string(path_string: str) -> Path:
 
 
 if __name__ == "__main__":
-    edit_shelves_data()
+    # edit_shelves_data()
+    open_in_vs_code(path=Path("/Users/andrewdavis/Dropbox/Technology/Python3/Projects/Maya2025/maya_requirements.txt"))

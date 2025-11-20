@@ -1,0 +1,109 @@
+{
+  "Novo_Hotkeys":
+  {
+    "toggleGrid": {
+      "annotation": "Toggle the display grid",
+      "command": "ToggleGrid;",
+      "hotkey": ";",
+      "modifiers": [
+        "command"
+      ],
+      "language": "mel",
+      "category": "Novo Hotkeys"
+    },
+    "createCube": {
+      "annotation": "Create a polyCube",
+      "command": "from maya_tools.geometry_utils import create_cube; create_cube(size=100, baseline=-1)",
+      "hotkey": "c",
+      "modifiers": [
+        "alt",
+        "command",
+        "control"
+      ],
+      "language": "python",
+      "category": "Novo Hotkeys"
+    },
+    "appendToPolygon": {
+      "annotation": "Append to polygon tool",
+      "command": "AppendToPolygonTool;",
+      "hotkey": "a",
+      "modifiers": [
+        "command",
+        "control"
+      ],
+      "language": "mel",
+      "category": "Novo Hotkeys"
+    },
+    "hotkeyEditor": {
+      "annotation": "Hotkey Editor",
+      "command": "HotkeyPreferencesWindow;",
+      "hotkey": "h",
+      "modifiers": [
+        "alt",
+        "command",
+        "control"
+      ],
+      "language": "mel",
+      "category": "Novo Hotkeys"
+    },
+    "createPolygon": {
+      "annotation": "Create polygon tool",
+      "command": "CreatePolygonTool;",
+      "hotkey": "C",
+      "modifiers": [
+        "command"
+      ],
+      "language": "mel",
+      "category": "Novo Hotkeys"
+    },
+    "combine": {
+      "annotation": "Combine geometry",
+      "command": "CombinePolygons;",
+      "hotkey": "A",
+      "modifiers": [
+        "alt",
+        "control"
+      ],
+      "language": "mel",
+      "category": "Novo Hotkeys"
+    },
+    "mergeVertices": {
+      "annotation": "Merge vertices",
+      "command": "PolyMergeVertices;",
+      "hotkey": "W",
+      "modifiers": [
+        "command"
+      ],
+      "language": "mel",
+      "category": "Novo Hotkeys"
+    },
+    "selectEdgeLoop": {
+      "annotation": "Select edge loop",
+      "command": "SelectEdgeLoopSp;",
+      "hotkey": "]",
+      "modifiers": [
+        "command"
+      ],
+      "language": "mel",
+      "category": "Novo Hotkeys"
+    },
+    "selectEdgeRing": {
+      "annotation": "Select edge ring",
+      "command": "SelectEdgeRingSp;",
+      "hotkey": "[",
+      "modifiers": [
+        "command"
+      ],
+      "language": "mel",
+      "category": "Novo Hotkeys"
+    },
+    "connect": {
+      "annotation": "Connect components",
+      "command": "ConnectComponents;",
+      "hotkey": "C",
+      "modifiers": [],
+      "language": "mel",
+      "category": "Novo Hotkeys"
+    }
+  }
+}
