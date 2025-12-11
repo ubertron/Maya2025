@@ -3,7 +3,7 @@ import logging
 from dataclasses import dataclass
 from enum import auto
 
-from maya import cmds
+from maya import cmds, mel
 
 from core.core_enums import Unit
 from maya_tools.maya_enums import DisplayElement, ColorIndex
@@ -154,6 +154,27 @@ def set_display_grid(settings: DisplayGridSettings):
 def set_units(unit: Unit):
     """Set the units."""
     cmds.currentUnit(linear=unit.name)
+
+
+def toggle_camera_visibility():
+    """Toggle cameras in current viewport."""
+    current_panel = cmds.getPanel(withFocus=True)
+    if current_panel in cmds.getPanel(type='modelPanel'):
+        visible = cmds.modelEditor(current_panel, query=True, cameras=True)
+        cmds.modelEditor(current_panel, edit=True, cameras=not visible)
+        info_message(f"Camera visibility switched to {not visible}")
+    else:
+        cmds.warning("No active model panel found.")
+
+
+def toggle_shade_selected(warning=False):
+    """Toggle between shade selected and shade all."""
+    current_panel = cmds.getPanel(withFocus=True)
+    if current_panel in cmds.getPanel(type='modelPanel'):
+        state = str(not (cmds.modelEditor(current_panel, query=True, activeOnly=True))).lower()
+        mel.eval(f'modelEditor -e -displayAppearance smoothShaded -activeOnly {state} {current_panel}')
+    elif warning:
+        cmds.warning('Not a model panel')
 
 
 def toggle_transform_constraints():

@@ -1,15 +1,18 @@
 import logging
+import math
 
 from pathlib import Path
 from PIL import Image, ImageColor, ImageDraw
 
-
 from core.logging_utils import get_logger
-
 
 LOGGER = get_logger(__name__)
 
+
 class RGBColor:
+    def __init__(self):
+        pass
+
     BABY_BLUE = (128, 216, 255)
     BABY_PINK = (255, 192, 192)
     GREEN = (0, 255, 0)
@@ -99,11 +102,14 @@ def tint_image(path: Path, output_path: Path, rgb: tuple[int, int, int]):
     except Exception as e:
         print(f"An error occurred: {e}")
 
+
 if __name__ == "__main__":
     from core_paths import image_path, IMAGE_DIR, ICON_DIR
+
     # my_path = image_path("open.png")
     # resize_image(path=image_path("maya_large.png"), output_path=IMAGE_DIR / "maya.png", width=128, height=128, show=True)
     # tint_image(path=image_path("browse_og.png"), output_path=IMAGE_DIR / "browse.png", rgb=RGBColor.LIGHT_GREY)
-    # tint_image(path=image_path("from-a-to-z.png"), output_path=IMAGE_DIR / "sort_description.png", rgb=RGBColor.LIGHT_GREY)
-    # tint_image(path=Path("/Users/andrewdavis/Dropbox/Pictures/Icons/path_tree.png"), output_path=IMAGE_DIR / "path_tool.png", rgb=RGBColor.LIGHT_GREY)
-    tint_image(path=image_path("photo.png"), output_path=ICON_DIR / "billboard.png", rgb=RGBColor.LIGHT_GREY)
+    tint_image(path=image_path("dimensions.png"), output_path=image_path("dimensions.png"), rgb=RGBColor.LIGHT_GREY)
+    # tint_image(path=Path("/Users/andrewdavis/Dropbox/Technology/Python3/Projects/Maya2025/images/icons/eye.png"), output_path=ICON_DIR / "format.png", rgb=RGBColor.LIGHT_GREY)
+    # tint_image(path=image_path("fingerprint.png"), output_path=ICON_DIR / "uuid.png", rgb=RGBColor.LIGHT_GREY)
+    # create_checker(path=Path("/Users/andrewdavis/Dropbox/Projects/Unity/Archive/SeventhStreet/Assets/Textures/checker.png"))

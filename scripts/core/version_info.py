@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 
@@ -11,3 +13,12 @@ class VersionInfo:
     @property
     def title(self) -> str:
         return f"{self.name} v{self.version} [{self.codename}]"
+
+
+class Versions:
+    def __init__(self, versions: list[str]):
+        self.versions = versions
+
+    @property
+    def title(self) -> str:
+        return self.versions[-1].title

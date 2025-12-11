@@ -13,16 +13,6 @@ FBX_PLUG_IN_PATH: Path = Path(cmds.pluginInfo(FBX_PLUG_IN, query=True, path=True
 FBX_EXPORT_PRESETS: list[Path] = [x for x in MAYA_APP_DIR.joinpath('FBX').rglob('*.fbxexportpreset')]
 
 
-def load_fbx_preset(preset_path: Path):
-    """
-    Loads a Maya-style FBX preset file
-    """
-    assert preset_path.exists(), f'Cannot find preset: {preset_path.as_posix()}'
-    command = f'FBXLoadExportPresetFile -f "{preset_path.as_posix()}";'
-    logging.info(command)
-    mel.eval(command)
-
-
 def export_fbx(export_path: Path, selected: bool = True, replace: bool = True):
     """
     Export fbx
@@ -46,6 +36,14 @@ def get_fbx_properties():
     return mel.eval('FBXProperties;')
 
 
+def fbx_reset_export():
+    """
+    Reset the FBX export settings
+    Needs to be done prior to setting the values in an FBXPreset
+    """
+    mel.eval('FBXResetExport;')
+
+
 def get_export_frame_range() -> tuple or False:
     """
     Get the export frame range
@@ -59,14 +57,14 @@ def get_export_frame_range() -> tuple or False:
         return False
 
 
-def set_export_frame_range(start: float, end: float):
+def load_fbx_preset(preset_path: Path):
     """
-    Set the export frame range
-    :param start:
-    :param end:
+    Loads a Maya-style FBX preset file
     """
-    mel.eval(f'FBXExportBakeComplexStart -v {start}')
-    mel.eval(f'FBXExportBakeComplexEnd -v {end}')
+    assert preset_path.exists(), f'Cannot find preset: {preset_path.as_posix()}'
+    command = f'FBXLoadExportPresetFile -f "{preset_path.as_posix()}";'
+    logging.info(command)
+    mel.eval(command)
 
 
 def get_fbx_export_preset_path(preset_name: str, single: bool = True) -> Path or list:
@@ -86,20 +84,12 @@ def get_fbx_export_preset_path(preset_name: str, single: bool = True) -> Path or
     return result[0] if len(result) == 1 else result
 
 
+def get_fbx_animation_preset() -> Path:
+    return get_fbx_export_preset_path('ams_animation', single=True)
+
+
 def get_fbx_rig_preset() -> Path:
     return get_fbx_export_preset_path('ams_rig', single=True)
-
-
-def get_fbx_animation_preset() -> Path:
-    return  get_fbx_export_preset_path('ams_animation', single=True)
-
-
-def fbx_reset_export():
-    """
-    Reset the FBX export settings
-    Needs to be done prior to setting the values in an FBXPreset
-    """
-    mel.eval('FBXResetExport;')
 
 
 def check_fbx_plug_in():
@@ -124,6 +114,16 @@ def get_fbx_property(fbx_property: FBXProperty, output: bool = False):
         logging.info(result)
 
     return result
+
+
+def set_export_frame_range(start: float, end: float):
+    """
+    Set the export frame range
+    :param start:
+    :param end:
+    """
+    mel.eval(f'FBXExportBakeComplexStart -v {start}')
+    mel.eval(f'FBXExportBakeComplexEnd -v {end}')
 
 
 def set_fbx_property(fbx_property: FBXProperty, value: Union[int, bool, float, str]):

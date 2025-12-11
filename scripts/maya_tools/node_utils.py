@@ -3,7 +3,7 @@ from __future__ import annotations
 from maya import cmds
 from typing import Optional, Union
 
-from core.logging_utils import  get_logger
+from core.logging_utils import get_logger
 from core.point_classes import Point2, Point3, Point3Pair
 from core.core_enums import ComponentType, Attributes, DataType
 from maya_tools.maya_enums import ObjectType, MayaAttributes
@@ -116,6 +116,15 @@ def freeze_transformations(nodes: list[str] | None = None):
         set_lock_states(node=node, states=lock_states)
 
 
+def freeze_translation(node: str):
+    """
+    Freeze just the translation of a node
+    :param node:
+    :return:
+    """
+    cmds.makeIdentity(node, apply=True, translate=True)
+
+
 def get_all_child_transforms(transform: str, ordered: bool = False, reverse: bool = False) -> list[str]:
     """
     Find all children of a transform
@@ -145,10 +154,10 @@ def get_child_geometry(transform: str) -> list[str]:
     :param transform:
     :return:
     """
-    relatives = cmds.listRelatives(transform, allDescendents=True, type=ObjectType.transform.name,  fullPath=True)
+    relatives = cmds.listRelatives(transform, allDescendents=True, type=ObjectType.transform.name, fullPath=True)
     if relatives:
         transforms = [x for x in relatives]
-        return [x for x in transforms if is_object_type(transform=x, object_type=ObjectType.mesh)]
+        return [x for x in transforms if is_object_type(node=x, object_type=ObjectType.mesh)]
     return []
 
 
@@ -209,16 +218,16 @@ def get_pivot_position(transform: str) -> Point3:
     return Point3(*cmds.xform(transform, query=True, worldSpace=True, rotatePivot=True))
 
 
-def get_root_transform(transform: str):
+def get_root_transform(node: str):
     """
     Finds the top node in a hierarchy
-    :param transform:
+    :param node:
     :return:
     """
-    assert cmds.objExists(transform), f'Transform not found: {transform}'
-    parent = cmds.listRelatives(transform, parent=True, fullPath=True)
+    assert cmds.objExists(node), f'Transform not found: {node}'
+    parent = cmds.listRelatives(node, parent=True, fullPath=True)
 
-    return transform if parent is None else get_root_transform(parent[0])
+    return node if parent is None else get_root_transform(parent[0])
 
 
 def get_component_mode() -> ComponentType or False:
@@ -238,6 +247,13 @@ def get_component_mode() -> ComponentType or False:
         return ComponentType.uv
     else:
         return False
+
+
+def get_root_geometry_transforms():
+    """Get a list of the root transforms containing geometry."""
+    geometry = [x for x in get_transforms() if is_object_type(node=x, object_type=ObjectType.mesh)]
+    return geometry
+    # return list({get_root_transform(transform=x) for x in geometry})
 
 
 def get_hierarchy_path(transform: Optional[str] = None, full_path: bool = False) -> list[str] or False:
@@ -275,6 +291,28 @@ def get_hierarchy_path(transform: Optional[str] = None, full_path: bool = False)
     return hierarchy[::-1]
 
 
+def get_object_type(node: str) -> str | None:
+    if cmds.objExists(node):
+        if is_group_node(node=node):
+            return ObjectType.group
+        if is_locator(node=node):
+            return ObjectType.locator
+        else:
+            shape = get_shape_from_transform(transform=node)
+            object_type = cmds.objectType(shape)
+            if object_type == ObjectType.mesh.name:
+                return ObjectType.geometry
+            if object_type in ('pointLight', 'directionalLight', 'ambientLight'):
+                return ObjectType.light
+    else:
+        return None
+
+
+def get_root_geometry_transforms():
+    """Get the root nodes of all geometry in scene."""
+    return list({get_root_transform(node=x) for x in cmds.ls(type=ObjectType.mesh.name)})
+
+
 def get_rotation(transform: str) -> Point3:
     """
     Get the rotation of a transform
@@ -298,7 +336,7 @@ def get_selected_geometry() -> list[str]:
     Get selected geometry transforms
     :return:
     """
-    return [x for x in get_selected_transforms() if is_object_type(transform=x, object_type=ObjectType.mesh)]
+    return [x for x in get_selected_transforms() if is_object_type(node=x, object_type=ObjectType.mesh)]
 
 
 def get_selected_joints() -> list[str]:
@@ -398,37 +436,46 @@ def get_type_from_transform(transform: str):
     return cmds.objectType(get_shape_from_transform(transform=transform))
 
 
-def is_group_node(transform: str):
+def is_geometry(node: str) -> bool:
+    """Is a node a geometry node."""
+    if cmds.objectType(node) == ObjectType.transform.name:
+        shapes = cmds.listRelatives(node, shapes=True)
+        return cmds.objectType(shapes[0]) == ObjectType.mesh.name if shapes else False
+    else:
+        return cmds.objectType(node) == ObjectType.mesh.name
+
+
+def is_group_node(node: str):
     """
     Determine if a transform is a group node
-    :param transform:
+    :param node:
     :return:
     """
-    return cmds.nodeType(transform) == ObjectType.transform.name and not cmds.listRelatives(transform, shapes=True)
+    return cmds.nodeType(node) == ObjectType.transform.name and not cmds.listRelatives(node, shapes=True)
 
 
-def is_locator(transform: str) -> bool:
+def is_locator(node: str) -> bool:
     """
-    Returns true of the supplied transform is a locator
-    :param transform:
+    Returns true if the supplied transform is a locator
+    :param node:
     :return:
     """
-    return cmds.listRelatives(transform, type=ObjectType.locator.name) is not None
+    return cmds.listRelatives(node, type=ObjectType.locator.name) is not None
 
 
-def is_object_type(transform: str, object_type: ObjectType):
+def is_object_type(node: str, object_type: ObjectType):
     """
     Verifies an object type of a transform's corresponding shape node
-    :param transform:
+    :param node:
     :param object_type:
     :return:
     """
     if object_type is ObjectType.joint:
-        return cmds.objectType(transform) == ObjectType.joint.name
+        return cmds.objectType(node) == ObjectType.joint.name
     elif object_type is ObjectType.locator:
-        return is_locator(transform)
+        return is_locator(node)
     else:
-        shape = get_shape_from_transform(transform)
+        shape = get_shape_from_transform(node)
         return cmds.objectType(shape) == object_type.name if shape else False
 
 
@@ -485,6 +532,7 @@ def move_to_origin(transform=None):
     """
     for item in [transform] if transform else cmds.ls(sl=True, tr=True):
         cmds.setAttr(f'{item}{Attributes.translate.value}', 0, 0, 0, type=DataType.float3.name)
+
 
 def pivot_to_base(transform=None, reset=True):
     """

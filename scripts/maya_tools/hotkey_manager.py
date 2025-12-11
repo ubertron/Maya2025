@@ -9,7 +9,7 @@ from maya import cmds
 
 from core import logging_utils
 from core.core_enums import Language, ModifierKey
-from core.core_paths import HOTKEYS_CONFIG, STARTUP_DIR
+from core.core_paths import CONFIG_DIR, HOTKEYS_CONFIG, STARTUP_DIR
 
 LOGGER = logging_utils.get_logger(name=__name__, level=logging.DEBUG)
 
@@ -98,7 +98,7 @@ class HotkeySet:
 
     @property
     def path(self) -> Path:
-        return STARTUP_DIR / f"{self.name}.mhk"
+        return CONFIG_DIR / f"{self.name}.mhk"
 
     def apply(self, force: bool = False):
         if self.name in get_hotkey_sets():

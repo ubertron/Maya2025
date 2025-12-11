@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import math
 import pyperclip
 
@@ -16,8 +18,11 @@ from maya_tools.node_utils import State, set_component_mode, get_component_mode,
 from maya_tools.maya_enums import ObjectType
 
 
-def combine(transforms: list[str], name: str = '', position: Optional[Point3] = None, parent: Optional[str] = None,
-            history: bool = False) -> str or None:
+def combine(transforms: list[str] | None = None, name: str = '', position: Optional[Point3] = None,
+            parent: Optional[str] = None, history: bool = False) -> str or None:
+    """Combine geometry nodes."""
+    if transforms is None:
+        transforms = cmds.ls(selection=True, transforms=True)
     mesh_transforms = [x for x in transforms if cmds.objExists(x) and is_object_type(x, ObjectType.mesh)]
 
     if len(mesh_transforms) > 1:
@@ -84,7 +89,7 @@ def create_hemispheroid(name: str = 'hemispheroid', diameter: float = 1.0, heigh
     cmds.makeIdentity(hemispheroid, apply=True, scale=True)
 
     # delete faces below y = 0
-    verts_below_0 = [i for i, value in enumerate(get_vertex_positions(transform=hemispheroid)) if value.y < 0]
+    verts_below_0 = [i for i, value in enumerate(get_vertex_positions(node=hemispheroid)) if value.y < 0]
     vert_list_by_face = get_vertex_face_list(transform=hemispheroid)
     faces_below_0 = [i for i, verts in enumerate(vert_list_by_face) for v in verts if v in verts_below_0]
     select_faces(hemispheroid, faces_below_0)
@@ -313,6 +318,15 @@ def get_selected_faces(transform: str = '') -> list[int] or None:
     return get_selected_components(transform=transform, component_type=ComponentType.face)
 
 
+def get_selected_vertices(transform: str = '') -> list[int] or None:
+    """
+    Gets a list of the face ids, or None if node not found
+    :param transform:
+    :return:
+    """
+    return get_selected_components(transform=transform, component_type=ComponentType.vertex)
+
+
 def get_selected_components(transform: str = '', component_type: ComponentType = ComponentType.face) -> list[int] or None:
     """
     Gets a list of the component ids, or None if node not found
@@ -353,16 +367,19 @@ def get_vertex_positions_cmds(transform: str) -> list[Point3]:
     return [get_vertex_position(transform=transform, vertex_id=i) for i in vertex_list]
 
 
-def get_vertex_positions(transform: str) -> om.MPointArray:
+def get_vertex_positions(node: str, verbose: bool = False) -> om.MPointArray:
     """
     Get the vertex positions of a transform
-    :param transform:
+    :param node:
+    :param verbose:
     :return: om.MPointArray
     """
-    vertex_iterator: om.MItMeshVertex = get_vertex_iterator(transform)
+    vertex_iterator: om.MItMeshVertex = get_vertex_iterator(node)
     vertex_positions: list = []
     while not vertex_iterator.isDone():
-        vertex_positions.append(ertex_iterator.position(om.MSpace.kWorld))
+        vertex_positions.append(vertex_iterator.position(om.MSpace.kWorld))
+        if verbose:
+            print(f"Vertex {len(vertex_positions) - 1}: {vertex_positions[-1]}")
         next(vertex_iterator)
     return vertex_positions
 
@@ -908,25 +925,25 @@ def get_mesh_face_area(face_component: str) -> float:
     return polygon_iterator.getArea(om.MSpace.kWorld)
 
 
-def get_average_face_area(transform: str) -> float:
+def get_average_face_area(node: str) -> float:
     """Calculates the average face area of a given mesh."""
     face_areas = []
 
-    for face_id in range(cmds.polyEvaluate(transform, face=True)):
-        face_area = get_mesh_face_area(f'{transform}.f[{face_id}]')
+    for face_id in range(cmds.polyEvaluate(node, face=True)):
+        face_area = get_mesh_face_area(f'{node}.f[{face_id}]')
         face_areas.append(face_area)
 
     return sum(face_areas) / len(face_areas)
 
 
-def find_ngons(transform: str):
+def find_ngons(node: str):
     """
     Find the triangular faces in a mesh
-    :param transform:
+    :param node:
     :return:
     """
     ngons: list = []
-    polygon_iterator = get_polygon_iterator(transform)
+    polygon_iterator = get_polygon_iterator(node)
 
     while not polygon_iterator.isDone():
         face_index = polygon_iterator.index()
@@ -940,14 +957,14 @@ def find_ngons(transform: str):
     return ngons
 
 
-def find_three_edge_faces(transform: str):
+def find_three_edge_faces(node: str):
     """
     Find the triangular faces in a mesh
-    :param transform:
+    :param node:
     :return:
     """
     three_edge_faces: list = []
-    polygon_iterator = get_polygon_iterator(transform)
+    polygon_iterator = get_polygon_iterator(node)
 
     while not polygon_iterator.isDone():
         face_index = polygon_iterator.index()
@@ -961,38 +978,38 @@ def find_three_edge_faces(transform: str):
     return three_edge_faces
 
 
-def get_vertex_iterator(transform: str) -> om.MItMeshVertex:
+def get_vertex_iterator(node: str) -> om.MItMeshVertex:
     """
     Get an MItMeshVertex instance from a transform
-    :param transform: str
+    :param node: str
     :return:
     """
     selection_list = om.MSelectionList()
-    selection_list.add(transform)
+    selection_list.add(node)
     dag_path, component = selection_list.getComponent(0)
     return om.MItMeshVertex(dag_path, component)
 
 
-def get_edge_iterator(transform: str) -> om.MItMeshEdge:
+def get_edge_iterator(node: str) -> om.MItMeshEdge:
     """
     Get an MItMeshEdge instance from a transform
-    :param transform: str
+    :param node: str
     :return:
     """
     selection_list = om.MSelectionList()
-    selection_list.add(transform)
+    selection_list.add(node)
     dag_path, component = selection_list.getComponent(0)
     return om.MItMeshEdge(dag_path, component)
 
 
-def get_polygon_iterator(transform: str) -> om.MItMeshPolygon:
+def get_polygon_iterator(node: str) -> om.MItMeshPolygon:
     """
     Get an MItMeshPolygon instance from a transform
-    :param transform: str
+    :param node: str
     :return:
     """
     selection_list = om.MSelectionList()
-    selection_list.add(transform)
+    selection_list.add(node)
     dag_path, component = selection_list.getComponent(0)
     return om.MItMeshPolygon(dag_path, component)
 
@@ -1004,7 +1021,7 @@ def get_face_edge_count_dict(transform: str) -> dict:
     :return:
     """
     face_edge_dict: dict = {}
-    polygon_iterator = get_polygon_iterator(transform=transform)
+    polygon_iterator = get_polygon_iterator(node=transform)
 
     while not polygon_iterator.isDone():
         face_id = polygon_iterator.index()

@@ -2,4 +2,4 @@
 /venv/
 /.venv/
 /config/maya_config.ini
-/scripts/startup/Robotools_Hotkeys.mhk
+/scripts/legacy/Robotools_Hotkeys.mhk

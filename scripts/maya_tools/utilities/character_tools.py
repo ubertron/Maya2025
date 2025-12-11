@@ -164,7 +164,7 @@ class CharacterTools(GenericWidget):
 
     def __init__(self):
         super().__init__(self.TITLE)
-        self.rig_builder = self.add_widget(GroupBox('Rig Builder', RigBuilder()))
+        self.rig_builder = self.add_widget(GroupBox(RigBuilder()))
         self.add_button('Center Pivot', clicked=pivot_to_center, tool_tip=get_lead_docstring_comment(pivot_to_center))
         self.add_button('Match Pivot', clicked=match_pivot_to_last,
                         tool_tip=get_lead_docstring_comment(match_pivot_to_last))
@@ -178,7 +178,7 @@ class CharacterTools(GenericWidget):
                         tool_tip=get_lead_docstring_comment(export_model_reference))
         self.add_button('Unbind Skin Clusters', clicked=unbind_skin_clusters,
                         tool_tip=get_lead_docstring_comment(unbind_skin_clusters))
-        self.rigid_bind_tool = self.add_widget(GroupBox('Rigid Bind Tools', RigidBindTool()))
+        self.rigid_bind_tool = self.add_widget(GroupBox(RigidBindTool()))
         self.add_stretch()
 
     @staticmethod

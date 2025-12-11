@@ -24,6 +24,38 @@
                 "language": "python",
                 "tool_tip": "Billboard Creator",
                 "script": "from maya_tools.utilities.billboard_creator import UI_SCRIPT, billboard_creator\nbillboard_creator.BillboardCreator().show_workspace_control(ui_script=UI_SCRIPT)"
+            },
+            "Mesh Quantizer": {
+                "icon": "quantize.png",
+                "language": "python",
+                "tool_tip": "Mesh Quantizer",
+                "script": "from maya_tools.utilities.mesh_quantizer import UI_SCRIPT, mesh_quantizer_tool\nmesh_quantizer_tool.MeshQuantizerTool().show_workspace_control(ui_script=UI_SCRIPT)"
+            },
+            "Staircase Creator": {
+                "icon": "stairs.png",
+                "language": "python",
+                "tool_tip": "Staircase creator",
+                "script": "from maya_tools.utilities.staircase_creator import UI_SCRIPT, staircase_creator_tool\nstaircase_creator_tool.StaircaseCreatorTool().show_workspace_control(ui_script=UI_SCRIPT)"
+            },
+            "Create Locators": {
+                "icon": "locators.png",
+                "language": "python",
+                "tool_tip": "Create locators at selected vertex positions",
+                "script": "from maya_tools import locator_utils\nlocator_utils.create_vertex_locators(size=10.0)"
+            }
+        },
+        "AMS": {
+            "Stubber": {
+                "icon": "stubber.png",
+                "language": "python",
+                "tool_tip": "Stubber",
+                "script": "from ams.stubber import Stubber, UI_SCRIPT\nStubber().show_workspace_control(ui_script=UI_SCRIPT)"
+            },
+            "Exporter": {
+                "icon": "export.png",
+                "language": "python",
+                "tool_tip": "Stubber",
+                "script": "from ams.exporter import Exporter, UI_SCRIPT\nExporter().show_workspace_control(ui_script=UI_SCRIPT)"
             }
         },
         "Characters": {
@@ -53,11 +85,23 @@
             }
         },
         "Display": {
+            "Toggle Cameras": {
+                "icon": "toggle_cameras.png",
+                "language": "python",
+                "tool_tip": "Toggle camera visibility",
+                "script": "from maya_tools import display_utils\ndisplay_utils.toggle_camera_visibility()"
+            },
             "Toggle Layer Shading": {
                 "icon": "toggle_layer_shading.png",
                 "language": "python",
                 "tool_tip": "Toggle layer shading",
                 "script": "from maya_tools import layer_utils\nlayer_utils.toggle_current_layer_shading()"
+            },
+            "Toggle Shade Selected": {
+                "icon": "toggle_shade_selected.png",
+                "language": "python",
+                "tool_tip": "Toggle shade selected",
+                "script": "from maya_tools import display_utils\ndisplay_utils.toggle_shade_selected()"
             },
             "Toggle Xray": {
                 "icon": "toggle_xray.png",
@@ -74,10 +118,10 @@
         },
         "Geometry": {
             "Create Cube": {
-                "icon": "create_cube.png",
+                "icon": "cube.png",
                 "language": "mel",
                 "tool tip": "Create a cube",
-                "script": "polyCube -w 10 -h 10 -d 10;"
+                "script": "polyCube -w 100 -h 100 -d 100 -heightBaseline -1;"
             },
             "Slice Geometry": {
                 "icon": "slice_geometry.png",
@@ -108,6 +152,12 @@
                 "language": "python",
                 "tool tip": "Merge vertices",
                 "script": "from maya_tools.geometry_utils import merge_vertices\nmerge_vertices(cmds.ls(sl=True)[0])"
+            },
+            "Combine": {
+                "icon": "combine.png",
+                "language": "python",
+                "tool tip": "Combine geometry",
+                "script": "from maya_tools import geometry_utils\ngeometry_utils.combine(cmds.ls(sl=True))"
             }
         },
         "Node": {
@@ -142,10 +192,18 @@
                 "script": "from maya_tools import node_utils\nnode_utils.move_to_origin()"
             },
             "Toggle Transform Constraints": {
-                "icon": "toggle_transform_constraints.png",
+                "icon": "toggle_constraints.png",
                 "language": "python",
                 "tool_tip": "Toggle transform constraints",
                 "script": "from maya_tools import display_utils\ndisplay_utils.toggle_transform_constraints()"
+            }
+        },
+        "UVs": {
+            "Box Map": {
+                "icon": "box_map.png",
+                "language": "python",
+                "tool_tip": "Box map",
+                "script": "from maya_tools import uv_utils\nuv_utils.box_map()"
             }
         }
     },

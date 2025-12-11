@@ -4,4 +4,5 @@ pillow
 pyperclip
 pyqtdarktheme
 PySide6
+python-dotenv
 scipy

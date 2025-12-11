@@ -33,8 +33,8 @@ class IconButton(QPushButton):
         if icon_path.exists():
             self.setToolTip(tool_tip)
             self.setIcon(QIcon(QPixmap(icon_path)))
-            self.setIconSize(QSize(size - 2 * margin, size - 2 * margin))
-            self.setFixedSize(QSize(size, size))
+            self.setIconSize(QSize(size, size))
+            self.setFixedSize(QSize(size + margin * 2, size + margin * 2))
         else:
             self.setFixedHeight(size)
             self.setStyleSheet("Text-align:center")

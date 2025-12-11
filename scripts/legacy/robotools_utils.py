@@ -1,22 +1,18 @@
 # Robotools version 0.3: New version of Robotools for Maya 2025
 import logging
-import os
-import shutil
 
 from distutils.dir_util import copy_tree
 from pathlib import Path
 from maya import cmds
 
-from core.core_paths import SITE_PACKAGES, MAYA_INTERPRETER_PATH, MAYA_REQUIREMENTS, image_path, PROJECT_ROOT, \
-    PRESETS_DIR
+from core.core_paths import image_path, PRESETS_DIR
 from core.config_utils import MayaConfig
 from maya_tools import plug_in_utils
 from maya_tools.io.fbx_utils import check_fbx_plug_in
 from maya_tools.maya_environment_utils import is_using_mac_osx, MAYA_APP_DIR
 from maya_tools.tool_utils import launch_script
-from startup.robotools_hotkeys import RobotoolsHotkeys
-from startup.robotools_shelf import RobotoolsShelf, TOOL_TITLE
-
+from legacy.robotools_hotkeys import RobotoolsHotkeys
+from legacy.robotools_shelf import RobotoolsShelf
 
 MAYA_CONFIG: MayaConfig = MayaConfig()
 PREFERENCES_KEY: str = 'PREFERENCES'

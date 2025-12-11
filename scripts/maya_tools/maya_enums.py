@@ -107,9 +107,12 @@ class LayerDisplayType(Enum):
 class ObjectType(Enum):
     animCurve = auto()
     displayLayer = auto()
+    group = auto()
     joint = auto()
     file = auto()
+    geometry = auto()  # transform node with a mesh child
     lambert = auto()
+    light = auto()
     locator = auto()
     materialInfo = auto()
     mesh = auto()

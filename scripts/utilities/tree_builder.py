@@ -71,5 +71,6 @@ class TreeBuilder:
 
 
 if __name__ == "__main__":
-    my_path = Path(__file__).parents[0]
+    # my_path = Path(__file__).parents[1]
+    my_path = Path.home() / "Dropbox/Projects/Unity/ElysiumProject"
     TreeBuilder(root=my_path, dir_token=" [dir]", ignore_list=["__pycache__", ".DS_Store"]).plot()

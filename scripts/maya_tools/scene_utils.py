@@ -60,7 +60,7 @@ def get_scene_name(include_extension: bool = True) -> str:
     return None
 
 
-def get_scene_path() -> Path | None:
+def get_scene_path(verbose: bool = False) -> Path | None:
     """
     Get the full path of the scene
     :return:
@@ -68,10 +68,12 @@ def get_scene_path() -> Path | None:
     result = cmds.file(query=True, sceneName=True)
     if result:
         pyperclip.copy(result)
-        logging.info(f"Current scene path: {result}")
+        if verbose:
+            logging.info(f"Current scene path: {result}")
         return Path(result)
     else:
-        logging.info("No scene found.")
+        if verbose:
+            logging.info("No scene found.")
         return None
 
 

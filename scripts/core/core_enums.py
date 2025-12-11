@@ -13,7 +13,7 @@ class AssetType(Enum):
     environment = 'Environments'
     fx = 'FX'
     prop = 'Props'
-    vehicle = 'Vehicles'
+    vehicle = 'Vehicles“'
 
     @staticmethod
     def keys() -> list:
@@ -25,7 +25,7 @@ class AssetType(Enum):
 
     @staticmethod
     def get_by_key(key: str):
-        return AssetType.__members__[key]
+        return AssetType[key]
 
 
 class Attributes(Enum):
@@ -45,7 +45,7 @@ class Axis(Enum):
 
     @staticmethod
     def get_by_key(key: str) -> Enum or None:
-        return Axis.__members__.get(key)
+        return Axis(key)
 
 
 class ComponentType(Enum):
@@ -178,11 +178,11 @@ class Position(Enum):
 
     @staticmethod
     def get_by_key(key: str) -> Enum or None:
-        return Position.__members__.get(key)
+        return Position[key]
 
     @staticmethod
     def get_by_value(value: str) -> Enum:
-        return next((x for x in Position if x.value == value), None)
+        return Position(value)
 
 
 @dataclass
@@ -202,7 +202,7 @@ class PythonPlatform(Enum):
 
     @staticmethod
     def get_by_value(value: str) -> Enum:
-        return next((x for x in PythonPlatform if x.value == value), None)
+        return PythonPlatform(value)
 
 
 @unique
@@ -254,6 +254,8 @@ if __name__ == '__main__':
     # my_enum = MetadataKey.rig_hash
     # print(isinstance(my_enum, MetadataKey))
     # print(type(my_enum))
-    print(Position.get_by_value('Center'))
-    print(Position.get_by_key('Center'))
-    print(Position.items())
+    # print(Position.get_by_value('Center'))
+    # print(Position.get_by_key('Center'))
+    # print(Position.items())
+    print(Axis["x"])
+    print(Axis(2))

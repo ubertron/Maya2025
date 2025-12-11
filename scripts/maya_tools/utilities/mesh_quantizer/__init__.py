@@ -1,0 +1,1 @@
+UI_SCRIPT = "from maya_tools.utilities.mesh_quantizer import mesh_quantizer_tool; mesh_quantizer_tool.MeshQuantizerTool().restore()"

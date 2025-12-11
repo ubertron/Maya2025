@@ -4,27 +4,6 @@ from maya_tools.io.fbx_preset import FBXPreset
 from maya_tools.maya_enums import FBXProperty
 
 
-class RigExportPreset(FBXPreset):
-    fbx_properties = {
-        FBXProperty.FBXExportSmoothingGroups: True,
-        FBXProperty.FBXExportTangents: True,
-        FBXProperty.FBXExportTriangulate: True,
-        FBXProperty.FBXExportColladaFrameRate: 25.0,
-        FBXProperty.FBXExportConstraints: True,
-        FBXProperty.FBXExportInputConnections: False,
-        FBXProperty.FBXExportCameras: False,
-        FBXProperty.FBXExportLights: False,
-        FBXProperty.FBXExportGenerateLog: False,
-    }
-
-    custom_properties = {
-        'Export|IncludeGrp|Animation': '0',
-    }
-
-    def __init__(self):
-        super(RigExportPreset, self).__init__(self.fbx_properties, self.custom_properties)
-
-
 class AnimationExportPreset(FBXPreset):
     fbx_properties = {
         FBXProperty.FBXExportBakeComplexAnimation: True,
@@ -46,3 +25,47 @@ class AnimationExportPreset(FBXPreset):
             start, end = start_end
             self.fbx_properties[FBXProperty.FBXExportBakeComplexStart] = int(start)
             self.fbx_properties[FBXProperty.FBXExportBakeComplexEnd] = int(end)
+
+
+class GeometryExportPreset(FBXPreset):
+    fbx_properties = {
+        FBXProperty.FBXExportSmoothingGroups: True,
+        FBXProperty.FBXExportTangents: True,
+        FBXProperty.FBXExportTriangulate: True,
+        FBXProperty.FBXExportColladaFrameRate: 25.0,
+        FBXProperty.FBXExportConstraints: True,
+        FBXProperty.FBXExportInputConnections: False,
+        FBXProperty.FBXExportCameras: False,
+        FBXProperty.FBXExportLights: False,
+        FBXProperty.FBXExportGenerateLog: False,
+    }
+
+    custom_properties = {
+        'Export|IncludeGrp|Animation': '0',
+    }
+
+    def __init__(self):
+        super(GeometryExportPreset, self).__init__(self.fbx_properties, self.custom_properties)
+
+
+class RigExportPreset(FBXPreset):
+    fbx_properties = {
+        FBXProperty.FBXExportSmoothingGroups: True,
+        FBXProperty.FBXExportTangents: True,
+        FBXProperty.FBXExportTriangulate: True,
+        FBXProperty.FBXExportColladaFrameRate: 25.0,
+        FBXProperty.FBXExportConstraints: True,
+        FBXProperty.FBXExportInputConnections: False,
+        FBXProperty.FBXExportCameras: False,
+        FBXProperty.FBXExportLights: False,
+        FBXProperty.FBXExportGenerateLog: False,
+    }
+
+    custom_properties = {
+        'Export|IncludeGrp|Animation': '0',
+    }
+
+    def __init__(self):
+        super(RigExportPreset, self).__init__(self.fbx_properties, self.custom_properties)
+
+

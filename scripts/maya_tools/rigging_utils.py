@@ -77,7 +77,7 @@ def create_joints_from_locator_hierarchy(transform: str = "", mirror_joints: boo
     :return:
     """
     if transform:
-        if is_locator(transform=transform):
+        if is_locator(node=transform):
             root_locator = get_root_transform(transform)
         else:
             cmds.warning('Invalid transform')

@@ -11,7 +11,7 @@ FILE_TEXTURE_NODES: list[str] = cmds.ls(type=ObjectType.file.name)
 LAMBERT_SHADER_NODES: list[str] = cmds.ls(type=ObjectType.lambert.name)
 
 
-def apply_shader(shading_group, transforms: Optional[str] = None):
+def apply_shader(shading_group: str, transforms: Optional[str] = None):
     """
     Apply a shader to a collection of Transforms
     @param shading_group:

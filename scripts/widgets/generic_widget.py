@@ -3,7 +3,7 @@ from __future__ import annotations
 import contextlib
 import shiboken6
 
-from PySide6.QtWidgets import QWidget, QPushButton, QLabel, QLayout, QSizePolicy, QSpacerItem
+from PySide6.QtWidgets import QWidget, QPushButton, QLabel, QLayout, QSizePolicy, QSpacerItem, QGroupBox
 from PySide6.QtCore import Qt
 
 from core.core_enums import Alignment, Side
@@ -13,6 +13,7 @@ from typing import Optional, Callable
 from core.date_time_utils import get_date_time_string
 from widgets.icon_button import IconButton
 from widgets.layouts import HBoxLayout, VBoxLayout
+from widgets.group_box import GroupBox
 
 
 class GenericWidget(QWidget):
@@ -66,6 +67,11 @@ class GenericWidget(QWidget):
             button.clicked.connect(clicked)
         self.add_widget(widget=button)
         return button
+
+    def add_group_box(self, widget: QWidget):
+        """Add a widget in a group box."""
+        self.add_widget(widget=GroupBox(widget=widget))
+        return widget
 
     def add_icon_button(self, icon_path: Path | None, tool_tip: str = "", size: int=32, margin: int = 2,
                         clicked: Callable | None = None) -> IconButton:
