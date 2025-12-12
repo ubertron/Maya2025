@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from functools import partial
-from PySide6.QtWidgets import QFormLayout, QWidget, QPushButton, QLabel, QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox
+from PySide6.QtWidgets import QFormLayout, QWidget, QPushButton, QLabel, QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, \
+    QCheckBox
 from typing import Callable, Union
 
 from core import DEVELOPER
@@ -51,6 +52,13 @@ class FormWidget(QWidget):
         button.setToolTip(tool_tip)
         self.layout().addRow(button)
         return button
+
+    def add_check_box(self, label: str, checked: bool = True, tool_tip: str="") -> QCheckBox:
+        """Add a checkbox to the form."""
+        check_box = QCheckBox()
+        check_box.setToolTip(tool_tip)
+        check_box.setChecked(checked)
+        return self.add_row(label=label, widget=check_box)
 
     def add_combo_box(self, label: str, items: list[str], default_index: int = 0) -> QComboBox:
         """Add a combo box to the form."""

@@ -1,42 +1,45 @@
 from maya import cmds
 from typing import Any, Optional, Sequence, Union
 from enum import Enum, unique, auto
+from core.core_enums import DataType
 
 
-@unique
-class DataType(Enum):
-    char = auto()
-    double = auto()
-    double2 = auto()
-    double3 = auto()
-    float = auto()
-    float2 = auto()
-    float3 = auto()
-    message = auto()
-    string = auto()
-
-    @staticmethod
-    def get_by_key(key: str) -> Enum or None:
-        return DataType.__members__.get(key)
-
-
-def add_attribute(transform: str, attr: str, data_type: DataType):
+def add_attribute(node: str, attr: str, data_type: DataType, read_only: bool = False,
+                  default_value: Optional[Any] = None) -> None:
     """
     Add an attribute to a DAG node
-    :param transform:
+    :param node:
     :param attr:
     :param data_type:
+    :param read_only:
+    :param default_value:
     """
     if data_type in (DataType.float, DataType.double):
-        cmds.addAttr(transform, longName=attr, attributeType=data_type.name)
+        cmds.addAttr(node, longName=attr, attributeType=data_type.name)
     else:
-        cmds.addAttr(transform, longName=attr, dataType=data_type.name)
+        cmds.addAttr(node, longName=attr, dataType=data_type.name)
+    if default_value is not None:
+        set_attribute(node=node, attr=attr, value=default_value)
+    if read_only:
+        cmds.setAttr(f"{node}.{attr}", lock=True)
 
 
-def add_compound_attribute(transform: str, parent_attr: str, data_type: DataType, attrs: list[str]):
+def add_enum_attribute(node: str, attr: str, values: list[str], default_index: int = 0) -> None:
+    """
+    Add an attribute to a DAG node.
+    :param node:
+    :param attr:
+    :param values:
+    :param default_index:
+    """
+    cmds.addAttr(node, longName=attr, attributeType=DataType.enum.name, enumName=":".join(values), keyable=True)
+    cmds.setAttr(f"{node}.{attr}", default_index)
+
+
+def add_compound_attribute(node: str, parent_attr: str, data_type: DataType, attrs: list[str]):
     """
     Add a compound attribute to a DAG node
-    :param transform:
+    :param node:
     :param parent_attr:
     :param data_type:
     :param attrs:
@@ -48,29 +51,27 @@ def add_compound_attribute(transform: str, parent_attr: str, data_type: DataType
         DataType.float3: DataType.float
     }.get(data_type)
     assert data_type is not None, f'Data type not supported: {data_type}'
-    cmds.addAttr(transform, longName=parent_attr, attributeType=data_type.name)
-
+    cmds.addAttr(node, longName=parent_attr, attributeType=data_type.name)
     for attr in attrs:
-        cmds.addAttr(transform, longName=attr, attributeType=child_data_type.name, parent=parent_attr)
+        cmds.addAttr(node, longName=attr, attributeType=child_data_type.name, parent=parent_attr)
 
 
-def set_attribute(transform: str, attr: str, value: Union[int, float, str, Sequence], lock: bool = False):
+def set_attribute(node: str, attr: str, value: Union[int, float, str, Sequence], lock: bool = False):
     """
     Set an attribute
-    :param transform:
+    :param node:
     :param attr:
     :param value:
     :param lock:
     """
-    attr_type = cmds.getAttr(f'{transform}.{attr}', type=True)
-    attr_data = DataType.get_by_key(attr_type)
-
+    attr_type = cmds.getAttr(f'{node}.{attr}', type=True)
+    attr_data = DataType[attr_type]
     if attr_data in (DataType.float3, DataType.double3, DataType.float2, DataType.double2):
-        cmds.setAttr(f'{transform}.{attr}', *value, type=attr_data.name, lock=lock)
+        cmds.setAttr(f'{node}.{attr}', *value, type=attr_data.name, lock=lock)
     elif attr_data in (DataType.string, DataType.message):
-        cmds.setAttr(f'{transform}.{attr}', value, type=attr_data.name, lock=lock)
+        cmds.setAttr(f'{node}.{attr}', value, type=attr_data.name, lock=lock)
     else:
-        cmds.setAttr(f'{transform}.{attr}', value, lock=lock)
+        cmds.setAttr(f'{node}.{attr}', value, lock=lock)
 
 
 def delete_attribute(transform: str, attr: str):

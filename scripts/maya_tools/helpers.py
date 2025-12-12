@@ -66,7 +66,7 @@ def create_vertex_locators(size: float = 0.2):
 
         if vertex_ids:
             for vid in vertex_ids:
-                position: Point3 = get_vertex_position(transform=transform, vertex_id=vid)
+                position: Point3 = get_vertex_position(node=transform, vertex_id=vid)
                 create_locator(position=position, size=size)
         else:
             cmds.warning('Please select some vertices.')

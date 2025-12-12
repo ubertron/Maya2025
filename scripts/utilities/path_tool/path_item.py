@@ -193,7 +193,7 @@ class PathItem(GenericWidget):
             menu.addSeparator()
             is_maya_file = self.is_maya_file and environment_utils.is_using_maya_python()
             if self.path_type is PathType.script or is_maya_file:
-                menu.addAction(QAction("Open In TextEdita", self, triggered=self.open_button_clicked))
+                menu.addAction(QAction("Open In Maya", self, triggered=self.open_button_clicked))
             if self.path_type is PathType.script or self.path.suffix == ".ma":
                 menu.addAction(QAction("Open In VS Code", self, triggered=self.open_in_code_button_clicked))
                 menu.addAction(QAction("Open In PyCharm", self, triggered=self.open_in_pycharm_button_clicked))

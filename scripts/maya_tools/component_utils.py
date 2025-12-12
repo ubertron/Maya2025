@@ -147,7 +147,7 @@ def planarize_vertices(transform: str, vertices: list[int], axis: Optional[Axis]
     :param position:
     :param axis:
     """
-    vertex_positions = [get_vertex_position(transform=transform, vertex_id=vertex) for vertex in vertices]
+    vertex_positions = [get_vertex_position(node=transform, vertex_id=vertex) for vertex in vertices]
     component_list = get_component_list(transform=transform, indices=vertices, component_type=ComponentType.vertex)
     bounds: Point3Pair = get_bounds(transform=component_list)
 

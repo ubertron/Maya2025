@@ -5,10 +5,36 @@ from maya import cmds
 from pathlib import Path
 from typing import Optional, Sequence
 
+from ams import ams_project
+from core import image_utils
 from maya_tools.maya_enums import ObjectType
+from maya_tools import node_utils, uv_utils
 
+DEFAULT_LAMBERT_SHADER = "lambert1"
 FILE_TEXTURE_NODES: list[str] = cmds.ls(type=ObjectType.file.name)
 LAMBERT_SHADER_NODES: list[str] = cmds.ls(type=ObjectType.lambert.name)
+
+
+def apply_checker_shader(transform: str | None = None):
+    """Apply checker shader to current selection."""
+    selection = transform if transform else cmds.ls(selection=True)
+    checker_shader = next((x for x in cmds.ls("checkerShader") if cmds.objectType(x) == ObjectType.lambert.name), None)
+    if checker_shader:
+        shading_group = get_shading_group_from_shader(shader=checker_shader)
+    else:
+        project = ams_project.AMSProject()
+        checker_texture = next((project.textures_dir.rglob("checker.png")), None)
+        if checker_texture is None:
+            checker_texture = image_utils.create_checker(path=project.textures_dir / "checker.png")
+        checker_shader, shading_group = lambert_file_texture_shader(texture_path=checker_texture, check_existing=False)
+    apply_shader(shading_group=shading_group, transforms=selection)
+
+
+def apply_default_lambert_shader(transform: str | None = None):
+    """Apply default shader to current selection."""
+    selection = transform if transform else cmds.ls(selection=True)
+    shading_group = get_shading_group_from_shader(shader=DEFAULT_LAMBERT_SHADER)
+    apply_shader(shading_group=shading_group, transforms=selection)
 
 
 def apply_shader(shading_group: str, transforms: Optional[str] = None):
@@ -21,15 +47,23 @@ def apply_shader(shading_group: str, transforms: Optional[str] = None):
     cmds.sets(target, edit=True, forceElement=shading_group)
 
 
-def get_shading_group_from_shader(shader):
+def auto_texture(transform: str | None = None):
+    """Apply a checker shader and box map."""
+    state = node_utils.State()
+    selection = transform if transform else cmds.ls(selection=True)
+    uv_utils.box_map(transform=transform, size=100)
+    apply_checker_shader(transform=selection)
+    state.restore()
+
+
+def get_shading_group_from_shader(shader) -> str | None:
     """
     Get the shading group for a shader
     @param shader:
     @return:
     """
     shadingGroups = cmds.listConnections(shader, type=ObjectType.shadingEngine.name)
-    if shadingGroups:
-        return shadingGroups[0]
+    return shadingGroups[0] if shadingGroups else None
 
 
 def get_texture_from_file_node(file_node: str) -> Path | None:

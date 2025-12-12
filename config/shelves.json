@@ -37,11 +37,17 @@
                 "tool_tip": "Staircase creator",
                 "script": "from maya_tools.utilities.staircase_creator import UI_SCRIPT, staircase_creator_tool\nstaircase_creator_tool.StaircaseCreatorTool().show_workspace_control(ui_script=UI_SCRIPT)"
             },
-            "Create Locators": {
+            "Create Vertex Locators": {
                 "icon": "locators.png",
                 "language": "python",
                 "tool_tip": "Create locators at selected vertex positions",
                 "script": "from maya_tools import locator_utils\nlocator_utils.create_vertex_locators(size=10.0)"
+            },
+            "Get Dimensions": {
+                "icon": "dimensions.png",
+                "language": "python",
+                "tool_tip": "Get dimensions",
+                "script": "from maya_tools import helpers\nhelpers.get_dimensions(format_results=True, clipboard=True)"
             }
         },
         "AMS": {
@@ -108,12 +114,6 @@
                 "language": "python",
                 "tool_tip": "Toggle xray",
                 "script": "from maya_tools import geometry_utils\ngeometry_utils.toggle_xray()"
-            },
-            "Get Dimensions": {
-                "icon": "dimensions.png",
-                "language": "python",
-                "tool_tip": "Get dimensions",
-                "script": "from maya_tools import helpers\nhelpers.get_dimensions(format_results=True, clipboard=True)"
             }
         },
         "Geometry": {
@@ -158,6 +158,26 @@
                 "language": "python",
                 "tool tip": "Combine geometry",
                 "script": "from maya_tools import geometry_utils\ngeometry_utils.combine(cmds.ls(sl=True))"
+            }
+        },
+        "Materials": {
+            "Apply Checker Shader": {
+                "icon": "checker.png",
+                "language": "python",
+                "tool tip": "Apply checker shader",
+                "script": "from maya_tools import material_utils\nmaterial_utils.apply_checker_shader()"
+            },
+            "Apply Default Lambert Shader": {
+                "icon": "lambert.png",
+                "language": "python",
+                "tool tip": "Apply default lambert shader",
+                "script": "from maya_tools import material_utils\nmaterial_utils.apply_default_lambert_shader()"
+            },
+            "Auto Texture": {
+                "icon": "auto.png",
+                "language": "python",
+                "tool tip": "Apply texture",
+                "script": "from maya_tools import material_utils\nmaterial_utils.auto_texture()"
             }
         },
         "Node": {

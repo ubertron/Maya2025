@@ -10,7 +10,8 @@ from dataclasses import dataclass
 
 from core.core_enums import ComponentType, Axis
 from core.point_classes import Point3, Point3Pair, NEGATIVE_Y_AXIS, POINT3_ORIGIN
-from core.math_funcs import cross_product, dot_product, normalize_vector, degrees_to_radians, get_midpoint_from_point_list
+from core import math_funcs
+from core.math_funcs import dot_product, normalize_vector, degrees_to_radians, get_midpoint_from_point_list
 from maya_tools.scene_utils import message_script
 from maya_tools import display_utils, node_utils
 from maya_tools.node_utils import State, set_component_mode, get_component_mode, get_type_from_transform, \
@@ -364,7 +365,7 @@ def get_vertex_positions_cmds(transform: str) -> list[Point3]:
     :return:
     """
     vertex_list = range(get_vertex_count(transform))
-    return [get_vertex_position(transform=transform, vertex_id=i) for i in vertex_list]
+    return [get_vertex_position(node=transform, vertex_id=i) for i in vertex_list]
 
 
 def get_vertex_positions(node: str, verbose: bool = False) -> om.MPointArray:
@@ -384,15 +385,15 @@ def get_vertex_positions(node: str, verbose: bool = False) -> om.MPointArray:
     return vertex_positions
 
 
-def get_vertex_position(transform: str, vertex_id: int) -> Point3:
+def get_vertex_position(node: str, vertex_id: int) -> Point3:
     """
     Get the position of a vertex or cv on a transform
-    :param transform:
+    :param node:
     :param vertex_id:
     :return:
     """
-    component_prefix = {'nurbsSurface': 'cv', 'mesh': 'vtx'}[get_type_from_transform(transform)]
-    return Point3(*cmds.pointPosition(f'{transform}.{component_prefix}[{vertex_id}]', world=True))
+    component_prefix = {'nurbsSurface': 'cv', 'mesh': 'vtx'}[get_type_from_transform(node)]
+    return Point3(*cmds.pointPosition(f'{node}.{component_prefix}[{vertex_id}]', world=True))
 
 
 def set_vertex_position(transform: str, vert_id: int, position: Point3, relative=False):
@@ -676,24 +677,20 @@ def get_face_normals(transform: str) -> list[Point3]:
     return [normalize_vector(Point3(*x)) for x in result]
 
 
-def get_face_normal(transform: str, face_id: int) -> Point3:
+def get_face_normal(node: str, face_id: int) -> Point3:
     """
     Get the normal vector of a face
-    :param transform:
+    :param node:
     :param face_id:
     :return:
     """
-    rotation = Point3(*cmds.getAttr(f'{transform}.rotate')[0])
-
+    rotation = Point3(*cmds.getAttr(f'{node}.rotate')[0])
     if rotation != Point3(0, 0, 0):
-        cmds.makeIdentity(transform, apply=True, rotate=True)
-
-    normal = cmds.polyInfo(f'{transform}.f[{face_id}]', faceNormals=True)[0]
+        cmds.makeIdentity(node, apply=True, rotate=True)
+    normal = cmds.polyInfo(f'{node}.f[{face_id}]', faceNormals=True)[0]
     values = [float(x) for x in normal.split(': ')[1].split('\n')[0].split(' ')]
-
     if rotation != Point3(0, 0, 0):
-        restore_rotation(transform=transform, value=rotation)
-
+        restore_rotation(transform=node, value=rotation)
     return Point3(*values)
 
 
@@ -707,7 +704,7 @@ def get_vertex_positions_from_face(transform: str, face_id: int) -> dict[int, Po
     vertices = cmds.polyListComponentConversion(f'{transform}.f[{face_id}]', fromFace=True, toVertex=True)
     vertex_ids = get_ids_from_component_list(component_list=vertices, component_type=ComponentType.vertex)
 
-    return {i: get_vertex_position(transform=transform, vertex_id=i) for i in vertex_ids}
+    return {i: get_vertex_position(node=transform, vertex_id=i) for i in vertex_ids}
 
 
 def get_ids_from_component_list(component_list: Union[str, list], component_type: ComponentType):
@@ -811,7 +808,7 @@ def filter_face_list_by_face_normal(transform: str, faces: list[int], axis: Poin
     """
     filtered = []
     for face_id in faces:
-        normal_vector = get_face_normal(transform=transform, face_id=face_id)
+        normal_vector = get_face_normal(node=transform, face_id=face_id)
         dp = dot_product(vector_a=axis, vector_b=normal_vector, normalize=True)
 
         if 1 - dp < threshold:
@@ -844,7 +841,7 @@ def get_face_above(transform: str, face_id: int) -> int or None:
     """
     edges = get_edges_from_face(transform=transform, face_id=face_id)
     vertex_list = get_vertices_from_face(transform=transform, face_id=face_id)
-    vertex_positions = {vertex_id: get_vertex_position(transform=transform, vertex_id=vertex_id) for vertex_id in
+    vertex_positions = {vertex_id: get_vertex_position(node=transform, vertex_id=vertex_id) for vertex_id in
                         vertex_list}
     edge_heights = {}
 
@@ -914,7 +911,7 @@ def get_midpoint_from_faces(transform: str, faces: Sequence[int]) -> Point3:
     :return:
     """
     vertices = get_vertices_from_faces(transform=transform, faces=faces)
-    vertex_positions = [get_vertex_position(transform=transform, vertex_id=vertex) for vertex in vertices]
+    vertex_positions = [get_vertex_position(node=transform, vertex_id=vertex) for vertex in vertices]
 
     return get_midpoint_from_point_list(points=vertex_positions)
 

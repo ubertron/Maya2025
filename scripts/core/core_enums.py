@@ -60,20 +60,22 @@ class ComponentType(Enum):
 
 @unique
 class DataType(Enum):
+    enum = auto()
+    double = auto()
+    double2 = auto()
+    double3 = auto()
     float = auto()
     float2 = auto()
     float3 = auto()
     int = auto()
     int2 = auto()
     int3 = auto()
+    list = auto()
     long = auto()
     long2 = auto()
     long3 = auto()
-    double = auto()
-    double2 = auto()
-    double3 = auto()
-    str = auto()
-    list = auto()
+    message = auto()
+    string = auto()
 
 
 @unique
