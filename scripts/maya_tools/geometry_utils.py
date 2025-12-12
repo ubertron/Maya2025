@@ -290,7 +290,7 @@ def get_selected_edges(node: str = '') -> list[int] or None:
     :param node:
     :return:
     """
-    return get_selected_components(transform=node, component_type=ComponentType.edge)
+    return get_selected_components(node=node, component_type=ComponentType.edge)
 
 
 def get_selected_vertices(node: str = '') -> list[int] or None:
@@ -299,7 +299,7 @@ def get_selected_vertices(node: str = '') -> list[int] or None:
     :param node:
     :return:
     """
-    return get_selected_components(transform=node, component_type=ComponentType.vertex)
+    return get_selected_components(node=node, component_type=ComponentType.vertex)
 
 
 def get_selection() -> om.MSelectionList:
@@ -310,41 +310,41 @@ def get_selection() -> om.MSelectionList:
     return om.MGlobal.getActiveSelectionList()
 
 
-def get_selected_faces(transform: str = '') -> list[int] or None:
+def get_selected_faces(node: str = '') -> list[int] or None:
     """
     Gets a list of the face ids, or None if node not found
-    :param transform:
+    :param node:
     :return:
     """
-    return get_selected_components(transform=transform, component_type=ComponentType.face)
+    return get_selected_components(node=node, component_type=ComponentType.face)
 
 
-def get_selected_vertices(transform: str = '') -> list[int] or None:
+def get_selected_vertices(node: str = '') -> list[int] or None:
     """
     Gets a list of the face ids, or None if node not found
-    :param transform:
+    :param node:
     :return:
     """
-    return get_selected_components(transform=transform, component_type=ComponentType.vertex)
+    return get_selected_components(node=node, component_type=ComponentType.vertex)
 
 
-def get_selected_components(transform: str = '', component_type: ComponentType = ComponentType.face) -> list[int] or None:
+def get_selected_components(node: str = '', component_type: ComponentType = ComponentType.face) -> list[int] or None:
     """
     Gets a list of the component ids, or None if node not found
-    :param transform:
+    :param node:
     :param component_type:
     :return:
     """
-    transform = get_transforms(transform)
+    node = get_transforms(node)
     assert component_type in (ComponentType.face, ComponentType.vertex, ComponentType.edge), 'Component not supported.'
-    assert transform, 'Please supply a transform.'
+    assert node, 'Please supply a transform.'
     component_label: dict = {ComponentType.edge: 'e', ComponentType.face: 'f', ComponentType.vertex: 'vtx'}
     state = State()
-    cmds.select(transform)
+    cmds.select(node)
     set_component_mode(component_type=component_type)
     selection = cmds.ls(sl=True, flatten=True)
     state.restore()
-    component_prefix = f'{transform}.{component_label[component_type]}['
+    component_prefix = f'{node}.{component_label[component_type]}['
     component_ids = [int(x.split(component_prefix)[1].split(']')[0]) for x in selection]
     return component_ids
 

@@ -12,6 +12,9 @@ from maya_tools.display_utils import in_view_message
 from maya_tools.undo_utils import UndoStack
 
 
+DEFAULT_SIZE: float = 10.0
+
+
 def auto_parent_locators():
     """
     Create a locator parented hierarchy based on selection order
@@ -24,18 +27,14 @@ def auto_parent_locators():
             cmds.parent(locators[i], locators[i + 1])
 
 
-def create_locator(position: Point3 = Point3(0.0, 0.0, 0.0),  size: float = 1.0, name: str = '') -> str:
-    """
-    Create a space locator at a position
-    :param position:
-    :param size:
-    :param name:
-    """
-    locator = cmds.spaceLocator(absolute=True, name=name)[0]
-    cmds.setAttr(f'{locator}.translate', *position.values, type=DataType.float3.name)
-    cmds.setAttr(f'{locator}.scale', size, size, size, type=DataType.float3.name)
-
-    return locator
+def create_locator(position: Point3, name: str = "locator", size: float=DEFAULT_SIZE) -> str:
+    """Create a locator."""
+    result = cmds.spaceLocator()
+    locator = result[0]
+    new_name = cmds.rename(locator, name)
+    cmds.setAttr(f"{new_name}.localScale", size, size, size, type="float3")
+    cmds.setAttr(f"{new_name}.translate", *position.values, type="float3")
+    return new_name
 
 
 def create_pivot_locators(size: float = 1.0) -> list[str]:
@@ -50,28 +49,25 @@ def create_pivot_locators(size: float = 1.0) -> list[str]:
     return locators
 
 
-def create_vertex_locators(size: float = 0.2):
-    transform = get_transforms(single=True)
-
-    if transform:
-        object_type = get_type_from_transform(transform)
+def create_vertex_locators(size: float = DEFAULT_SIZE) -> list[str]:
+    """Create locators at the vertex positions of selected nodes."""
+    locators = []
+    for node in get_selected_transforms():
+        object_type = get_type_from_transform(node)
         if object_type == 'mesh':
-            vertex_ids = get_selected_vertices(node=transform)
-        elif object_type == 'nurbsSurface':
-            cmds.warning('NURBS not yet supported')
-            return
-        else:
-            cmds.warning('No valid shape node found.')
-            return
-
-        if vertex_ids:
-            for vid in vertex_ids:
-                position: Point3 = get_vertex_position(node=transform, vertex_id=vid)
-                create_locator(position=position, size=size)
-        else:
-            cmds.warning('Please select some vertices.')
+            vertex_ids = get_selected_vertices(node=node)
+            if vertex_ids:
+                for vid in vertex_ids:
+                    position: Point3 = get_vertex_position(node=node, vertex_id=vid)
+                    locators.append(create_locator(position=position, size=size))
+            else:
+                cmds.warning('Please select some vertices.')
+    if locators:
+        cmds.select(locators)
+        return locators
     else:
-        cmds.warning('Please select some vertices on a mesh.')
+        cmds.warning('No locators created.')
+        return []
 
 
 def flip_locator_hierarchy(transform: str, axis: Axis):
@@ -120,6 +116,7 @@ def get_distance_between_two_transforms(format_result: bool = True):
         return result
     else:
         cmds.warning('Please select two transforms.')
+        return None
 
 
 def get_dimensions(transform: Optional[str] = None, format_results: bool = False,
@@ -135,6 +132,7 @@ def get_dimensions(transform: Optional[str] = None, format_results: bool = False
 
     if transform is None:
         cmds.warning(f'Pass one valid transform: {transform} [get_dimensions]')
+        return None
     else:
         dimensions = get_bounds(transform=transform).delta
 
@@ -160,7 +158,8 @@ def get_bounds(transform: Optional[str] = None, format_results: bool = False,
         transform = get_transforms(single=True)
 
     if transform is None:
-        pm.warning(f'Pass one valid transform: {transform} [get_bounds]')
+        cmds.warning(f'Pass one valid transform: {transform} [get_bounds]')
+        return None
     else:
         bounding_box = cmds.exactWorldBoundingBox(transform)
         bounds = Point3Pair(Point3(*bounding_box[:3]), Point3(*bounding_box[3:]))
@@ -186,7 +185,8 @@ def get_midpoint_from_transform(transform: Optional[str] = None, format_results:
         transform = get_transforms(single=True)
 
     if transform is None:
-        pm.warning(f'Pass one valid transform: {transform} [get_midpoint]')
+        cmds.warning(f'Pass one valid transform: {transform} [get_midpoint]')
+        return None
     else:
         midpoint = get_bounds(transform=transform).midpoint
 
@@ -197,17 +197,6 @@ def get_midpoint_from_transform(transform: Optional[str] = None, format_results:
             pyperclip.copy(str(midpoint.values))
 
         return midpoint
-
-
-def rename_selection(prefix: str, start_idx: int = 1, suffix: str = ''):
-    """
-    Rename selected objects
-    :param prefix:
-    :param start_idx:
-    :param suffix:
-    """
-    for idx, node in enumerate(cmds.ls(sl=True, tr=True)):
-        cmds.rename(node, f'{prefix}{start_idx + idx}{suffix}')
 
 
 def get_selected_locators():
@@ -226,3 +215,35 @@ def place_locator_in_centroid(size: float = 1.0):
     assert len(cmds.ls(sl=True)), 'Select geometry'
     center = get_midpoint_from_transform(cmds.ls(sl=True))
     create_locator(position=center, size=size)
+
+
+def rename_selection(prefix: str, start_idx: int = 1, suffix: str = ''):
+    """
+    Rename selected objects
+    :param prefix:
+    :param start_idx:
+    :param suffix:
+    """
+    for idx, node in enumerate(cmds.ls(sl=True, tr=True)):
+        cmds.rename(node, f'{prefix}{start_idx + idx}{suffix}')
+
+def zero_locator_rotations():
+    selected = cmds.ls(sl=True)
+    if len(selected) == 1 and selected[0] in node_utils.get_locators():
+        with UndoStack("Zero Rotations"):
+            zero_rotations(selected[0])
+            cmds.select(selected)
+    else:
+        print(f"Please select a single locator")
+
+
+def zero_rotations(node: str):
+    children = cmds.listRelatives(node, children=True, type='transform')
+    if children:
+        cmds.parent(children, world=True)
+        cmds.setAttr(f"{node}.rotate", 0, 0, 0, type="float3")
+        cmds.parent(children, node)
+        for child in children:
+            zero_rotations(child)
+    else:
+        cmds.setAttr(f"{node}.rotate", 0, 0, 0, type="float3")

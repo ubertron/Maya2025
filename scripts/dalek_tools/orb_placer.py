@@ -14,7 +14,7 @@ class OrbPlacer:
     # get the maximum height/width
     def __init__(self, node: str = ''):
         self.node = geometry_utils.get_transforms(node=node, single=True)
-        self.faces = geometry_utils.get_selected_faces(transform=node)
+        self.faces = geometry_utils.get_selected_faces(node=node)
     
     def __repr__(self) -> str:
         return f'Node: {self.node}\nFaces: {len(self.faces)}'

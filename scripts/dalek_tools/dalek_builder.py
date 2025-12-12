@@ -595,7 +595,7 @@ class DalekBuilder:
         cmds.polyExtrudeFacet(cmds.ls(sl=True), translateZ=0.002, offset=0.002)
         cmds.polyExtrudeFacet(cmds.ls(sl=True), scaleX=0.5, scaleY=0.5)
         cmds.polyExtrudeFacet(cmds.ls(sl=True), translateZ=-0.02)
-        cap = get_selected_faces(transform=self.gun_arm)[0]
+        cap = get_selected_faces(node=self.gun_arm)[0]
         fix_cap(transform=self.gun_arm, face_id=cap)
         set_edge_softness(self.gun_arm, angle=35)
 
@@ -642,7 +642,7 @@ class DalekBuilder:
         cmds.polyExtrudeFacet(cmds.ls(sl=True), translateZ=self.dimensions.sucker_arm_length * 0.3 - self.dimensions.rim)
         cmds.polyExtrudeFacet(cmds.ls(sl=True), scaleX=1.2, scaleY=1.2)
         cmds.polyExtrudeFacet(cmds.ls(sl=True), translateZ=self.dimensions.sucker_arm_length * 0.2)
-        delete_faces(self.sucker_arm, get_selected_faces(transform=self.sucker_arm))
+        delete_faces(self.sucker_arm, get_selected_faces(node=self.sucker_arm))
         set_edge_softness(self.sucker_arm, angle=60)
 
         # Fix edges on some faces

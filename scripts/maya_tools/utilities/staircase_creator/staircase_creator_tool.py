@@ -15,7 +15,8 @@ from widgets.generic_widget import GenericWidget
 
 with contextlib.suppress(ImportError):
     from maya import cmds
-    from maya_tools import locator_utils, node_utils
+    from maya_tools import node_utils
+    from maya_tools import helpers
     from maya_tools.utilities.staircase_creator import staircase_creator
 
 TOOL_NAME = "Staircase Creator"
@@ -77,7 +78,7 @@ class StaircaseCreatorTool(GenericWidget):
         locators = []
         for i in range(2):
             position = Point3(i * 100, i * 250, i * -300)
-            locators.append(locator_utils.create_locator(position=position, name=f"staircase_locator{i}", size=25.0))
+            locators.append(helpers.create_locator(position=position, name=f"staircase_locator{i}", size=25.0))
         cmds.select(locators)
 
     def edit_button_clicked(self):
@@ -89,12 +90,32 @@ class StaircaseCreatorTool(GenericWidget):
             cmds.select(locators)
 
     def stairs_button_clicked(self):
-        try:
+        """Event for stairs button."""
+        new_objects = []
+        selected_transforms = node_utils.get_selected_transforms()
+
+        # any selected staircases, we handle first
+        staircases = [x for x in selected_transforms if node_utils.is_staircase(x)]
+        for staircase in staircases:
+            locators, _, _ = staircase_creator.restore_locators_from_staircase(node=staircase)
+            cmds.select(locators)
             creator = staircase_creator.StaircaseCreator(default_rise=self.rise_input.value(), axis=self.axis)
-            creator.create(auto_texture=True)
-            self.info = "Stairs created"
-        except AssertionError as e:
-            self.info = str(e)
+            new_objects.append(creator.create(auto_texture=self.auto_texture))
+
+        # now deal with any locators
+        locators = [x for x in selected_transforms if node_utils.is_locator(x)]
+        if len(locators) == 2:
+            cmds.select(locators)
+            try:
+                creator = staircase_creator.StaircaseCreator(default_rise=self.rise_input.value(), axis=self.axis)
+                staircase = creator.create(auto_texture=self.auto_texture)
+                self.info = f"Stairs created: {staircase}"
+                new_objects.append(staircase)
+            except AssertionError as e:
+                self.info = str(e)
+
+        if new_objects:
+            cmds.select(new_objects)
 
 
 if __name__ == "__main__":

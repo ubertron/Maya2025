@@ -304,8 +304,7 @@ def get_object_type(node: str) -> str | None:
                 return ObjectType.geometry
             if object_type in ('pointLight', 'directionalLight', 'ambientLight'):
                 return ObjectType.light
-    else:
-        return None
+    return None
 
 
 def get_root_geometry_transforms():
@@ -477,6 +476,15 @@ def is_object_type(node: str, object_type: ObjectType):
     else:
         shape = get_shape_from_transform(node)
         return cmds.objectType(shape) == object_type.name if shape else False
+
+
+def is_staircase(node: str) -> bool:
+    """Is node a staircase object.
+
+    staircase is a custom object defined in scripts/maya_tools/utilities/staircase_creator/staircase_creator.py
+    """
+    return cmds.attributeQuery("custom_type", node=node, exists=True) and \
+        cmds.getAttr(f"{node}.custom_type") == "staircase"
 
 
 def match_pivot_to_last(transforms: Optional[Union[str, list[str]]] = None):

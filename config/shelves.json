@@ -41,7 +41,7 @@
                 "icon": "locators.png",
                 "language": "python",
                 "tool_tip": "Create locators at selected vertex positions",
-                "script": "from maya_tools import locator_utils\nlocator_utils.create_vertex_locators(size=10.0)"
+                "script": "from maya_tools import helpers\nhelpers.create_vertex_locators(size=10.0)"
             },
             "Get Dimensions": {
                 "icon": "dimensions.png",

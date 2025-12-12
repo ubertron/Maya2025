@@ -63,14 +63,14 @@ def set_playback_range(start_frame: float, end_frame: float, start_range: Option
     :param end_range:
     :param current_time:
     """
-    pm.playbackOptions(
+    cmds.playbackOptions(
         animationStartTime=start_frame,
         animationEndTime=end_frame,
         minTime=start_range if start_range else start_frame,
         maxTime=end_range if end_range else end_frame
     )
 
-    pm.currentTime(current_time if current_time else pm.playbackOptions(query=True, minTime=True))
+    cmds.currentTime(current_time if current_time else cmds.playbackOptions(query=True, minTime=True))
 
 
 def get_playback_range(full_range_only: bool = False) -> tuple[float]:

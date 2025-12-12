@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import contextlib
 import logging
-import math
-
 from dataclasses import dataclass
 
 from core import math_funcs
@@ -14,7 +12,7 @@ from core.point_classes import Point3, Point3Pair, Y_AXIS
 
 with contextlib.suppress(ImportError):
     from maya import cmds
-    from maya_tools import node_utils, attribute_utils, geometry_utils, locator_utils, uv_utils, material_utils
+    from maya_tools import display_utils, node_utils, attribute_utils, geometry_utils, material_utils, helpers
 
 LOGGER = get_logger(__name__, level=logging.INFO)
 
@@ -70,7 +68,7 @@ class StaircaseCreator:
 
     def _evaluate(self):
         self.locators = [x for x in cmds.ls(sl=True, tr=True) if node_utils.is_locator(x)]
-        assert len(self.locators) == 2, "Select two locator"
+        assert len(self.locators) == 2, "Select two locators"
         positions = [node_utils.get_translation(x) for x in self.locators]
         positions.sort(key=lambda x: x.y)
         start, end = positions
@@ -151,12 +149,13 @@ class StaircaseCreator:
         cmds.delete(stair_geometry, constructionHistory=True)
         cmds.delete(spline_a, spline_b, self.locators)
         cmds.select(stair_geometry)
-        print(f"Staircase created: {stair_geometry}")
+        display_utils.info_message(text=f"Staircase created: {stair_geometry}")
+        return stair_geometry
 
 
 def restore_locators_from_staircase(node: str) -> tuple[list, float, Axis] | None:
     """Recreate the staircase locators from a staircase object."""
-    if cmds.attributeQuery("custom_type", node=node, exists=True) and cmds.getAttr(f"{node}.custom_type") == "staircase":
+    if node_utils.is_staircase(node=node):
         target_rise = cmds.getAttr(f"{node}.target_rise")
         axis = Axis[["x", "z"][cmds.getAttr(f"{node}.axis")]]
         num_verts = cmds.polyEvaluate(node, vertex=True)
@@ -166,7 +165,7 @@ def restore_locators_from_staircase(node: str) -> tuple[list, float, Axis] | Non
         )
         locators = []
         for idx, point in enumerate(locator_positions):
-            locators.append(locator_utils.create_locator(position=point, name=f"staircase_locator{idx}", size=50.0))
+            locators.append(helpers.create_locator(position=point, name=f"staircase_locator{idx}", size=50.0))
         cmds.delete(node)
         return locators, target_rise, axis
     return None

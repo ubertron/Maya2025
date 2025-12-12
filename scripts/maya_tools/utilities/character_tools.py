@@ -19,13 +19,13 @@ DEBUG BLOCK END
 """
 
 from core import DEVELOPER
-from core.core_enums import Axis, Alignment
+from core.core_enums import Axis
 from core.function_utils import get_lead_docstring_comment
 from core.point_classes import POINT3_ORIGIN
 from maya_tools.character_utils import mirror_limbs, export_model_reference
 from maya_tools.display_utils import warning_message
-from maya_tools.helpers import get_midpoint_from_transform, create_locator, create_pivot_locators, auto_parent_locators, flip_locator_hierarchy
-from maya_tools.locator_utils import zero_locator_rotations
+from maya_tools.helpers import get_midpoint_from_transform, create_locator, create_pivot_locators, auto_parent_locators
+from maya_tools.helpers import zero_locator_rotations
 from maya_tools.node_utils import ComponentType, set_component_mode, pivot_to_center, match_pivot_to_last, \
     get_locators, get_selected_transforms, align_transform_to_joint
 from maya_tools.rigging_utils import create_joints_from_locator_hierarchy, create_locator_hierarchy_from_joints, \
