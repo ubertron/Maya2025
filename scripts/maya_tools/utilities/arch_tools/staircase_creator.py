@@ -5,10 +5,11 @@ import contextlib
 import logging
 from dataclasses import dataclass
 
-from core import math_funcs
+from core import color_classes, math_funcs
 from core.core_enums import Axis, DataType
 from core.logging_utils import get_logger
 from core.point_classes import Point3, Point3Pair, Y_AXIS
+from maya_tools.utilities.arch_tools import LOCATOR_COLOR
 
 with contextlib.suppress(ImportError):
     from maya import cmds
@@ -23,6 +24,7 @@ class StaircaseData:
     end: Point3
     axis: Axis
     count: int
+    angle: float
 
     def __repr__(self) -> str:
         return (
@@ -59,14 +61,16 @@ class StaircaseData:
 
 
 class StaircaseCreator:
-    def __init__(self, default_rise: float = 20.0, axis: Axis = Axis.z):
+    def __init__(self, default_rise: float = 20.0, axis: Axis = Axis.z, angle: float = 0.0):
         self.default_rise = default_rise
         assert axis in (Axis.x, Axis.z), "Invalid axis"
+        self.angle = angle
         self.axis: Axis = axis
         self.data = None
-        self._evaluate()
+        self._validate()
 
-    def _evaluate(self):
+    def _validate(self):
+        """Initialize the data from the locators."""
         self.locators = [x for x in cmds.ls(sl=True, tr=True) if node_utils.is_locator(x)]
         assert len(self.locators) == 2, "Select two locators"
         positions = [node_utils.get_translation(x) for x in self.locators]
@@ -75,6 +79,8 @@ class StaircaseCreator:
         assert start.y < end.y, "Second locator must be above first"
         assert start.x != end.x and start.z != end.z, "Locators must not be coincident"
         LOGGER.debug(f"Start: {start}\nEnd: {end}")
+
+        # validate minimum bounds for locators
 
         # evaluate count based on default tread
         y_delta = end.y - start.y
@@ -86,6 +92,7 @@ class StaircaseCreator:
             end=end,
             axis=self.axis,
             count=count,
+            angle=self.angle
         )
 
     @property
@@ -149,11 +156,12 @@ class StaircaseCreator:
         cmds.delete(stair_geometry, constructionHistory=True)
         cmds.delete(spline_a, spline_b, self.locators)
         cmds.select(stair_geometry)
+        node_utils.pivot_to_base(node=stair_geometry)
         display_utils.info_message(text=f"Staircase created: {stair_geometry}")
         return stair_geometry
 
 
-def restore_locators_from_staircase(node: str) -> tuple[list, float, Axis] | None:
+def restore_locators_from_staircase(node: str, locator_size: float = 10.0) -> tuple[list, float, Axis] | None:
     """Recreate the staircase locators from a staircase object."""
     if node_utils.is_staircase(node=node):
         target_rise = cmds.getAttr(f"{node}.target_rise")
@@ -165,7 +173,7 @@ def restore_locators_from_staircase(node: str) -> tuple[list, float, Axis] | Non
         )
         locators = []
         for idx, point in enumerate(locator_positions):
-            locators.append(helpers.create_locator(position=point, name=f"staircase_locator{idx}", size=50.0))
+            locators.append(helpers.create_locator(position=point, name=f"staircase_locator{idx}", size=locator_size, color=LOCATOR_COLOR))
         cmds.delete(node)
         return locators, target_rise, axis
     return None

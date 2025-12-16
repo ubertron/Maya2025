@@ -31,11 +31,11 @@
                 "tool_tip": "Mesh Quantizer",
                 "script": "from maya_tools.utilities.mesh_quantizer import UI_SCRIPT, mesh_quantizer_tool\nmesh_quantizer_tool.MeshQuantizerTool().show_workspace_control(ui_script=UI_SCRIPT)"
             },
-            "Staircase Creator": {
-                "icon": "stairs.png",
+            "Arch Tools": {
+                "icon": "arch.png",
                 "language": "python",
-                "tool_tip": "Staircase creator",
-                "script": "from maya_tools.utilities.staircase_creator import UI_SCRIPT, staircase_creator_tool\nstaircase_creator_tool.StaircaseCreatorTool().show_workspace_control(ui_script=UI_SCRIPT)"
+                "tool_tip": "Arch Tools",
+                "script": "from maya_tools.utilities.arch_tools import UI_SCRIPT, arch_tools\narch_tools.ArchTools().show_workspace_control(ui_script=UI_SCRIPT)"
             },
             "Create Vertex Locators": {
                 "icon": "locators.png",

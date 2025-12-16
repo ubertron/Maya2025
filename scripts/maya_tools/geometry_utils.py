@@ -3,15 +3,16 @@ from __future__ import annotations
 import math
 import pyperclip
 
-from maya import cmds
 import maya.api.OpenMaya as om
-from typing import Optional, Sequence, Union
 from dataclasses import dataclass
+from maya import cmds
+from typing import Optional, Sequence, Union
 
 from core.core_enums import ComponentType, Axis
 from core.point_classes import Point3, Point3Pair, NEGATIVE_Y_AXIS, POINT3_ORIGIN
 from core import math_funcs
 from core.math_funcs import dot_product, normalize_vector, degrees_to_radians, get_midpoint_from_point_list
+from maya_tools.helpers import get_bounds
 from maya_tools.scene_utils import message_script
 from maya_tools import display_utils, node_utils
 from maya_tools.node_utils import State, set_component_mode, get_component_mode, get_type_from_transform, \
@@ -148,6 +149,19 @@ def detach_faces(transform: str, faces: list[int]) -> str:
     cmds.select(detached_mesh)
 
     return detached_mesh
+
+def find_geometry_by_vertices(vertex_list: list[Point3], tolerance: float = 0.1) -> list[str]:
+    """Find all geometry items that have the supplied list of vertices."""
+    #print(vertex_list)
+    # get a list of geometry and their bounding boxes
+    geometry = node_utils.get_geometry()
+    # discount items that the vertex list don't fit within
+    bounds_dict = {x: get_bounds(node=x) for x in node_utils.get_geometry()}
+    # iterate to find matches within a tolerance
+    for key, value in bounds_dict.items():
+        print(f'{key}: {value}')
+    filtered = [x for x in geometry if bounds_dict[x].vertices_within_bounds(vertex_list)]
+    return bounds_dict
 
 
 def fix_cap(transform: str, face_id: int):

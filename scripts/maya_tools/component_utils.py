@@ -149,7 +149,7 @@ def planarize_vertices(transform: str, vertices: list[int], axis: Optional[Axis]
     """
     vertex_positions = [get_vertex_position(node=transform, vertex_id=vertex) for vertex in vertices]
     component_list = get_component_list(transform=transform, indices=vertices, component_type=ComponentType.vertex)
-    bounds: Point3Pair = get_bounds(transform=component_list)
+    bounds: Point3Pair = get_bounds(node=component_list)
 
     if axis:
         if position is Position.minimum:

@@ -104,6 +104,16 @@
       "modifiers": [],
       "language": "mel",
       "category": "Novo Hotkeys"
+    },
+    "createSpline": {
+      "annotation": "Curve EP Tool",
+      "command": "from maya import cmds; cmds.setToolTo(cmds.curveEPCtx(degree=1))",
+      "hotkey": "L",
+      "modifiers": [
+        "command"
+      ],
+      "language": "python",
+      "category": "Novo Hotkeys"
     }
   }
 }

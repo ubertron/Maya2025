@@ -93,6 +93,12 @@ def align_transform_to_joint():
     rotate(nodes=transform, value=Point3(*orientation))
 
 
+def delete_pattern(pattern: str):
+    """Delete all transform nodes with the given pattern."""
+    if cmds.ls(f"{pattern}*"):
+        cmds.delete(f"{pattern}*")
+
+
 def delete_history(nodes=None):
     """
     Delete construction history
@@ -102,6 +108,13 @@ def delete_history(nodes=None):
     set_component_mode(ComponentType.object)
     cmds.delete(cmds.ls(nodes, tr=True) if nodes else cmds.ls(sl=True, tr=True), constructionHistory=True)
     state.restore()
+
+
+def duplicate(node: str, name: str) -> str:
+    """"Duplicate a node."""
+    result = cmds.duplicate(node, name=name)[0]
+    super_reset(nodes=result)
+    return result
 
 
 def freeze_transformations(nodes: list[str] | None = None):
@@ -159,6 +172,17 @@ def get_child_geometry(transform: str) -> list[str]:
         transforms = [x for x in relatives]
         return [x for x in transforms if is_object_type(node=x, object_type=ObjectType.mesh)]
     return []
+
+
+def get_geometry() -> list[str]:
+    """
+    Get a list of all geometry in the scene by full path.
+    :return:
+    """
+    shapes = [x for x in cmds.ls(geometry=True) if cmds.objectType(x) == ObjectType.mesh.name]
+    geometry = list({cmds.listRelatives(x, parent=True, fullPath=True)[0] for x in shapes})
+    geometry.sort(key=lambda x: x.lower())
+    return geometry
 
 
 def get_hierarchy_depth(transform: str) -> int:
@@ -298,7 +322,7 @@ def get_object_type(node: str) -> str | None:
         if is_locator(node=node):
             return ObjectType.locator
         else:
-            shape = get_shape_from_transform(transform=node)
+            shape = get_shape_from_transform(node=node)
             object_type = cmds.objectType(shape)
             if object_type == ObjectType.mesh.name:
                 return ObjectType.geometry
@@ -362,19 +386,17 @@ def get_selected_transforms(first_only: bool = False, full_path: bool = False) -
         return []
 
 
-def get_shape_from_transform(transform, full_path=False) -> str or None:
+def get_shape_from_transform(node, full_path=False) -> str or None:
     """
     Gets the shape node if any from a transform
     Locators have unqueryable shapes
-    :param transform:
+    :param node:
     :param full_path:
     :return:
     """
-    object_type = cmds.objectType(transform)
-    if cmds.listRelatives(transform, type=ObjectType.locator.name):
-        return None
+    object_type = cmds.objectType(node)
     if object_type == ObjectType.transform.name:
-        shape_list = cmds.listRelatives(transform, fullPath=full_path, shapes=True)
+        shape_list = cmds.listRelatives(node, fullPath=full_path, shapes=True)
         return shape_list[0] if shape_list else None
     else:
         return None
@@ -432,7 +454,7 @@ def get_type_from_transform(transform: str):
     :param transform:
     :return:
     """
-    return cmds.objectType(get_shape_from_transform(transform=transform))
+    return cmds.objectType(get_shape_from_transform(node=transform))
 
 
 def is_geometry(node: str) -> bool:
@@ -462,6 +484,16 @@ def is_locator(node: str) -> bool:
     return cmds.listRelatives(node, type=ObjectType.locator.name) is not None
 
 
+def is_nurbs_curve(node: str) -> bool:
+    """
+    Returns true if the supplied transform is a locator
+    :param node:
+    :return:
+    """
+    shape = get_shape_from_transform(node=node)
+    return cmds.objectType(shape) == ObjectType.nurbsCurve.name if shape else False
+
+
 def is_object_type(node: str, object_type: ObjectType):
     """
     Verifies an object type of a transform's corresponding shape node
@@ -481,7 +513,7 @@ def is_object_type(node: str, object_type: ObjectType):
 def is_staircase(node: str) -> bool:
     """Is node a staircase object.
 
-    staircase is a custom object defined in scripts/maya_tools/utilities/staircase_creator/staircase_creator.py
+    staircase is a custom object defined in scripts/maya_tools/utilities/arch_tools/arch_tools.py
     """
     return cmds.attributeQuery("custom_type", node=node, exists=True) and \
         cmds.getAttr(f"{node}.custom_type") == "staircase"
@@ -542,19 +574,19 @@ def move_to_origin(transform=None):
         cmds.setAttr(f'{item}{Attributes.translate.value}', 0, 0, 0, type=DataType.float3.name)
 
 
-def pivot_to_base(transform=None, reset=True):
+def pivot_to_base(node=None, reset=True):
     """
     Send pivot to the base of the object
     @param transform:
     @param reset:
     """
-    for item in [transform] if transform else cmds.ls(sl=True, tr=True):
+    for item in [node] if node else cmds.ls(sl=True, tr=True):
         bounding_box = cmds.exactWorldBoundingBox(item)  # [x_min, y_min, z_min, x_max, y_max, z_max]
         base = [(bounding_box[0] + bounding_box[3]) / 2, bounding_box[1], (bounding_box[2] + bounding_box[5]) / 2]
-        cmds.xform(item, piv=base, ws=True)
+        cmds.xform(item, pivots=base, worldSpace=True)
 
     if reset:
-        reset_pivot(transform)
+        reset_pivot(node)
 
 
 def pivot_to_center(transform: Optional[Union[str, list[str]]] = None, reset=True):

@@ -45,7 +45,7 @@ class BillboardCreator:
             subdivisionsX=1, subdivisionsY=1,
             createUVs=1,
             axis=(0, 0, 1))
-        pivot_to_base(transform=billboard)
+        pivot_to_base(node=billboard)
         move_to_origin(billboard)
         lambert_shader, shading_group = lambert_file_texture_shader(texture_path=self.image_path)
         apply_shader(shading_group=shading_group, transforms=billboard)

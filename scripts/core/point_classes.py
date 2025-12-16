@@ -127,8 +127,24 @@ class Point3Pair:
         return Point3(*[self.b.values[i] - self.a.values[i] for i in range(3)])
 
     @property
+    def dot_product(self):
+        return sum(self.a.values[i] * self.b.values[i] for i in range(3))
+
+    @property
     def midpoint(self) -> Point3:
         return Point3(*[(self.a.values[i] + self.b.values[i]) / 2 for i in range(3)])
+
+    @property
+    def minimum(self) -> Point3:
+        return Point3(*[min(self.a.values[i], self.b.values[i]) for i in range(3)])
+
+    @property
+    def maximum(self) -> Point3:
+        return Point3(*[max(self.a.values[i], self.b.values[i]) for i in range(3)])
+
+    @property
+    def size(self) -> float:
+        return Point3(*[abs(x) for x in self.delta.values])
 
     @property
     def sum(self) -> Point3:
@@ -142,9 +158,13 @@ class Point3Pair:
         """
         return Point3(*[self.a.values[i] + value * self.delta.values[i] for i in range(3)])
 
-    @property
-    def dot_product(self):
-        return sum(self.a.values[i] * self.b.values[i] for i in range(3))
+    def vertices_within_bounds(self, vertices: list[Point3]):
+        """Returns true if vertices are within bounds."""
+        for v in vertices:
+            for axis_index in range(3):
+                if v.values[axis_index] < self.a.values[axis_index] or v.values[axis_index] > self.b.values[axis_index]:
+                    return False
+        return True
 
 
 POINT2_ORIGIN: Point2 = Point2(0.0, 0.0)
@@ -156,3 +176,7 @@ NEGATIVE_X_AXIS: Point3 = Point3(-1.0, 0.0, 0.0)
 NEGATIVE_Y_AXIS: Point3 = Point3(0.0, -1.0, 0.0)
 NEGATIVE_Z_AXIS: Point3 = Point3(0.0, 0.0, -1.0)
 
+if __name__ == '__main__':
+    point3_pair = Point3Pair(Point3(1.0, 0.0, 2.0), Point3(0.0, 1.0, 0.0))
+    print(point3_pair.minimum)
+    print(point3_pair.maximum)

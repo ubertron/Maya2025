@@ -1,41 +1,26 @@
-import logging
 import math
 
 from pathlib import Path
-from PIL import Image, ImageColor, ImageDraw
+from PIL import Image, ImageDraw
 
+from core.color_classes import RGBColor
 from core.logging_utils import get_logger
 
 LOGGER = get_logger(__name__)
 
 
-class RGBColor:
-    def __init__(self):
-        pass
-
-    BABY_BLUE = (128, 216, 255)
-    BABY_PINK = (255, 192, 192)
-    GREEN = (0, 255, 0)
-    LIGHT_GREY = (216, 216, 216)
-    LIME = (216, 255, 0)
-    MAYA_BLUE = (72, 170, 181)
-    ORANGE = (255, 128, 0)
-    RED = (255, 0, 0)
-    WHITE = (255, 255, 255)
-
-
 def create_checker(
         path: Path, size: int = 256, count: int = 8,
-        color1: tuple[int] = (216, 216, 216),
-        color2: tuple[int] = (128, 128, 128)) -> Path:
+        color1: RGBColor = RGBColor.white,
+        color2: tuple[int] = RGBColor.grey) -> Path:
     """Create checker texture."""
     square_size = math.floor(size / count)
-    image = Image.new("RGB", (size, size), color1)
+    image = Image.new("RGB", (size, size), color1.values)
     draw = ImageDraw.Draw(image)
     for x in range(0, size, square_size):
         for y in range(0, size, square_size):
             if (x // square_size + y // square_size) % 2 == 0:
-                draw.rectangle([x, y, x + square_size, y + square_size], fill=color2)
+                draw.rectangle([x, y, x + square_size, y + square_size], fill=color2.values)
     path.parent.mkdir(parents=True, exist_ok=True)
     image.save(path.as_posix())
     return path
@@ -88,15 +73,12 @@ def tint_image(path: Path, output_path: Path, rgb: tuple[int, int, int]):
         img = Image.open(path).convert("RGBA")
         pixels = img.load()
         width, height = img.size
-
         for x in range(width):
             for y in range(height):
                 if pixels[x, y][3] > 0:  # Check if pixel is not fully transparent
                     pixels[x, y] = (*rgb, pixels[x, y][3])
-
         img.save(output_path)
         LOGGER.info(f"Image tinted and saved to {output_path}")
-
     except FileNotFoundError:
         print(f"Error: Image not found at {path}")
     except Exception as e:
@@ -104,12 +86,12 @@ def tint_image(path: Path, output_path: Path, rgb: tuple[int, int, int]):
 
 
 if __name__ == "__main__":
-    from core_paths import image_path, IMAGE_DIR, ICON_DIR
+    from core_paths import image_path
 
     # my_path = image_path("open.png")
     # resize_image(path=image_path("maya_large.png"), output_path=IMAGE_DIR / "maya.png", width=128, height=128, show=True)
     # tint_image(path=image_path("browse_og.png"), output_path=IMAGE_DIR / "browse.png", rgb=RGBColor.LIGHT_GREY)
-    tint_image(path=image_path("auto.png"), output_path=image_path("auto.png"), rgb=RGBColor.LIGHT_GREY)
+    tint_image(path=image_path("arch.png"), output_path=image_path("arch.png"), rgb=RGBColor.light_grey)
     # tint_image(path=Path("/Users/andrewdavis/Dropbox/Technology/Python3/Projects/Maya2025/images/icons/eye.png"), output_path=ICON_DIR / "format.png", rgb=RGBColor.LIGHT_GREY)
     # tint_image(path=image_path("fingerprint.png"), output_path=ICON_DIR / "uuid.png", rgb=RGBColor.LIGHT_GREY)
     # create_checker(path=Path("/Users/andrewdavis/Dropbox/Projects/Unity/Archive/SeventhStreet/Assets/Textures/checker.png"))

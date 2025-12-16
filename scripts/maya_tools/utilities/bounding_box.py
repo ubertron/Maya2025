@@ -9,7 +9,7 @@ class BoundingBox:
         self.transform = transform
 
         # check that transform has attached mesh node
-        shape = node_utils.get_shape_from_transform(transform=transform)
+        shape = node_utils.get_shape_from_transform(node=transform)
         if shape:
             print(cmds.objectType(shape))
 

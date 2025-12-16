@@ -1,10 +1,13 @@
+from __future__ import annotations
 import pyperclip
 
 from maya import cmds
 from typing import Optional
 
 from core.point_classes import Point3, Point3Pair
+from core.color_classes import Color, RGBColor
 from core.core_enums import DataType, Axis
+from maya_tools import node_utils
 from maya_tools.geometry_utils import get_selected_vertices, get_transforms, get_vertex_position
 from maya_tools.node_utils import get_type_from_transform, get_selected_transforms, \
     get_pivot_position, get_translation, get_all_child_transforms, translate, is_locator
@@ -27,13 +30,21 @@ def auto_parent_locators():
             cmds.parent(locators[i], locators[i + 1])
 
 
-def create_locator(position: Point3, name: str = "locator", size: float=DEFAULT_SIZE) -> str:
+def create_locator(position: Point3, name: str = "locator", size: float=DEFAULT_SIZE, color: RGBColor | None = None) -> str:
     """Create a locator."""
     result = cmds.spaceLocator()
     locator = result[0]
     new_name = cmds.rename(locator, name)
+    shape = node_utils.get_shape_from_transform(node=new_name)
     cmds.setAttr(f"{new_name}.localScale", size, size, size, type="float3")
     cmds.setAttr(f"{new_name}.translate", *position.values, type="float3")
+    if color is not None:
+        cmds.setAttr(f"{shape}.overrideColorRGB", *color.normalized)
+        cmds.setAttr(f"{shape}.overrideRGBColors", 1)
+        cmds.setAttr(f"{shape}.overrideEnabled", True)
+    else:
+        cmds.setAttr(f"{shape}.overrideEnabled", False)
+        cmds.setAttr(f"{shape}.overrideRGBColors", 0)
     return new_name
 
 
@@ -134,7 +145,7 @@ def get_dimensions(transform: Optional[str] = None, format_results: bool = False
         cmds.warning(f'Pass one valid transform: {transform} [get_dimensions]')
         return None
     else:
-        dimensions = get_bounds(transform=transform).delta
+        dimensions = get_bounds(node=transform).delta
 
         if format_results:
             in_view_message(f'{transform} dimensions: {dimensions.compact_repr}', persist_time=5000)
@@ -145,27 +156,27 @@ def get_dimensions(transform: Optional[str] = None, format_results: bool = False
         return dimensions
 
 
-def get_bounds(transform: Optional[str] = None, format_results: bool = False,
+def get_bounds(node: Optional[str] = None, format_results: bool = False,
                clipboard: bool = False) -> Point3Pair or None:
     """
     Get the minimum and maximum points of the bounds of a transform
-    :param transform:
+    :param node:
     :param format_results:
     :param clipboard:
     :return:
     """
-    if not transform:
-        transform = get_transforms(single=True)
+    if not node:
+        node = get_transforms(single=True)
 
-    if transform is None:
-        cmds.warning(f'Pass one valid transform: {transform} [get_bounds]')
+    if node is None:
+        cmds.warning(f'Pass one valid transform: {node} [get_bounds]')
         return None
     else:
-        bounding_box = cmds.exactWorldBoundingBox(transform)
+        bounding_box = cmds.exactWorldBoundingBox(node)
         bounds = Point3Pair(Point3(*bounding_box[:3]), Point3(*bounding_box[3:]))
 
         if format_results:
-            in_view_message(f'{transform} bounds: {bounds.compact_repr}', persist_time=5000)
+            in_view_message(f'{node} bounds: {bounds.compact_repr}', persist_time=5000)
 
         if clipboard:
             pyperclip.copy(str(bounds.values))
@@ -188,7 +199,7 @@ def get_midpoint_from_transform(transform: Optional[str] = None, format_results:
         cmds.warning(f'Pass one valid transform: {transform} [get_midpoint]')
         return None
     else:
-        midpoint = get_bounds(transform=transform).midpoint
+        midpoint = get_bounds(node=transform).midpoint
 
         if format_results:
             in_view_message(f'{transform} midpoint: {midpoint.compact_repr}', persist_time=5000)

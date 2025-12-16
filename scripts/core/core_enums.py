@@ -217,11 +217,13 @@ class ResourceType(Enum):
 
 
 class Side(Enum):
-    left = 'l'
-    right = 'r'
-    center = 'c'
-    top = 't'
-    bottom = 'b'
+    left = auto()
+    right = auto()
+    center = auto()
+    top = auto()
+    bottom = auto()
+    inside = auto()
+    outside = auto()
 
 
 @unique
