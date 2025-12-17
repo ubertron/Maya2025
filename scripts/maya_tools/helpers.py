@@ -5,12 +5,11 @@ from maya import cmds
 from typing import Optional
 
 from core.point_classes import Point3, Point3Pair
-from core.color_classes import Color, RGBColor
-from core.core_enums import DataType, Axis
+from core.color_classes import RGBColor
+from core.core_enums import Axis
 from maya_tools import node_utils
-from maya_tools.geometry_utils import get_selected_vertices, get_transforms, get_vertex_position
-from maya_tools.node_utils import get_type_from_transform, get_selected_transforms, \
-    get_pivot_position, get_translation, get_all_child_transforms, translate, is_locator
+from maya_tools.geometry_utils import get_selected_vertices, get_vertex_position
+from maya_tools.node_utils import set_translation, is_locator, get_bounds
 from maya_tools.display_utils import in_view_message
 from maya_tools.undo_utils import UndoStack
 
@@ -55,7 +54,8 @@ def create_pivot_locators(size: float = 1.0) -> list[str]:
     """
     with UndoStack('create_pivot_locators'):
         print('size here is ', size)
-        locators = [create_locator(position=get_pivot_position(x), size=size) for x in get_selected_transforms()]
+        locators = [create_locator(position=node_utils.get_pivot_position(x), size=size) \
+                    for x in node_utils.get_selected_transforms()]
 
     return locators
 
@@ -63,8 +63,8 @@ def create_pivot_locators(size: float = 1.0) -> list[str]:
 def create_vertex_locators(size: float = DEFAULT_SIZE) -> list[str]:
     """Create locators at the vertex positions of selected nodes."""
     locators = []
-    for node in get_selected_transforms():
-        object_type = get_type_from_transform(node)
+    for node in node_utils.get_selected_transforms():
+        object_type = node_utils.get_type_from_transform(node)
         if object_type == 'mesh':
             vertex_ids = get_selected_vertices(node=node)
             if vertex_ids:
@@ -88,13 +88,13 @@ def flip_locator_hierarchy(transform: str, axis: Axis):
     :param axis:
     """
     # Get all the children ordered by depth
-    transforms = get_all_child_transforms(transform=transform, ordered=True, reverse=True)
+    transforms = node_utils.get_all_child_transforms(transform=transform, ordered=True, reverse=True)
     locators = [x for x in transforms if is_locator(x)]
 
     # Flip items along the specified axis
     with UndoStack("Move Locators"):
         for locator in locators:
-            position: Point3 = get_translation(transform=locator, absolute=True)
+            position: Point3 = node_utils.get_translation(node=locator, absolute=True)
             old_position = str(position)
             new_axis_position: float = -position.values[axis.value]
 
@@ -105,7 +105,7 @@ def flip_locator_hierarchy(transform: str, axis: Axis):
             else:
                 position.z = new_axis_position
 
-            translate(nodes=locator, value=position, absolute=True)
+            node_utils.set_translation(nodes=locator, value=position, absolute=True)
             print(f"{old_position} > {position}")
 
 
@@ -130,60 +130,6 @@ def get_distance_between_two_transforms(format_result: bool = True):
         return None
 
 
-def get_dimensions(transform: Optional[str] = None, format_results: bool = False,
-                   clipboard: bool = False) -> Point3 or None:
-    """
-    Calculate the dimensions of a transform
-    :param transform:
-    :param format_results:
-    :param clipboard:
-    """
-    if not transform:
-        transform = get_transforms(single=True)
-
-    if transform is None:
-        cmds.warning(f'Pass one valid transform: {transform} [get_dimensions]')
-        return None
-    else:
-        dimensions = get_bounds(node=transform).delta
-
-        if format_results:
-            in_view_message(f'{transform} dimensions: {dimensions.compact_repr}', persist_time=5000)
-
-        if clipboard:
-            pyperclip.copy(str(dimensions.values))
-
-        return dimensions
-
-
-def get_bounds(node: Optional[str] = None, format_results: bool = False,
-               clipboard: bool = False) -> Point3Pair or None:
-    """
-    Get the minimum and maximum points of the bounds of a transform
-    :param node:
-    :param format_results:
-    :param clipboard:
-    :return:
-    """
-    if not node:
-        node = get_transforms(single=True)
-
-    if node is None:
-        cmds.warning(f'Pass one valid transform: {node} [get_bounds]')
-        return None
-    else:
-        bounding_box = cmds.exactWorldBoundingBox(node)
-        bounds = Point3Pair(Point3(*bounding_box[:3]), Point3(*bounding_box[3:]))
-
-        if format_results:
-            in_view_message(f'{node} bounds: {bounds.compact_repr}', persist_time=5000)
-
-        if clipboard:
-            pyperclip.copy(str(bounds.values))
-
-        return bounds
-
-
 def get_midpoint_from_transform(transform: Optional[str] = None, format_results: bool = False,
                                 clipboard: bool = False) -> Point3 or None:
     """
@@ -193,7 +139,7 @@ def get_midpoint_from_transform(transform: Optional[str] = None, format_results:
     :param clipboard:
     """
     if not transform:
-        transform = get_transforms(single=True)
+        transform = node_utils.get_transforms(first_only=True)
 
     if transform is None:
         cmds.warning(f'Pass one valid transform: {transform} [get_midpoint]')

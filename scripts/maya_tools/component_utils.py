@@ -5,14 +5,13 @@ from maya import cmds
 from dataclasses import dataclass
 from typing import Sequence, Union, Optional
 
-from core.math_funcs import get_closest_position_on_line_to_point, get_average_normal_from_points, get_midpoint_from_point_list, \
+from core.math_utils import get_closest_position_on_line_to_point, get_average_normal_from_points, get_midpoint_from_point_list, \
     vector_to_euler_angles, project_point_onto_plane
 from core.point_classes import Point3, Point3Pair, X_AXIS, Y_AXIS, Z_AXIS
 from core.core_enums import Axis, Position, ComponentType
 from maya_tools.geometry_utils import get_vertex_position, set_vertex_position, get_vertex_positions,\
     get_component_list, detach_faces
-from maya_tools.node_utils import translate, rotate, get_selected_transforms
-from maya_tools.helpers import get_bounds
+from maya_tools.node_utils import set_translation, set_rotation, get_selected_transforms, get_bounds
 from maya_tools.undo_utils import UndoStack
 
 

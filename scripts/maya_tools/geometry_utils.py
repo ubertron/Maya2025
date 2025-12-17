@@ -10,13 +10,10 @@ from typing import Optional, Sequence, Union
 
 from core.core_enums import ComponentType, Axis
 from core.point_classes import Point3, Point3Pair, NEGATIVE_Y_AXIS, POINT3_ORIGIN
-from core import math_funcs
-from core.math_funcs import dot_product, normalize_vector, degrees_to_radians, get_midpoint_from_point_list
-from maya_tools.helpers import get_bounds
+from core import math_utils
+from core.math_utils import dot_product, normalize_vector, degrees_to_radians, get_midpoint_from_point_list
 from maya_tools.scene_utils import message_script
 from maya_tools import display_utils, node_utils
-from maya_tools.node_utils import State, set_component_mode, get_component_mode, get_type_from_transform, \
-    restore_rotation, is_object_type, get_translation, set_pivot, get_selected_geometry, get_child_geometry
 from maya_tools.maya_enums import ObjectType
 
 
@@ -25,16 +22,14 @@ def combine(transforms: list[str] | None = None, name: str = '', position: Optio
     """Combine geometry nodes."""
     if transforms is None:
         transforms = cmds.ls(selection=True, transforms=True)
-    mesh_transforms = [x for x in transforms if cmds.objExists(x) and is_object_type(x, ObjectType.mesh)]
-
+    mesh_transforms = [x for x in transforms if cmds.objExists(x) and node_utils.is_object_type(x, ObjectType.mesh)]
     if len(mesh_transforms) > 1:
         if not name:
             name = mesh_transforms[-1]
-
         position = position if position else POINT3_ORIGIN
         parent = parent if parent else cmds.listRelatives(mesh_transforms[-1], parent=True)
         result = cmds.polyUnite(mesh_transforms, name=name, constructionHistory=history)[0]
-        set_pivot(result, value=position, reset=True)
+        node_utils.set_pivot(result, value=position, reset=True)
         cmds.parent(result, parent)
     else:
         cmds.warning('Supply mesh nodes')
@@ -108,7 +103,7 @@ def create_hemispheroid(name: str = 'hemispheroid', diameter: float = 1.0, heigh
     if not construction_history:
         cmds.delete(hemispheroid, ch=True)
 
-    set_component_mode(ComponentType.object)
+    node_utils.set_component_mode(ComponentType.object)
 
     if select:
         cmds.select(hemispheroid)
@@ -145,23 +140,23 @@ def detach_faces(transform: str, faces: list[int]) -> str:
     if children:
         cmds.parent(children, result)
 
-    set_component_mode(ComponentType.object)
+    node_utils.set_component_mode(ComponentType.object)
     cmds.select(detached_mesh)
 
     return detached_mesh
 
-def find_geometry_by_vertices(vertex_list: list[Point3], tolerance: float = 0.1) -> list[str]:
+def find_geometry_by_vertices(vertex_list: list[Point3]) -> list[str]:
     """Find all geometry items that have the supplied list of vertices."""
     #print(vertex_list)
     # get a list of geometry and their bounding boxes
     geometry = node_utils.get_geometry()
     # discount items that the vertex list don't fit within
-    bounds_dict = {x: get_bounds(node=x) for x in node_utils.get_geometry()}
+    bounds_dict = {x: node_utils.get_bounds(node=x) for x in node_utils.get_geometry()}
     # iterate to find matches within a tolerance
     for key, value in bounds_dict.items():
         print(f'{key}: {value}')
     filtered = [x for x in geometry if bounds_dict[x].vertices_within_bounds(vertex_list)]
-    return bounds_dict
+    return filtered
 
 
 def fix_cap(transform: str, face_id: int):
@@ -177,25 +172,6 @@ def fix_cap(transform: str, face_id: int):
     vertex_components = cmds.polyListComponentConversion(cmds.ls(sl=True), fromEdge=True, toVertex=True)
     vertex_ids = get_component_indices(vertex_components, component_type=ComponentType.vertex)
     merge_vertices(transform=transform, vertices=vertex_ids)
-
-
-def get_component_mode() -> ComponentType or None:
-    """
-    Determine which component mode Maya is currently in
-    @return: ComponentType or None
-    """
-    if cmds.selectMode(query=True, object=True):
-        return ComponentType.object
-    elif cmds.selectType(query=True, vertex=True):
-        return ComponentType.vertex
-    elif cmds.selectType(query=True, edge=True):
-        return ComponentType.edge
-    elif cmds.selectType(query=True, facet=True):
-        return ComponentType.face
-    elif cmds.selectType(query=True, polymeshUV=True):
-        return ComponentType.uv
-    else:
-        return None
 
 
 def get_component_type_tag(component_type: ComponentType) -> str or None:
@@ -281,23 +257,6 @@ def get_faces_by_plane(transform: str, axis: Axis, value: float, threshold: floa
     return [i for i, position in enumerate(face_centers) if abs(position.values[axis.value] - value) < threshold]
 
 
-def get_transforms(node: str = '', single: bool = True) -> str or list[str] or None:
-    """
-    Gets the currently selected transform whether in object mode or component mode
-    :param node:
-    :param single:
-    :return:
-    """
-    state = State()
-    set_component_mode(component_type=ComponentType.object)
-    node_list = cmds.ls(node) if node else cmds.ls(sl=True, tr=True)
-    state.restore()
-    if single:
-        return node_list[0] if len(node_list) == 1 else None
-    else:
-        return node_list
-
-
 def get_selected_edges(node: str = '') -> list[int] or None:
     """
     Gets a list of the edge ids, or None if node not found
@@ -349,13 +308,13 @@ def get_selected_components(node: str = '', component_type: ComponentType = Comp
     :param component_type:
     :return:
     """
-    node = get_transforms(node)
+    node = node_utils.get_transforms(node)
     assert component_type in (ComponentType.face, ComponentType.vertex, ComponentType.edge), 'Component not supported.'
     assert node, 'Please supply a transform.'
     component_label: dict = {ComponentType.edge: 'e', ComponentType.face: 'f', ComponentType.vertex: 'vtx'}
-    state = State()
+    state = node_utils.State()
     cmds.select(node)
-    set_component_mode(component_type=component_type)
+    node_utils.set_component_mode(component_type=component_type)
     selection = cmds.ls(sl=True, flatten=True)
     state.restore()
     component_prefix = f'{node}.{component_label[component_type]}['
@@ -406,7 +365,7 @@ def get_vertex_position(node: str, vertex_id: int) -> Point3:
     :param vertex_id:
     :return:
     """
-    component_prefix = {'nurbsSurface': 'cv', 'mesh': 'vtx'}[get_type_from_transform(node)]
+    component_prefix = {'nurbsSurface': 'cv', 'mesh': 'vtx'}[node_utils.get_type_from_transform(node)]
     return Point3(*cmds.pointPosition(f'{node}.{component_prefix}[{vertex_id}]', world=True))
 
 
@@ -471,7 +430,7 @@ def get_vertex_face_list(transform: str) -> list[list[int]]:
     # `counts` contains the number of vertexes per face
     # `indices` is a list of all indices for all faces
 
-    # So if counts was [4, 3, 5], the first 4 indices in idxs
+    # So if counts was [4, 3, 5], the first 4 indices in indices
     # would be the verts for the first face. The next 3 indices
     # in indices would be the verts for the second face. The next 5
     # would belong to the third face.
@@ -616,7 +575,7 @@ def set_edge_softness(nodes: Union[str, list[str]], angle: float = 30):
     :param nodes:
     :param angle:
     """
-    state = State()
+    state = node_utils.State()
     cmds.select(nodes)
     cmds.polySoftEdge(angle=angle)
     state.restore()
@@ -647,8 +606,8 @@ def toggle_xray(transform: Optional[Sequence[str]] = None):
     def toggle_xray_recursive(geometry: str):
         state = cmds.displaySurface(geometry, xRay=True, query=True)[0]
         cmds.displaySurface(geometry, xRay=not state)
-        for x in node_utils.get_child_geometry(geometry):
-            toggle_xray_recursive(x)
+        for child in node_utils.get_child_geometry(geometry):
+            toggle_xray_recursive(child)
 
     for x in geometry_list:
         toggle_xray_recursive(geometry=x)
@@ -686,7 +645,7 @@ def get_face_normals(transform: str) -> list[Point3]:
     result = [[float(i) for i in item.split(': ')[1].split('\n')[0].split(' ')] for item in poly_info]
 
     if rotation != Point3(0, 0, 0):
-        restore_rotation(transform=transform, value=rotation)
+        node_utils.restore_rotation(transform=transform, value=rotation)
 
     return [normalize_vector(Point3(*x)) for x in result]
 
@@ -704,7 +663,7 @@ def get_face_normal(node: str, face_id: int) -> Point3:
     normal = cmds.polyInfo(f'{node}.f[{face_id}]', faceNormals=True)[0]
     values = [float(x) for x in normal.split(': ')[1].split('\n')[0].split(' ')]
     if rotation != Point3(0, 0, 0):
-        restore_rotation(transform=node, value=rotation)
+        node_utils.restore_rotation(transform=node, value=rotation)
     return Point3(*values)
 
 

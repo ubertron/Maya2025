@@ -5,7 +5,7 @@ from maya import cmds, mel
 from typing import Optional
 
 from core.core_enums import Axis
-from core.math_funcs import get_midpoint_from_point_list
+from core.math_utils import get_midpoint_from_point_list
 from core.point_classes import Point3, Point3Pair
 from maya_tools.display_utils import info_message, warning_message
 from maya_tools.maya_enums import ObjectType
@@ -47,7 +47,7 @@ def bind_skin(rigid_bind_mode: bool = False):
         model_root = next(x for x in selection if x != joint_hierarchy)
 
         # model validation
-        geometry = get_child_geometry(transform=model_root)
+        geometry = get_child_geometry(node=model_root)
 
         if not geometry:
             warning_message(warning)
@@ -234,7 +234,7 @@ def fix_root_joint_orientation(root_joint: str, axis: Axis, threshold: float = 0
     children = get_child_joints(joint=root_joint)
 
     # select axial joint
-    root_joint_position: Point3 = get_translation(transform=root_joint, absolute=True)
+    root_joint_position: Point3 = get_translation(node=root_joint, absolute=True)
     axial_position = root_joint_position.values[axis.value]
     axial_joint = next((joint for joint in children if get_translation(
         joint, absolute=True).values[axis.value] - axial_position < threshold), None)
@@ -321,7 +321,7 @@ def get_joint_center(joint: str) -> Point3:
     :param joint:
     :return:
     """
-    joint_positions: list[Point3] = [get_translation(transform=joint, absolute=True)]
+    joint_positions: list[Point3] = [get_translation(node=joint, absolute=True)]
     joint_positions.extend(get_translation(x, absolute=True) for x in get_child_joints(joint=joint))
 
     return get_midpoint_from_point_list(joint_positions)
@@ -483,7 +483,7 @@ def rigid_bind(model_root: str, joint_root: str):
                                                                           fullPath=True, type=joint_type)}
 
     # iterate through geometry and find the closest joint to each mesh
-    geometry = get_child_geometry(transform=model_root)
+    geometry = get_child_geometry(node=model_root)
 
     for mesh in geometry:
         position = get_midpoint_from_transform(transform=mesh)

@@ -3,6 +3,7 @@ import logging
 from functools import partial
 from maya import cmds, mel
 
+import maya_tools.node_utils
 from core.version_info import VersionInfo
 from core.core_paths import image_path
 from core import logging_utils
@@ -116,7 +117,7 @@ class RobotoolsShelf(ShelfManager):
     @staticmethod
     def get_dimensions():
         from maya_tools import helpers
-        helpers.get_dimensions(format_results=True, clipboard=True)
+        maya_tools.node_utils.get_dimensions(format_results=True, clipboard=True)
 
     @staticmethod
     def merge_vertices() -> None:

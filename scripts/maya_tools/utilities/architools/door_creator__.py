@@ -10,8 +10,8 @@ from core.core_enums import Side, Axis, DataType
 from core.point_classes import Point3, Point3Pair, X_AXIS, Z_AXIS
 from maya_tools import curve_utils, helpers, material_utils, node_utils
 from maya_tools.maya_enums import ObjectType
-from maya_tools.utilities.arch_tools.validation import validate_door_curve
-from maya_tools.utilities.arch_tools import CURVE_COLOR
+from maya_tools.utilities.architools.validation import validate_door_curve
+from maya_tools.utilities.architools import CURVE_COLOR
 
 
 @dataclass
@@ -21,8 +21,8 @@ class DoorData:
     axis: Axis
     door_depth: float
     side: Side
+    frame: float
     skirt: float
-    trim: float
     angle: float
 
     def __repr__(self) -> str:
@@ -37,8 +37,8 @@ class DoorData:
             f"Door Height: {self.door_height}\n"
             f"Door Depth: {self.door_depth}\n"
             f"Side: {self.side.name}\n"
+            f"Frame: {self.frame}\n"
             f"Skirt: {self.skirt}\n"
-            f"Trim: {self.trim}\n"
             f"Angle: {self.angle}\n"
         )
 
@@ -50,8 +50,8 @@ class DoorData:
             "axis": self.axis.name,
             "door_thickness": self.door_depth,
             "side": self.side.name,
+            "frame": self.frame,
             "skirt": self.skirt,
-            "trim": self.trim,
             "angle": self.angle,
         }
 
@@ -66,29 +66,29 @@ class DoorData:
     @property
     def door_width(self) -> float:
         doorway_width = self.points.size.x if self.axis is Axis.z else self.points.size.z
-        return doorway_width - (2 * self.trim)
+        return doorway_width - (2 * self.skirt)
 
     @property
     def door_frame_bounds(self) -> Point3Pair:
         if self.axis is Axis.z:
             minimum = Point3(
-                self.points.minimum.x - self.skirt + self.trim,
+                self.points.minimum.x - self.frame + self.skirt,
                 self.points.minimum.y,
-                self.points.minimum.z  + self.trim)
+                self.points.minimum.z + self.skirt)
             maximum = Point3(
-                self.points.maximum.x + self.skirt - self.trim,
-                self.points.maximum.y + self.skirt - self.trim,
-                self.points.maximum.z - self.trim
+                self.points.maximum.x + self.frame - self.skirt,
+                self.points.maximum.y + self.frame - self.skirt,
+                self.points.maximum.z - self.skirt
             )
         else:
             minimum = Point3(
-                self.points.minimum.x - self.trim,
+                self.points.minimum.x - self.skirt,
                 self.points.minimum.y,
-                self.points.minimum.z - self.skirt + self.trim)
+                self.points.minimum.z - self.frame + self.skirt)
             maximum = Point3(
-                self.points.maximum.x +  self.trim,
-                self.points.maximum.y + self.skirt - self.trim,
-                self.points.maximum.z + self.skirt - self.trim
+                self.points.maximum.x + self.skirt,
+                self.points.maximum.y + self.frame - self.skirt,
+                self.points.maximum.z + self.frame - self.skirt
             )
         return Point3Pair(minimum, maximum)
 
@@ -106,36 +106,36 @@ class DoorData:
 
     @property
     def door_height(self) -> float:
-        return self.points.size.y - self.trim
+        return self.points.size.y - self.skirt
 
     @property
     def profile_points(self) -> list[Point3]:
         points = []
         if self.axis is Axis.z:
-            point = Point3(self.points.minimum.x - self.skirt + self.trim, self.points.minimum.y, self.points.maximum.z)
-            points.append(Point3(*point.values))
-            point.z = point.z + self.trim
-            points.append(Point3(*point.values))
-            point.x = point.x + self.skirt
-            points.append(Point3(*point.values))
-            point.z = point.z - self.doorway_depth - 2 * self.trim
-            points.append(Point3(*point.values))
-            point.x = point.x - self.skirt
-            points.append(Point3(*point.values))
-            point.z = point.z + self.trim
-            points.append(Point3(*point.values))
-        else:
-            point = Point3(self.points.minimum.x, self.points.minimum.y, self.points.minimum.z - self.skirt + self.trim)
-            points.append(Point3(*point.values))
-            point.x = point.x - self.trim
+            point = Point3(self.points.minimum.x - self.frame + self.skirt, self.points.minimum.y, self.points.maximum.z)
             points.append(Point3(*point.values))
             point.z = point.z + self.skirt
             points.append(Point3(*point.values))
-            point.x = point.x + self.doorway_depth + 2 * self.trim
+            point.x = point.x + self.frame
             points.append(Point3(*point.values))
-            point.z = point.z - self.skirt
+            point.z = point.z - self.doorway_depth - 2 * self.skirt
             points.append(Point3(*point.values))
-            point.x = point.x - self.trim
+            point.x = point.x - self.frame
+            points.append(Point3(*point.values))
+            point.z = point.z + self.skirt
+            points.append(Point3(*point.values))
+        else:
+            point = Point3(self.points.minimum.x, self.points.minimum.y, self.points.minimum.z - self.frame + self.skirt)
+            points.append(Point3(*point.values))
+            point.x = point.x - self.skirt
+            points.append(Point3(*point.values))
+            point.z = point.z + self.frame
+            points.append(Point3(*point.values))
+            point.x = point.x + self.doorway_depth + 2 * self.skirt
+            points.append(Point3(*point.values))
+            point.z = point.z - self.frame
+            points.append(Point3(*point.values))
+            point.x = point.x - self.skirt
             points.append(Point3(*point.values))
         return points
 
@@ -189,15 +189,16 @@ class DoorData:
             ]
 
 class DoorCreator:
-    def __init__(self, trim: float, skirt: float, door_thickness: float = 5.0, axis: Axis = Axis.z,
-                 side: Side = Side.inside, angle: float = 0.0):
+    def __init__(self, skirt: float, frame: float, door_thickness: float = 5.0, axis: Axis = Axis.z,
+                 opening_side: Side = Side.front, hinge_side: Side = Side.left, rotation: float = 0.0):
         assert axis in (Axis.x, Axis.z), "Invalid axis"
-        assert side in (Side.inside, Side.outside), "Invalid side"
-        self.trim = trim
+        assert opening_side in (Side.front, Side.back), "Invalid side"
+        assert hinge_side in (Side.left, Side.right), "Invalid side"
         self.skirt = skirt
+        self.frame = frame
         self.door_thickness = door_thickness
-        self.side = side
-        self.angle = angle
+        self.opening_side = opening_side
+        self.rotation = rotation
         self._validate()
         print(self.data)
 
@@ -227,9 +228,9 @@ class DoorCreator:
             axis=axis,
             door_depth=self.door_thickness,
             side=self.side,
+            frame=self.frame,
             skirt=self.skirt,
-            trim=self.trim,
-            angle=self.angle,
+            angle=self.rotation,
         )
 
     def create(self, auto_texture: bool = False) -> DoorData:
@@ -245,7 +246,7 @@ class DoorCreator:
 
         for i in range(1, 4):
             door_curves.append(node_utils.duplicate(node=door_curves[0], name=f"door_curve{i}"))
-            node_utils.translate(nodes=door_curves[i], value=self.data.profile_positions[i])
+            node_utils.set_translation(nodes=door_curves[i], value=self.data.profile_positions[i])
 
         if self.data.axis == Axis.z:
             cmds.setAttr(f"{door_curves[1]}.rotateZ", -45)
@@ -268,9 +269,9 @@ class DoorCreator:
         attribute_utils.add_attribute(node=door_frame, attr="custom_type", data_type=DataType.string,
                                       read_only=True, default_value="door")
         attribute_utils.add_attribute(node=door_frame, attr="trim", data_type=DataType.float,
-                                      read_only=False, default_value=self.trim)
-        attribute_utils.add_attribute(node=door_frame, attr="skirt", data_type=DataType.float,
                                       read_only=False, default_value=self.skirt)
+        attribute_utils.add_attribute(node=door_frame, attr="frame", data_type=DataType.float,
+                                      read_only=False, default_value=self.frame)
 
         # texture
         if auto_texture:

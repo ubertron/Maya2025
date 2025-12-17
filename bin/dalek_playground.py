@@ -1,7 +1,7 @@
 from importlib import reload
 
 from core import point_classes; reload(point_classes)
-from core import math_funcs; reload(math_funcs)
+from core import math_utils; reload(math_funcs)
 from maya_tools import display_utils; reload(display_utils)
 from maya_tools import helpers; reload(helpers)
 from maya_tools import geometry_utils; reload(geometry_utils)

@@ -1,7 +1,7 @@
 import pyperclip
 from dataclasses import dataclass
 
-from core.math_funcs import interpolate_linear, get_midpoint_from_point_list, vector_to_euler_angles, get_normal_vector, \
+from core.math_utils import interpolate_linear, get_midpoint_from_point_list, vector_to_euler_angles, get_normal_vector, \
     get_point_normal_angle_on_ellipse, get_point_position_on_ellipse
 from core.point_classes import Point3, Point2, POINT3_ORIGIN, POINT2_ORIGIN, Point3Pair, Z_AXIS, Y_AXIS, NEGATIVE_Z_AXIS
 from core.environment_utils import is_using_maya_python
@@ -17,9 +17,9 @@ if is_using_maya_python():
         select_edges, filter_face_list_by_face_normal, slice_faces, get_face_above, \
         group_geometry_shells, get_midpoint_from_faces, get_selected_faces, reverse_face_normals, fix_cap, \
         get_faces_by_plane, get_perimeter_edges_from_faces, combine
-    from maya_tools.helpers import create_locator, get_dimensions
-    from maya_tools.node_utils import pivot_to_base, translate, rotate, scale, set_pivot, delete_history, \
-        get_translation
+    from maya_tools.helpers import create_locator
+    from maya_tools.node_utils import pivot_to_base, set_translation, set_rotation, scale, set_pivot, delete_history, \
+    get_translation, get_dimensions
     from maya_tools.layer_utils import add_to_layer
 
 
@@ -338,7 +338,7 @@ class DalekBuilder:
                   modify_skirt: bool = False) -> str:
         curve = create_ellipse(name=name, size=size, sections=self.dimensions.num_sections * self.dimensions.subdivisions)
         cmds.parent(curve, self.curve_group)
-        translate(curve, value=position)
+        set_translation(curve, value=position)
 
         if lateral_offset:
             self.apply_lateral_offset(transform=curve)
@@ -367,9 +367,9 @@ class DalekBuilder:
         Shifts the transform along the y-axis according to the lateral offset value for the height
         :param transform:
         """
-        position = get_translation(transform=transform)
-        position.z = self.dimensions.interpolate_lateral_offset(get_translation(transform=transform).y)
-        translate(transform, value=position)
+        position = get_translation(node=transform)
+        position.z = self.dimensions.interpolate_lateral_offset(get_translation(node=transform).y)
+        set_translation(transform, value=position)
 
     def build(self):
         """
@@ -398,7 +398,7 @@ class DalekBuilder:
 
         cmds.setAttr(f'{self.head_group}.rotateX', lock=True)
         cmds.setAttr(f'{self.head_group}.rotateZ', lock=True)
-        translate(self.head_group, self.dimensions.head_position)
+        set_translation(self.head_group, self.dimensions.head_position)
         cmds.parent(self.head_group, self.geometry_group)
         add_to_layer(self.geometry_group, 'geometryLayer')
 
@@ -488,20 +488,20 @@ class DalekBuilder:
         ]
         neck_strut_base = create_linear_spline(name='neck_strut_base', points=neck_strut_points)
         neck_strut_top = create_linear_spline(name='neck_strut_top', points=neck_strut_points)
-        translate(neck_strut_base, self.dimensions.neck_strut_base)
-        translate(neck_strut_top, self.dimensions.neck_strut_top)
+        set_translation(neck_strut_base, self.dimensions.neck_strut_base)
+        set_translation(neck_strut_top, self.dimensions.neck_strut_top)
         neck_strut_curves = [neck_strut_base, neck_strut_top]
         cmds.parent(neck_strut_curves, self.curve_group)
         neck_strut0, _ = create_polygon_loft_from_curves(name='neck_strut0', curves=neck_strut_curves)
         set_pivot(neck_strut0, value=self.dimensions.neck_position, reset=True)
         strut_angle = 360.0 / self.dimensions.num_sections
-        rotate(neck_strut0, value=Point3(0.0, strut_angle * 0.5, 0.0))
+        set_rotation(neck_strut0, value=Point3(0.0, strut_angle * 0.5, 0.0))
         cmds.parent(neck_strut0, self.geometry_group)
         neck_struts.append(neck_strut0)
 
         for i in range(1, self.dimensions.num_sections):
             neck_strut = cmds.duplicate(neck_strut0, name=f'neck_strut{i}')[0]
-            rotate(neck_strut, value=Point3(0.0, strut_angle * (i + 0.5), 0.0))
+            set_rotation(neck_strut, value=Point3(0.0, strut_angle * (i + 0.5), 0.0))
             neck_struts.append(neck_strut)
 
         self.neck_struts = combine(neck_struts, name='neck_struts', position=self.dimensions.neck_position,
@@ -576,7 +576,7 @@ class DalekBuilder:
         # Gun
         gun_arm_base_height = 0.075
         self.gun_arm = cmds.polyCylinder(name='gun_arm', axis=Z_AXIS.values, subdivisionsAxis=12, height=gun_arm_base_height, radius=0.04)[0]
-        translate(self.gun_arm, Point3(0, 0, gun_arm_base_height * 0.5))
+        set_translation(self.gun_arm, Point3(0, 0, gun_arm_base_height * 0.5))
         set_pivot(self.gun_arm, value=POINT3_ORIGIN, reset=True)
         delete_faces(self.gun_arm, faces=get_faces_by_axis(self.gun_arm, axis=NEGATIVE_Z_AXIS))
         select_faces(self.gun_arm, faces=get_faces_by_axis(self.gun_arm, axis=Z_AXIS))
@@ -614,9 +614,9 @@ class DalekBuilder:
         cage_path = create_linear_spline(name='cage_path', points=cage_path_points)
         cage_profile = cmds.circle(name='cage_profile', degree=1, sections=5, radius=self.dimensions.cage_bar_radius,
                                    normal=Y_AXIS.values)[0]
-        translate(cage_profile, cage_path_points[0])
+        set_translation(cage_profile, cage_path_points[0])
         cmds.parent(cage_profile, cage_path, self.curve_group)
-        rotate(cage_profile, Point3(225, 0, 0))
+        set_rotation(cage_profile, Point3(225, 0, 0))
         cage_bar_list = []
         cage_bar_0 = cmds.extrude(cage_profile, cage_path, name='cage_bar_0', range=False, polygon=1, extrudeType=2,
                                   useProfileNormal=1, reverseSurfaceIfPathReversed=1)[0]
@@ -626,7 +626,7 @@ class DalekBuilder:
         for i in range(1, self.dimensions.num_cage_bars):
             cage_bar = cmds.duplicate(cage_bar_0, name=f'cage_bar_{i}')[0]
             cage_bar_list.append(cage_bar)
-            rotate(cage_bar, Point3(0, 0, i * 360 / self.dimensions.num_cage_bars))
+            set_rotation(cage_bar, Point3(0, 0, i * 360 / self.dimensions.num_cage_bars))
 
         combine(transforms=cage_bar_list, name='cage_bars', parent=self.weapon0)
 
@@ -635,7 +635,7 @@ class DalekBuilder:
                                             height=self.dimensions.sucker_arm_length * 0.5,
                                             radius=self.dimensions.sucker_arm_diameter / 2)[0]
         set_pivot(self.sucker_arm, value=Point3(0, 0, -self.dimensions.sucker_arm_length * 0.25), reset=True)
-        translate(self.sucker_arm, value=POINT3_ORIGIN)
+        set_translation(self.sucker_arm, value=POINT3_ORIGIN)
         delete_faces(self.sucker_arm, faces=get_faces_by_axis(self.sucker_arm, axis=NEGATIVE_Z_AXIS))
         select_faces(self.sucker_arm, faces=get_faces_by_axis(self.sucker_arm, axis=Z_AXIS))
         cmds.polyExtrudeFacet(cmds.ls(sl=True), scaleX=0.5, scaleY=0.5, translateZ=self.dimensions.rim)
@@ -658,20 +658,20 @@ class DalekBuilder:
         self.sucker_head = create_hemispheroid(name='sucker_head', diameter=self.dimensions.sucker_diameter,
                                                height=self.dimensions.sucker_diameter * 0.5,
                                                subdivisions=2, base=False)
-        rotate(self.sucker_head, value=Point3(-90, 0, 0))
+        set_rotation(self.sucker_head, value=Point3(-90, 0, 0))
         get_open_edges(self.sucker_head, select=True)
         vertices = cmds.polyListComponentConversion(cmds.ls(sl=True), fromEdge=True, toVertex=True)
         cmds.polyCircularize(vertices, evenlyDistribute=True)
         cmds.polyExtrudeFacet(f'{self.sucker_head}.f[*]', localTranslateZ=-self.dimensions.rim)
         reverse_face_normals(transform=self.sucker_head)
         set_pivot(self.sucker_head, value=Point3(0, 0, -self.dimensions.sucker_diameter * 0.5 + self.dimensions.rim * 0.5), reset=True)
-        translate(self.sucker_head, value=Point3(0, 0, self.dimensions.sucker_arm_length))
+        set_translation(self.sucker_head, value=Point3(0, 0, self.dimensions.sucker_arm_length))
         cmds.parent(self.sucker_head, self.weapon1)
 
-        translate(self.weapon0, mounting_points[0])
-        translate(self.weapon1, mounting_points[1])
-        rotate(self.weapon0, value=self.dimensions.gun_arm_angle)
-        rotate(self.weapon1, value=self.dimensions.sucker_arm_angle)
+        set_translation(self.weapon0, mounting_points[0])
+        set_translation(self.weapon1, mounting_points[1])
+        set_rotation(self.weapon0, value=self.dimensions.gun_arm_angle)
+        set_rotation(self.weapon1, value=self.dimensions.sucker_arm_angle)
         cmds.parent(self.weapon0, self.geometry_group)
         cmds.parent(self.weapon1, self.geometry_group)
 
@@ -714,14 +714,14 @@ class DalekBuilder:
         # energy dispenser transformations
         position: Point2 = get_point_position_on_ellipse(degrees=self.dimensions.energy_dispenser_angle, ellipse_radius_pair=self.dimensions.head_radius_pair)
         angle: float = get_point_normal_angle_on_ellipse(point=position, ellipse_radius_pair=self.dimensions.head_radius_pair)
-        translate(self.energy_dispenser_0, value=position)
-        rotate(self.energy_dispenser_0, value=Point3(0, 0, angle))
-        translate(self.energy_dispenser_1, value=Point2(-position.x, position.y))
-        rotate(self.energy_dispenser_1, value=Point3(0, 0, -angle))
+        set_translation(self.energy_dispenser_0, value=position)
+        set_rotation(self.energy_dispenser_0, value=Point3(0, 0, angle))
+        set_translation(self.energy_dispenser_1, value=Point2(-position.x, position.y))
+        set_rotation(self.energy_dispenser_1, value=Point3(0, 0, -angle))
         cmds.parent(self.energy_dispenser_0, self.energy_dispenser_1, self.head)
 
         # position head on top of dalek
-        translate(nodes=self.head, value=self.dimensions.head_position)
+        set_translation(nodes=self.head, value=self.dimensions.head_position)
 
         # parent to geometry group
         cmds.parent(self.head, self.head_group)
@@ -741,7 +741,7 @@ class DalekBuilder:
         self.face_plate = cmds.polyCube(width=face_plate_width, height=face_plate_height, depth=face_plate_depth,
                                         subdivisionsX=1, subdivisionsY=1, subdivisionsZ=1, name='face_plate')[0]
         pivot_to_base(self.face_plate, reset=True)
-        translate(nodes=self.face_plate, value=face_plate_position)
+        set_translation(nodes=self.face_plate, value=face_plate_position)
         set_pivot(nodes=self.face_plate, value=self.dimensions.head_position)
         cmds.delete(f'{self.face_plate}.f[2]')
         cmds.select(f'{self.face_plate}.f[0]')
@@ -759,18 +759,18 @@ class DalekBuilder:
                                            height=self.dimensions.eye_stalk_length, subdivisionsAxis=7,
                                            name='eye_stalk')[0]
         set_edge_softness(nodes=self.eye_stalk, angle=80)
-        translate(self.eye_stalk, Point3(0, 0, self.dimensions.eye_stalk_length * 0.5))
+        set_translation(self.eye_stalk, Point3(0, 0, self.dimensions.eye_stalk_length * 0.5))
         cmds.parent(self.eye_stalk, self.eye_stalk_group)
 
         self.eye_capacitor = create_platonic_sphere(name='eye_capacitor',
                                                     diameter=self.dimensions.eye_capacitor_diameter, subdivisions=2)
-        translate(nodes=self.eye_capacitor, value=(Point3(0, 0, capacitor_z_position)))
+        set_translation(nodes=self.eye_capacitor, value=(Point3(0, 0, capacitor_z_position)))
         scale(nodes=self.eye_capacitor, value=Point3(1, 1, 1.25))
         cmds.parent(self.eye_capacitor, self.eye_stalk_group)
 
         self.eye = create_hemispheroid(name='eye', diameter=self.dimensions.eye_diameter, height=self.dimensions.eye_depth * 0.5, subdivisions=2, base=False)
-        rotate(self.eye, Point3(270, 0, 0))
-        translate(self.eye, Point3(0, 0, self.dimensions.eye_stalk_length + self.dimensions.eye_depth * 0.45))
+        set_rotation(self.eye, Point3(270, 0, 0))
+        set_translation(self.eye, Point3(0, 0, self.dimensions.eye_stalk_length + self.dimensions.eye_depth * 0.45))
         get_open_edges(self.eye, select=True)
         vertices = cmds.polyListComponentConversion(cmds.ls(sl=True), fromEdge=True, toVertex=True)
         cmds.polyCircularize(vertices, evenlyDistribute=True)
@@ -784,9 +784,9 @@ class DalekBuilder:
         merge_vertices(transform=self.eye, vertices=get_component_indices(vertices, component_type=ComponentType.vertex), threshold=0.001)
         delete_history(self.eye)
         cmds.parent(self.eye, self.eye_stalk_group)
-        translate(self.eye_stalk_group, eye_stalk_position)
+        set_translation(self.eye_stalk_group, eye_stalk_position)
         cmds.parent(self.eye_stalk_group, self.face_plate)
-        rotate(nodes=self.face_plate, value=Point3(-self.dimensions.face_plate_angle, 0, 0), absolute=True)
+        set_rotation(nodes=self.face_plate, value=Point3(-self.dimensions.face_plate_angle, 0, 0), absolute=True)
 
     def _create_orbs(self, locators: bool = False):
         """
@@ -836,8 +836,8 @@ class DalekBuilder:
                                   height=self.dimensions.orb_height, subdivisions=2, base=False, select=False,
                                   construction_history=False)
         set_edge_softness(nodes=orb, angle=60)
-        rotate(orb, value=rotation)
-        translate(orb, value=position)
+        set_rotation(orb, value=rotation)
+        set_translation(orb, value=position)
         self.orbs.append(orb)
 
 

@@ -112,15 +112,12 @@ class Point3Pair:
         return info
 
     @property
-    def compact_repr(self) -> str:
-        return f'[{self.a.compact_repr}], [{self.b.compact_repr}]'
+    def base_center(self) -> Point3:
+        return Point3(self.midpoint.x, self.minimum.y, self.midpoint.z)
 
     @property
-    def length(self) -> float:
-        delta_x = self.b.x - self.a.x
-        delta_y = self.b.y - self.a.y
-        delta_z = self.b.z - self.a.z
-        return math.sqrt(sum(x ** 2 for x in (delta_x, delta_y, delta_z)))
+    def compact_repr(self) -> str:
+        return f'[{self.a.compact_repr}], [{self.b.compact_repr}]'
 
     @property
     def delta(self) -> Point3:
@@ -131,16 +128,29 @@ class Point3Pair:
         return sum(self.a.values[i] * self.b.values[i] for i in range(3))
 
     @property
-    def midpoint(self) -> Point3:
-        return Point3(*[(self.a.values[i] + self.b.values[i]) / 2 for i in range(3)])
-
-    @property
-    def minimum(self) -> Point3:
-        return Point3(*[min(self.a.values[i], self.b.values[i]) for i in range(3)])
+    def length(self) -> float:
+        delta_x = self.b.x - self.a.x
+        delta_y = self.b.y - self.a.y
+        delta_z = self.b.z - self.a.z
+        return math.sqrt(sum(x ** 2 for x in (delta_x, delta_y, delta_z)))
 
     @property
     def maximum(self) -> Point3:
         return Point3(*[max(self.a.values[i], self.b.values[i]) for i in range(3)])
+
+    @property
+    def midpoint(self) -> Point3:
+        return Point3(*[(self.a.values[i] + self.b.values[i]) / 2 for i in range(3)])
+
+    @property
+    def min_max_vector(self) -> Point3:
+        """The vector from the minimum to the maximum point."""
+        vector = Point3(*[self.maximum.values[i] - self.minimum.values[i] for i in range(3)])
+        return Point3(*[vector.values[i] / vector.magnitude for i in range(3)])
+
+    @property
+    def minimum(self) -> Point3:
+        return Point3(*[min(self.a.values[i], self.b.values[i]) for i in range(3)])
 
     @property
     def size(self) -> float:
@@ -167,6 +177,8 @@ class Point3Pair:
         return True
 
 
+
+
 POINT2_ORIGIN: Point2 = Point2(0.0, 0.0)
 POINT3_ORIGIN: Point3 = Point3(0.0, 0.0, 0.0)
 X_AXIS: Point3 = Point3(1.0, 0.0, 0.0)
@@ -177,6 +189,11 @@ NEGATIVE_Y_AXIS: Point3 = Point3(0.0, -1.0, 0.0)
 NEGATIVE_Z_AXIS: Point3 = Point3(0.0, 0.0, -1.0)
 
 if __name__ == '__main__':
-    point3_pair = Point3Pair(Point3(1.0, 0.0, 2.0), Point3(0.0, 1.0, 0.0))
-    print(point3_pair.minimum)
-    print(point3_pair.maximum)
+    point3_pair = Point3Pair(Point3(0.0, 0.0, 0.0), Point3(0.0, 1.0, 10.0))
+    # print(point3_pair.minimum)
+    # print(point3_pair.maximum)
+    # print(Point3Pair(0, 10, 3).normalized)
+    min_max_vector = point3_pair.min_max_vector
+    print(min_max_vector)
+    print(Point3Pair(min_max_vector, X_AXIS).dot_product)
+    print(Point3Pair(min_max_vector, Z_AXIS).dot_product)

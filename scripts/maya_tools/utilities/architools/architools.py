@@ -1,7 +1,6 @@
 # Staircase Creator Tool
 
-import contextlib
-
+from maya import cmds
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QDoubleSpinBox
 
@@ -14,17 +13,15 @@ from widgets.button_bar import ButtonBar
 from widgets.form_widget import FormWidget
 from widgets.generic_widget import GenericWidget
 
-with contextlib.suppress(ImportError):
-    from maya import cmds
-    from maya_tools import helpers, node_utils
-    from maya_tools.utilities.arch_tools import door_creator, LOCATOR_COLOR, staircase_creator
+from maya_tools import helpers, node_utils
+from maya_tools.utilities.architools import door_creator, LOCATOR_COLOR, staircase_creator
 
-TOOL_NAME = "Arch Tools"
+TOOL_NAME = "Architools"
 VERSIONS = Versions(versions=[
     VersionInfo(name=TOOL_NAME, version="0.0.1", codename="hawk", info="first_release")])
 
 
-class ArchTools(GenericWidget):
+class Architools(GenericWidget):
     auto_texture_check_box_state = "auto_texture_check_box_state"
     locator_size = 10.0
 
@@ -35,13 +32,14 @@ class ArchTools(GenericWidget):
         buttons.add_icon_button(
             icon_path=image_path("edit.png"), tool_tip="Edit Stairs", clicked=self.edit_button_clicked)
         general_form: FormWidget = self.add_group_box(FormWidget(title="General Attributes"))
-        self.axis_combo_box = general_form.add_combo_box(label="Axis", items=("x", "z"), default_index=1)
-        self.angle_input = general_form.add_float_field(label="Angle", default_value=0.0, minimum=-180.0, maximum=180.0)
+        self.skirt_thickness_input: QDoubleSpinBox = general_form.add_float_field(
+            label="Skirt Thickness", default_value=2.0, minimum=0.5, maximum=5.0, step=0.1)
         self.auto_texture_check_box = general_form.add_check_box(
             label="Auto-texture", tool_tip="Apply checker texture")
         self.staircase_form: FormWidget = self.add_group_box(FormWidget(title="Staircase Creator"))
         self.rise_input = self.staircase_form.add_float_field(
             label="Target rise", default_value=20.0, minimum=1.0, maximum=200.0, step=1.0)
+        self.axis_combo_box = self.staircase_form.add_combo_box(label="Axis", items=("x", "z"), default_index=1)
         self.staircase_form.add_button(
             label="Create Staircase Locators",
             tool_tip="Create Staircase Locators",
@@ -49,13 +47,12 @@ class ArchTools(GenericWidget):
         self.staircase_form.add_button(
             label="Create Stairs", clicked=self.stairs_button_clicked, tool_tip="Create Stairs")
         self.door_form: FormWidget = self.add_group_box(FormWidget(title="Door Creator"))
-        self.door_trim_thickness: QDoubleSpinBox = self.door_form.add_float_field(
-            label="Trim Thickness", default_value=2.0, minimum=0.5, maximum=5.0, step=0.1)
-        self.door_skirt_input: QDoubleSpinBox = self.door_form.add_float_field(
-            label="Skirt Thickness", default_value=10.0, minimum=0.5, maximum=30.0, step=1.0)
+        self.door_frame_input: QDoubleSpinBox = self.door_form.add_float_field(
+            label="Frame Size", default_value=10.0, minimum=0.5, maximum=30.0, step=1.0)
         self.door_thickness_input: QDoubleSpinBox = self.door_form.add_float_field(
             label="Door Thickness", default_value=5.0, minimum=1.0, maximum=20.0, step=0.1)
-        self.door_form.add_check_box(label="Left/Right")
+        self.door_form.add_combo_box(label="Left/Right", items=("Left", "Right"), default_index=0)
+        self.door_form.add_combo_box(label="Inside/Outside", items=("Inside", "Outside"), default_index=0)
         self.door_form.add_button(
             label="Create Door Locators", tool_tip="Create Door Locators", clicked=self.door_locators_button_clicked)
         self.door_form.add_button(
@@ -87,12 +84,12 @@ class ArchTools(GenericWidget):
         return self.door_thickness_input.value()
 
     @property
-    def door_skirt(self) -> float:
-        return self.door_skirt_input.value()
+    def frame_size(self) -> float:
+        return self.door_frame_input.value()
 
     @property
-    def door_trim(self) -> float:
-        return self.door_trim_thickness.value()
+    def skirt_thickness(self) -> float:
+        return self.skirt_thickness.value()
 
     @info.setter
     def info(self, value: str):
@@ -122,6 +119,7 @@ class ArchTools(GenericWidget):
         """Event for door button."""
         self.info = "Door button clicked"
         new_objects = []
+
         # now deal with any locators
         locators = helpers.get_selected_locators()
         if len(locators) == 0:
@@ -132,10 +130,10 @@ class ArchTools(GenericWidget):
             self.info = "Please select two locators."
             return
         try:
-            creator = door_creator.DoorCreator(trim=self.door_trim, skirt=self.door_skirt, door_thickness=self.door_thickness)
+            creator = door_creator.DoorCreator(skirt=self.skirt_thickness, frame=self.frame_size, door_depth=self.door_thickness)
             door = creator.create(auto_texture=self.auto_texture)
-            # self.info = f"Door created: {door}"
-            # new_objects.append(door)
+            self.info = f"Door created: {door}"
+            new_objects.append(door)
         except AssertionError as e:
             self.info = str(e)
         if new_objects:
@@ -186,6 +184,6 @@ if __name__ == "__main__":
     from PySide6.QtWidgets import QApplication
 
     app = QApplication()
-    tool = ArchTools()
+    tool = Architools()
     tool.show()
     app.exec_()

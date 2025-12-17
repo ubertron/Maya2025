@@ -5,11 +5,11 @@ import contextlib
 import logging
 from dataclasses import dataclass
 
-from core import color_classes, math_funcs
+from core import color_classes, math_utils
 from core.core_enums import Axis, DataType
 from core.logging_utils import get_logger
 from core.point_classes import Point3, Point3Pair, Y_AXIS
-from maya_tools.utilities.arch_tools import LOCATOR_COLOR
+from maya_tools.utilities.architools import LOCATOR_COLOR
 
 with contextlib.suppress(ImportError):
     from maya import cmds

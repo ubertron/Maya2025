@@ -3,7 +3,7 @@ from random import uniform
 from importlib import reload
 
 from core.point_classes import Point3, Y_AXIS
-from core.math_funcs import get_midpoint_from_point_list, vector_to_euler_angles, get_average_normal_from_points, dot_product
+from core.math_utils import get_midpoint_from_point_list, vector_to_euler_angles, get_average_normal_from_points, dot_product
 from typing import Sequence
 
 

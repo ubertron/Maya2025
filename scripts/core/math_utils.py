@@ -7,13 +7,38 @@ import pyperclip
 from typing import Sequence, Optional
 
 from core.point_classes import Point2, Point3, Point3Pair, Y_AXIS, X_AXIS, Z_AXIS, NEGATIVE_Y_AXIS, NEGATIVE_X_AXIS, \
-    NEGATIVE_Z_AXIS
+    NEGATIVE_Z_AXIS, POINT3_ORIGIN
 
 logging.basicConfig()
 logging.getLogger().setLevel(logging.DEBUG)
 
 
 IDENTITY_MATRIX: np.array = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+
+
+def calculate_size_with_y_offset(points: Point3Pair, y_offset: float) -> Point3:
+    """
+    Rotate a pair of points about the Y-axis (right-handed, Y-up), then calculate the size
+    Coordinate system (right-handed, Y-up). (i.e. Maya, Unity)
+
+    :param points: Point3Pair
+    :param y_offset: Rotation angle in degrees
+    :return: Size: Point3
+    """
+    ref_point = points.delta
+
+    # Convert degrees to radians
+    theta = math.radians(y_offset)
+
+    cos_t = math.cos(theta)
+    sin_t = math.sin(theta)
+
+    rotated = Point3(
+        ref_point.x * cos_t + ref_point.z * sin_t,
+        ref_point.y,
+        -ref_point.x * sin_t + ref_point.z * cos_t)
+
+    return Point3Pair(POINT3_ORIGIN, rotated).size
 
 
 def interpolate_linear(input_range: Point2, output_range: Point2, value: float) -> float:
@@ -327,8 +352,5 @@ def project_point_onto_plane(plane_position: Point3, unit_normal_vector: Point3,
 
 
 if __name__ == '__main__':
-    plane_pos: Point3 = Point3(0, 0, 0)
-    plane_normal: Point3 = Point3(0, 1, 0)
-    ref_point: Point3 = Point3(2, 1, 2)
-    projected = project_point_onto_plane(plane_position=plane_pos, unit_normal_vector=plane_normal, point=ref_point)
-    print(projected)
+    my_points = Point3Pair(POINT3_ORIGIN, Point3(4, 8, 1))
+    print(calculate_size_with_y_offset(points=my_points, y_offset=0))

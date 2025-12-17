@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import pyperclip
 from maya import cmds
 from typing import Optional, Union
 
 from core.logging_utils import get_logger
 from core.point_classes import Point2, Point3, Point3Pair
 from core.core_enums import ComponentType, Attributes, DataType
+from maya_tools.geometry_utils import get_vertex_position
 from maya_tools.maya_enums import ObjectType, MayaAttributes
-from maya_tools.display_utils import warning_message
+from maya_tools.display_utils import warning_message, in_view_message
 
 LOGGER = get_logger(__name__)
 TRANSFORMATION_ATTRS = MayaAttributes.transformation_attribute_names()
@@ -88,9 +90,9 @@ def align_transform_to_joint():
         return
 
     orientation = cmds.joint(joint, query=True, orientation=True)
-    position = get_translation(transform=joint, absolute=True)
-    translate(nodes=transform, value=position)
-    rotate(nodes=transform, value=Point3(*orientation))
+    position = get_translation(node=joint, absolute=True)
+    set_translation(nodes=transform, value=position)
+    set_rotation(nodes=transform, value=Point3(*orientation))
 
 
 def delete_pattern(pattern: str):
@@ -161,17 +163,71 @@ def get_all_root_transforms() -> list[str]:
     return [x for x in cmds.ls(transforms=True) if not cmds.listRelatives(x, parent=True)]
 
 
-def get_child_geometry(transform: str) -> list[str]:
+def get_bounds(node: Optional[str] = None, format_results: bool = False,
+               clipboard: bool = False) -> Point3Pair or None:
     """
-    Finds all the geometry objects that are within the descendants of a transform
-    :param transform:
+    Get the minimum and maximum points of the bounds of a transform
+    :param node:
+    :param format_results:
+    :param clipboard:
     :return:
     """
-    relatives = cmds.listRelatives(transform, allDescendents=True, type=ObjectType.transform.name, fullPath=True)
+    if not node:
+        node = get_transforms(first_only=True)
+
+    if node is None:
+        cmds.warning(f'Pass one valid transform: {node} [get_bounds]')
+        return None
+    else:
+        bounding_box = cmds.exactWorldBoundingBox(node)
+        bounds = Point3Pair(Point3(*bounding_box[:3]), Point3(*bounding_box[3:]))
+
+        if format_results:
+            in_view_message(f'{node} bounds: {bounds.compact_repr}', persist_time=5000)
+
+        if clipboard:
+            pyperclip.copy(str(bounds.values))
+
+        return bounds
+
+
+def get_child_geometry(node: str) -> list[str]:
+    """
+    Finds all the geometry objects that are within the descendants of a transform
+    :param node:
+    :return:
+    """
+    relatives = cmds.listRelatives(node, allDescendents=True, type=ObjectType.transform.name, fullPath=True)
     if relatives:
         transforms = [x for x in relatives]
         return [x for x in transforms if is_object_type(node=x, object_type=ObjectType.mesh)]
     return []
+
+
+def get_dimensions(node: Optional[str] = None, format_results: bool = False,
+                   clipboard: bool = False) -> Point3 or None:
+    """
+    Calculate the dimensions of a transform
+    :param node:
+    :param format_results:
+    :param clipboard:
+    """
+    if not node:
+        node = get_transforms(first_only=True)
+
+    if node is None:
+        cmds.warning(f'Pass one valid transform: {node} [get_dimensions]')
+        return None
+    else:
+        dimensions = get_bounds(node=node).delta
+
+        if format_results:
+            in_view_message(f'{node} dimensions: {dimensions.compact_repr}', persist_time=5000)
+
+        if clipboard:
+            pyperclip.copy(str(dimensions.values))
+
+        return dimensions
 
 
 def get_geometry() -> list[str]:
@@ -185,16 +241,16 @@ def get_geometry() -> list[str]:
     return geometry
 
 
-def get_hierarchy_depth(transform: str) -> int:
+def get_hierarchy_depth(node: str) -> int:
     """
     Finds the number of hierarchy levels from a root transform
-    :param transform:
+    :param node:
     :return:
     """
-    children = get_all_child_transforms(transform=transform, ordered=True, reverse=True)
+    children = get_all_child_transforms(transform=node, ordered=True, reverse=True)
 
     if children:
-        deepest_item = get_all_child_transforms(transform=transform, ordered=True, reverse=True)[0]
+        deepest_item = get_all_child_transforms(transform=node, ordered=True, reverse=True)[0]
         tokens = [x for x in deepest_item.split('|') if x != '']
 
         return len(tokens)
@@ -202,13 +258,13 @@ def get_hierarchy_depth(transform: str) -> int:
         return 1
 
 
-def get_immediate_children(transform: str) -> list[str]:
+def get_immediate_children(node: str) -> list[str]:
     """
     Finds the immediate children of a transform
-    :param transform:
+    :param node:
     :return:
     """
-    children = cmds.listRelatives(transform, children=True, fullPath=True)
+    children = cmds.listRelatives(node, children=True, fullPath=True)
     return children if children else []
 
 
@@ -323,12 +379,28 @@ def get_object_type(node: str) -> str | None:
             return ObjectType.locator
         else:
             shape = get_shape_from_transform(node=node)
+            print(f"{node} -> {shape}")
             object_type = cmds.objectType(shape)
             if object_type == ObjectType.mesh.name:
                 return ObjectType.geometry
             if object_type in ('pointLight', 'directionalLight', 'ambientLight'):
                 return ObjectType.light
     return None
+
+
+def get_points_from_selection() -> list[Point3]:
+    """Returns a list of points from locators and vertices in selection."""
+    points = []
+    for x in cmds.ls(selection=True, flatten=True):
+        object_type = cmds.objectType(x)
+        if object_type == ObjectType.mesh.name:
+            if ".vtx" in x:
+                node = x.split(".")[0]
+                index = int(x.split("[")[1].split("]")[0])
+                points.append(get_vertex_position(node=node, vertex_id=index))
+        elif is_locator(node=x):
+            points.append(get_translation(node=x, absolute=True))
+    return points
 
 
 def get_root_geometry_transforms():
@@ -345,13 +417,13 @@ def get_rotation(transform: str) -> Point3:
     return Point3(*cmds.getAttr(f'{transform}.rotate')[0])
 
 
-def get_scale(transform: str) -> Point3:
+def get_scale(node: str) -> Point3:
     """
     Get the scale of a transform
-    :param transform:
+    :param node:
     :return:
     """
-    return Point3(*cmds.getAttr(f'{transform}.scale')[0])
+    return Point3(*cmds.getAttr(f'{node}.scale')[0])
 
 
 def get_selected_geometry() -> list[str]:
@@ -414,26 +486,17 @@ def get_transform_from_shape(shape: str, full_path: bool = False) -> str or Fals
 
 
 def get_transforms(nodes=None, first_only: bool = False) -> list or str:
+    """
+    Gets the currently selected transform whether in object mode or component mode
+    :param nodes:
+    :param first_only:
+    :return:
+    """
     state = State()
     set_component_mode(ComponentType.object)
     selection = cmds.ls(nodes, tr=True) if nodes else cmds.ls(sl=True, tr=True)
     state.restore()
     return selection[0] if selection and first_only else selection
-
-
-def get_translation(transform: str, absolute: bool = False) -> Point3:
-    """
-    Get the translation of a transform
-    :param transform:
-    :param absolute: use xform to calculate translation in world space
-    :return:
-    """
-    if absolute:
-        translation = cmds.xform(transform, query=True, translation=True, worldSpace=True)
-    else:
-        translation = cmds.getAttr(f'{transform}.translate')[0]
-
-    return Point3(*translation)
 
 
 def get_top_node(node):
@@ -444,8 +507,21 @@ def get_top_node(node):
     """
     assert cmds.objExists(node), f'Node not found: {node}'
     parent = cmds.listRelatives(node, parent=True, fullPath=True)
-
     return node if parent is None else get_top_node(parent[0])
+
+
+def get_translation(node: str, absolute: bool = False) -> Point3:
+    """
+    Get the translation of a transform
+    :param node:
+    :param absolute: use xform to calculate translation in world space
+    :return:
+    """
+    if absolute:
+        translation = cmds.xform(node, query=True, translation=True, worldSpace=True)
+    else:
+        translation = cmds.getAttr(f'{node}.translate')[0]
+    return Point3(*translation)
 
 
 def get_type_from_transform(transform: str):
@@ -484,16 +560,6 @@ def is_locator(node: str) -> bool:
     return cmds.listRelatives(node, type=ObjectType.locator.name) is not None
 
 
-def is_nurbs_curve(node: str) -> bool:
-    """
-    Returns true if the supplied transform is a locator
-    :param node:
-    :return:
-    """
-    shape = get_shape_from_transform(node=node)
-    return cmds.objectType(shape) == ObjectType.nurbsCurve.name if shape else False
-
-
 def is_object_type(node: str, object_type: ObjectType):
     """
     Verifies an object type of a transform's corresponding shape node
@@ -510,10 +576,20 @@ def is_object_type(node: str, object_type: ObjectType):
         return cmds.objectType(shape) == object_type.name if shape else False
 
 
+def is_nurbs_curve(node: str) -> bool:
+    """
+    Returns true if the supplied transform is a locator
+    :param node:
+    :return:
+    """
+    shape = get_shape_from_transform(node=node)
+    return cmds.objectType(shape) == ObjectType.nurbsCurve.name if shape else False
+
+
 def is_staircase(node: str) -> bool:
     """Is node a staircase object.
 
-    staircase is a custom object defined in scripts/maya_tools/utilities/arch_tools/arch_tools.py
+    staircase is a custom object defined in scripts/maya_tools/utilities/architools/architools.py
     """
     return cmds.attributeQuery("custom_type", node=node, exists=True) and \
         cmds.getAttr(f"{node}.custom_type") == "staircase"
@@ -541,7 +617,7 @@ def match_rotation():
         warning_message(text='Select more than one node')
         return
     rotation = get_rotation(transform=transforms[-1])
-    rotate(nodes=transforms[:-1], value=rotation, absolute=True)
+    set_rotation(nodes=transforms[:-1], value=rotation, absolute=True)
 
 
 def match_translation():
@@ -552,15 +628,15 @@ def match_translation():
     if len(transforms) < 2:
         warning_message(text='Select more than one node')
         return
-    location: Point3 = get_translation(transform=transforms[-1], absolute=True)
-    translate(nodes=transforms[:-1], value=location, absolute=True)
+    location: Point3 = get_translation(node=transforms[-1], absolute=True)
+    set_translation(nodes=transforms[:-1], value=location, absolute=True)
 
 
 def move_to_last():
     """Move selected objects to the location of the last selected object."""
     transforms = cmds.ls(sl=True, tr=True)
     assert len(transforms) > 1, 'Select more than one node.'
-    location = get_translation(transform=transforms[-1], absolute=True)
+    location = get_translation(node=transforms[-1], absolute=True)
     for i in range(len(transforms) - 1):
         cmds.setAttr(f'{transforms[i]}.translate', *location.values, type=DataType.float3.name)
 
@@ -666,19 +742,9 @@ def restore_rotation(transform: str, value: Point3):
     :param transform:
     :param value:
     """
-    rotate(transform, Point3(*[-x for x in value.values]))
+    set_rotation(transform, Point3(*[-x for x in value.values]))
     cmds.makeIdentity(transform, apply=True, rotate=True)
-    rotate(transform, value)
-
-
-def rotate(nodes: Union[str, list[str]], value: Point3, absolute: bool = True):
-    """
-    Set the rotation of passed nodes
-    :param nodes:
-    :param value:
-    :param absolute:
-    """
-    cmds.rotate(*value.values, nodes, absolute=absolute)
+    set_rotation(transform, value)
 
 
 def scale(nodes: Union[str, list[str]], value: Point3, absolute: bool = True):
@@ -797,9 +863,28 @@ def set_pivot(nodes: Union[str, list[str]], value: Point3, reset: bool = False):
     """
     for node in cmds.ls(nodes):
         cmds.xform(node, worldSpace=True, pivots=value.values)
-
     if reset:
         reset_pivot(nodes)
+
+
+def set_rotation(nodes: Union[str, list[str]], value: Point3, absolute: bool = True):
+    """
+    Set the rotation of passed nodes
+    :param nodes:
+    :param value:
+    :param absolute:
+    """
+    cmds.rotate(*value.values, nodes, absolute=absolute)
+
+
+def set_translation(nodes: str | list[str], value: Point3, absolute: bool = True):
+    """
+    Set the translation of passed nodes
+    :param nodes:
+    :param value:
+    :param absolute:
+    """
+    cmds.move(*value.values, nodes, absolute=absolute)
 
 
 def sort_transforms_by_depth(transforms: list[str], reverse: bool = False) -> list[str]:
@@ -810,11 +895,10 @@ def sort_transforms_by_depth(transforms: list[str], reverse: bool = False) -> li
     """
     transform_list = cmds.ls(transforms, long=True)
     transform_list.sort(key=lambda x: len(x.split('|')), reverse=reverse)
-
     return transform_list
 
 
-def super_reset(nodes=None):
+def super_reset(nodes: str | list | None = None):
     """
     Reset transformations, reset pivot and delete construction history
     @param nodes:
@@ -823,13 +907,3 @@ def super_reset(nodes=None):
     freeze_transformations(nodes=nodes)
     reset_pivot(nodes=nodes)
     delete_history(nodes=nodes)
-
-
-def translate(nodes: Union[str, list[str]], value: Point3, absolute: bool = True):
-    """
-    Set the translation of passed nodes
-    :param nodes:
-    :param value:
-    :param absolute:
-    """
-    cmds.move(*value.values, nodes, absolute=absolute)

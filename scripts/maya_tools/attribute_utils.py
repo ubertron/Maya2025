@@ -36,9 +36,12 @@ def add_enum_attribute(node: str, attr: str, values: list[str], default_index: i
     cmds.setAttr(f"{node}.{attr}", default_index)
 
 
-def add_compound_attribute(node: str, parent_attr: str, data_type: DataType, attrs: list[str]):
+def add_compound_attribute(node: str, parent_attr: str, data_type: DataType, attrs: list[str],
+                           default_values: Optional[Any] = None, read_only: bool = False) -> None:
     """
     Add a compound attribute to a DAG node
+    :param read_only:
+    :param default_values:
     :param node:
     :param parent_attr:
     :param data_type:
@@ -48,12 +51,18 @@ def add_compound_attribute(node: str, parent_attr: str, data_type: DataType, att
         DataType.double2: DataType.double,
         DataType.double3: DataType.double,
         DataType.float2: DataType.float,
-        DataType.float3: DataType.float
+        DataType.float3: DataType.float,
+        DataType.int2: DataType.int,
+        DataType.int3: DataType.int,
     }.get(data_type)
     assert data_type is not None, f'Data type not supported: {data_type}'
     cmds.addAttr(node, longName=parent_attr, attributeType=data_type.name)
     for attr in attrs:
         cmds.addAttr(node, longName=attr, attributeType=child_data_type.name, parent=parent_attr)
+    if default_values is not None:
+        cmds.setAttr(f"{node}.{parent_attr}", *default_values, type=data_type.name)
+    if read_only:
+        cmds.setAttr(f"{node}.{parent_attr}", lock=True)
 
 
 def set_attribute(node: str, attr: str, value: Union[int, float, str, Sequence], lock: bool = False):

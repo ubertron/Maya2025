@@ -188,7 +188,7 @@ def export_model_reference() -> Path or None:
     with UndoStack('export_model_reference'):
         # find all the geometry sub-children
         root_transform = get_root_transform(transforms[0])
-        child_geometry = get_child_geometry(transform=root_transform)
+        child_geometry = get_child_geometry(node=root_transform)
         sorted_geometry = sort_transforms_by_depth(transforms=child_geometry, reverse=True)
 
         # reparent to top group node and freeze transformations

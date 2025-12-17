@@ -3,6 +3,7 @@ import math
 from pathlib import Path
 from PIL import Image, ImageDraw
 
+from core import color_classes
 from core.color_classes import RGBColor
 from core.logging_utils import get_logger
 
@@ -11,8 +12,8 @@ LOGGER = get_logger(__name__)
 
 def create_checker(
         path: Path, size: int = 256, count: int = 8,
-        color1: RGBColor = RGBColor.white,
-        color2: tuple[int] = RGBColor.grey) -> Path:
+        color1: RGBColor = color_classes.WHITE,
+        color2: RGBColor = color_classes.GREY) -> Path:
     """Create checker texture."""
     square_size = math.floor(size / count)
     image = Image.new("RGB", (size, size), color1.values)
@@ -90,8 +91,8 @@ if __name__ == "__main__":
 
     # my_path = image_path("open.png")
     # resize_image(path=image_path("maya_large.png"), output_path=IMAGE_DIR / "maya.png", width=128, height=128, show=True)
-    # tint_image(path=image_path("browse_og.png"), output_path=IMAGE_DIR / "browse.png", rgb=RGBColor.LIGHT_GREY)
-    tint_image(path=image_path("arch.png"), output_path=image_path("arch.png"), rgb=RGBColor.light_grey)
-    # tint_image(path=Path("/Users/andrewdavis/Dropbox/Technology/Python3/Projects/Maya2025/images/icons/eye.png"), output_path=ICON_DIR / "format.png", rgb=RGBColor.LIGHT_GREY)
-    # tint_image(path=image_path("fingerprint.png"), output_path=ICON_DIR / "uuid.png", rgb=RGBColor.LIGHT_GREY)
+    # tint_image(path=image_path("browse_og.png"), output_path=IMAGE_DIR / "browse.png", rgb=color_classes.LIGHT_GREY)
+    tint_image(path=image_path("arch.png"), output_path=image_path("arch.png"), rgb=color_classes.LIGHT_GREY)
+    # tint_image(path=Path("/Users/andrewdavis/Dropbox/Technology/Python3/Projects/Maya2025/images/icons/eye.png"), output_path=ICON_DIR / "format.png", rgb=color_classes.LIGHT_GREY)
+    # tint_image(path=image_path("fingerprint.png"), output_path=ICON_DIR / "uuid.png", rgb=color_classes.LIGHT_GREY)
     # create_checker(path=Path("/Users/andrewdavis/Dropbox/Projects/Unity/Archive/SeventhStreet/Assets/Textures/checker.png"))

@@ -222,8 +222,8 @@ class Side(Enum):
     center = auto()
     top = auto()
     bottom = auto()
-    inside = auto()
-    outside = auto()
+    front = auto()
+    back = auto()
 
 
 @unique

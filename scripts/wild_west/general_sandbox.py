@@ -67,7 +67,14 @@ def print_paths():
         print(path)
 
 
+def print_numbers():
+    for i in range(4):
+        if 0 < i < 3:
+            print(i)
+
+
 if __name__ == '__main__':
     # type_counts = count_types_recursive(nested_data, key_to_count='type')
     # print(type_counts)
-    print_paths()
+    # print_paths()
+    print_numbers()
