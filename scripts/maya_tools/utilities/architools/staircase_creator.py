@@ -134,7 +134,7 @@ class StaircaseCreator:
 
         # reverse the staircase normals if the stairs are inside out
         tread_normal = geometry_utils.get_face_normal(node=stair_geometry, face_id=1)
-        dot_product = math_funcs.dot_product(vector_a=tread_normal, vector_b=Y_AXIS, normalize=True)
+        dot_product = math_utils.dot_product(vector_a=tread_normal, vector_b=Y_AXIS, normalize=True)
         if dot_product < 0.0:
             cmds.polyNormal(stair_geometry, normalMode=0, userNormalMode=0)
 
