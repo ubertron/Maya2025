@@ -75,6 +75,8 @@ class DoorCreator(ArchCreator):
     def create(self, auto_texture: bool = False) -> str:
         """Create the door geometry."""
         # create the door curves
+        if not self.data:
+            self.validate()
         for x in self.data.doorway_profile_points:
             LOGGER.debug(x)
         door_curves = [curve_utils.create_curve_from_points(points=self.data.doorway_profile_points, close=False,

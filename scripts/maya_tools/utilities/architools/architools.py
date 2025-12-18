@@ -18,7 +18,9 @@ from maya_tools.utilities.architools import door_creator, LOCATOR_COLOR, stairca
 
 TOOL_NAME = "Architools"
 VERSIONS = Versions(versions=[
-    VersionInfo(name=TOOL_NAME, version="0.0.1", codename="hawk", info="first_release")])
+    VersionInfo(name=TOOL_NAME, version="0.0.1", codename="hawk", info="first_release"),
+    VersionInfo(name=TOOL_NAME, version="0.0.2", codename="funky chicken", info="generics added"),
+])
 
 
 class Architools(GenericWidget):
@@ -49,10 +51,10 @@ class Architools(GenericWidget):
         self.door_form: FormWidget = self.add_group_box(FormWidget(title="Door Creator"))
         self.door_frame_input: QDoubleSpinBox = self.door_form.add_float_field(
             label="Frame Size", default_value=10.0, minimum=0.5, maximum=30.0, step=1.0)
-        self.door_thickness_input: QDoubleSpinBox = self.door_form.add_float_field(
-            label="Door Thickness", default_value=5.0, minimum=1.0, maximum=20.0, step=0.1)
-        self.door_form.add_combo_box(label="Left/Right", items=("Left", "Right"), default_index=0)
-        self.door_form.add_combo_box(label="Inside/Outside", items=("Inside", "Outside"), default_index=0)
+        self.door_depth_input: QDoubleSpinBox = self.door_form.add_float_field(
+            label="Door Depth", default_value=5.0, minimum=1.0, maximum=20.0, step=0.1)
+        self.door_form.add_combo_box(label="Hinge Side", items=("Left", "Right"), default_index=0)
+        self.door_form.add_combo_box(label="Opening Side", items=("Front", "Back"), default_index=0)
         self.door_form.add_button(
             label="Create Door Locators", tool_tip="Create Door Locators", clicked=self.door_locators_button_clicked)
         self.door_form.add_button(
@@ -80,8 +82,8 @@ class Architools(GenericWidget):
         return self.auto_texture_check_box.isChecked()
 
     @property
-    def door_thickness(self) -> float:
-        return self.door_thickness_input.value()
+    def door_depth(self) -> float:
+        return self.door_depth_input.value()
 
     @property
     def frame_size(self) -> float:
@@ -89,7 +91,7 @@ class Architools(GenericWidget):
 
     @property
     def skirt_thickness(self) -> float:
-        return self.skirt_thickness.value()
+        return self.skirt_thickness_input.value()
 
     @info.setter
     def info(self, value: str):
@@ -115,7 +117,24 @@ class Architools(GenericWidget):
             locators.append(helpers.create_locator(position=position, name=f"door_locator{i}", size=self.locator_size, color=LOCATOR_COLOR))
         cmds.select(locators)
 
+
     def door_button_clicked(self):
+        """Event for door button."""
+        self.info = "Door button clicked"
+        new_objects = []
+        try:
+            creator = door_creator.DoorCreator(skirt=self.skirt_thickness, frame=self.frame_size,
+                                               door_depth=self.door_depth)
+            door = creator.create(auto_texture=self.auto_texture)
+            self.info = f"Door created: {door}"
+            new_objects.append(door)
+        except AssertionError as e:
+            self.info = str(e)
+
+        if new_objects:
+            cmds.select(new_objects)
+
+    def door_button_clicked_(self):
         """Event for door button."""
         self.info = "Door button clicked"
         new_objects = []
@@ -130,7 +149,7 @@ class Architools(GenericWidget):
             self.info = "Please select two locators."
             return
         try:
-            creator = door_creator.DoorCreator(skirt=self.skirt_thickness, frame=self.frame_size, door_depth=self.door_thickness)
+            creator = door_creator.DoorCreator(skirt=self.skirt_thickness, frame=self.frame_size, door_depth=self.door_depth)
             door = creator.create(auto_texture=self.auto_texture)
             self.info = f"Door created: {door}"
             new_objects.append(door)
