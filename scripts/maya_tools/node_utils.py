@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import pyperclip
+
 from maya import cmds
 from typing import Optional, Union
 
-from core.logging_utils import get_logger
-from core.point_classes import Point2, Point3, Point3Pair
+from core import math_utils
 from core.core_enums import ComponentType, Attributes, DataType
-from maya_tools.geometry_utils import get_vertex_position
-from maya_tools.maya_enums import ObjectType, MayaAttributes
+from core.logging_utils import get_logger
+from core.point_classes import Point2, Point3, Point3Pair, ZERO3
 from maya_tools.display_utils import warning_message, in_view_message
+from maya_tools.geometry_utils import get_vertices_from_edge, get_vertex_position, get_vertices_from_face
+from maya_tools.maya_enums import ObjectType, MayaAttributes
 
 LOGGER = get_logger(__name__)
 TRANSFORMATION_ATTRS = MayaAttributes.transformation_attribute_names()
@@ -95,7 +97,7 @@ def align_transform_to_joint():
     set_rotation(nodes=transform, value=Point3(*orientation))
 
 
-def delete_pattern(pattern: str):
+def delete(pattern: str):
     """Delete all transform nodes with the given pattern."""
     if cmds.ls(f"{pattern}*"):
         cmds.delete(f"{pattern}*")
@@ -163,10 +165,16 @@ def get_all_root_transforms() -> list[str]:
     return [x for x in cmds.ls(transforms=True) if not cmds.listRelatives(x, parent=True)]
 
 
+def get_base_center(node: str) -> Point3:
+    """Works out size respecting rotations."""
+    return get_bounds(node=node, check_rotations=True).base_center
+
+
 def get_bounds(node: Optional[str] = None, format_results: bool = False,
-               clipboard: bool = False) -> Point3Pair or None:
+               clipboard: bool = False, check_rotations: bool = False) -> Point3Pair or None:
     """
     Get the minimum and maximum points of the bounds of a transform
+    :param check_rotations:
     :param node:
     :param format_results:
     :param clipboard:
@@ -174,20 +182,22 @@ def get_bounds(node: Optional[str] = None, format_results: bool = False,
     """
     if not node:
         node = get_transforms(first_only=True)
-
     if node is None:
         cmds.warning(f'Pass one valid transform: {node} [get_bounds]')
         return None
     else:
+        rotation = None
+        if check_rotations:
+            rotation = get_rotation(node=node)
+            set_rotation(nodes=node, value=ZERO3)
         bounding_box = cmds.exactWorldBoundingBox(node)
         bounds = Point3Pair(Point3(*bounding_box[:3]), Point3(*bounding_box[3:]))
-
+        if check_rotations:
+            set_rotation(nodes=node, value=rotation)
         if format_results:
             in_view_message(f'{node} bounds: {bounds.compact_repr}', persist_time=5000)
-
         if clipboard:
             pyperclip.copy(str(bounds.values))
-
         return bounds
 
 
@@ -202,6 +212,30 @@ def get_child_geometry(node: str) -> list[str]:
         transforms = [x for x in relatives]
         return [x for x in transforms if is_object_type(node=x, object_type=ObjectType.mesh)]
     return []
+
+
+def get_component_mode() -> ComponentType or False:
+    """
+    Query the component mode
+    @return:
+    """
+    if cmds.selectMode(query=True, object=True):
+        return ComponentType.object
+    elif cmds.selectType(query=True, vertex=True):
+        return ComponentType.vertex
+    elif cmds.selectType(query=True, edge=True):
+        return ComponentType.edge
+    elif cmds.selectType(query=True, facet=True):
+        return ComponentType.face
+    elif cmds.selectType(query=True, polymeshUV=True):
+        return ComponentType.uv
+    else:
+        return False
+
+
+def get_cv_position(node: str, cv_id: int) -> Point3:
+    """Gets the position of a cv."""
+    return Point3(*cmds.pointPosition(f"{node}.cv[{cv_id}]"))
 
 
 def get_dimensions(node: Optional[str] = None, format_results: bool = False,
@@ -258,84 +292,6 @@ def get_hierarchy_depth(node: str) -> int:
         return 1
 
 
-def get_immediate_children(node: str) -> list[str]:
-    """
-    Finds the immediate children of a transform
-    :param node:
-    :return:
-    """
-    children = cmds.listRelatives(node, children=True, fullPath=True)
-    return children if children else []
-
-
-def get_locators() -> list[str]:
-    """
-    Find all the locators in the scene
-    :return:
-    """
-    locator_shapes = cmds.ls(exactType=ObjectType.locator.name, long=True)
-    return [get_transform_from_shape(shape) for shape in locator_shapes]
-
-
-def get_lock_states(node: str) -> dict[str, bool]:
-    """
-    Get the lock states of the transformation attributes
-    :param node:
-    :return: dict[str, bool]
-    """
-    lock_states = {}
-    for param in TRANSFORMATION_ATTRS:
-        lock_states[param] = cmds.getAttr(f"{node}.{param}", lock=True)
-    return lock_states
-
-
-def get_pivot_position(transform: str) -> Point3:
-    """
-    Get the position of the transform's pivot
-    :param transform:
-    :return:
-    """
-    return Point3(*cmds.xform(transform, query=True, worldSpace=True, rotatePivot=True))
-
-
-def get_root_transform(node: str):
-    """
-    Finds the top node in a hierarchy
-    :param node:
-    :return:
-    """
-    assert cmds.objExists(node), f'Transform not found: {node}'
-    parent = cmds.listRelatives(node, parent=True, fullPath=True)
-
-    return node if parent is None else get_root_transform(parent[0])
-
-
-def get_component_mode() -> ComponentType or False:
-    """
-    Query the component mode
-    @return:
-    """
-    if cmds.selectMode(query=True, object=True):
-        return ComponentType.object
-    elif cmds.selectType(query=True, vertex=True):
-        return ComponentType.vertex
-    elif cmds.selectType(query=True, edge=True):
-        return ComponentType.edge
-    elif cmds.selectType(query=True, facet=True):
-        return ComponentType.face
-    elif cmds.selectType(query=True, polymeshUV=True):
-        return ComponentType.uv
-    else:
-        return False
-
-
-def get_root_geometry_transforms():
-    """Get a list of the root transforms containing geometry."""
-    geometry = [x for x in get_transforms() if is_object_type(node=x, object_type=ObjectType.mesh)]
-    return geometry
-    # return list({get_root_transform(transform=x) for x in geometry})
-
-
 def get_hierarchy_path(transform: Optional[str] = None, full_path: bool = False) -> list[str] or False:
     """
     Get a list of the path of a transform from the world
@@ -371,6 +327,81 @@ def get_hierarchy_path(transform: Optional[str] = None, full_path: bool = False)
     return hierarchy[::-1]
 
 
+def get_immediate_children(node: str) -> list[str]:
+    """
+    Finds the immediate children of a transform
+    :param node:
+    :return:
+    """
+    children = cmds.listRelatives(node, children=True, fullPath=True)
+    return children if children else []
+
+
+def get_locators() -> list[str]:
+    """
+    Find all the locators in the scene
+    :return:
+    """
+    locator_shapes = cmds.ls(exactType=ObjectType.locator.name, long=True)
+    return [get_transform_from_shape(shape) for shape in locator_shapes]
+
+
+def get_lock_states(node: str) -> dict[str, bool]:
+    """
+    Get the lock states of the transformation attributes
+    :param node:
+    :return: dict[str, bool]
+    """
+    lock_states = {}
+    for param in TRANSFORMATION_ATTRS:
+        lock_states[param] = cmds.getAttr(f"{node}.{param}", lock=True)
+    return lock_states
+
+
+def get_object_component_dict(selection_list: list[str]) -> dict:
+    """Converts a selection list of components into a dictionary."""
+    dictionary = {}
+    for x in selection_list:
+        transform = x.split(".")[0]
+        component_type = {
+            "cv": ComponentType.cv,
+            "e": ComponentType.edge,
+            "f": ComponentType.face,
+            "map": ComponentType.uv,
+            "vtx": ComponentType.vertex,
+        }[x.split(".")[1].split("[")[0]]
+        idx = int(x.split("[")[1].split("]")[0])
+        if transform in dictionary:
+            if component_type in dictionary[transform]:
+                dictionary[transform][component_type].append(idx)
+            else:
+                dictionary[transform][component_type] = [idx]
+        else:
+            dictionary[transform] = {component_type: [idx]}
+    return dictionary
+
+
+def get_pivot_position(transform: str) -> Point3:
+    """
+    Get the position of the transform's pivot
+    :param transform:
+    :return:
+    """
+    return Point3(*cmds.xform(transform, query=True, worldSpace=True, rotatePivot=True))
+
+
+def get_root_transform(node: str):
+    """
+    Finds the top node in a hierarchy
+    :param node:
+    :return:
+    """
+    assert cmds.objExists(node), f'Transform not found: {node}'
+    parent = cmds.listRelatives(node, parent=True, fullPath=True)
+
+    return node if parent is None else get_root_transform(parent[0])
+
+
 def get_object_type(node: str) -> str | None:
     if cmds.objExists(node):
         if is_group_node(node=node):
@@ -394,10 +425,23 @@ def get_points_from_selection() -> list[Point3]:
     for x in cmds.ls(selection=True, flatten=True):
         object_type = cmds.objectType(x)
         if object_type == ObjectType.mesh.name:
+            node = x.split(".")[0]
+            index = int(x.split("[")[1].split("]")[0])
             if ".vtx" in x:
+                points.append(get_vertex_position(node=node, vertex_id=index))
+            elif ".f" in x:
+                vertices = get_vertices_from_face(node=node, face_id=index)
+                for vertex in vertices:
+                    points.append(get_vertex_position(node=node, vertex_id=vertex))
+            elif ".e" in x:
+                vertices = get_vertices_from_edge(node=node, edge_id=index)
+                for vertex in vertices:
+                    points.append(get_vertex_position(node=node, vertex_id=vertex))
+        if object_type == ObjectType.nurbsCurve:
+            if ".cv" in x:
                 node = x.split(".")[0]
                 index = int(x.split("[")[1].split("]")[0])
-                points.append(get_vertex_position(node=node, vertex_id=index))
+                points.append(get_cv_position(node=node, cv_id=index))
         elif is_locator(node=x):
             points.append(get_translation(node=x, absolute=True))
     return points
@@ -408,13 +452,13 @@ def get_root_geometry_transforms():
     return list({get_root_transform(node=x) for x in cmds.ls(type=ObjectType.mesh.name)})
 
 
-def get_rotation(transform: str) -> Point3:
+def get_rotation(node: str) -> Point3:
     """
     Get the rotation of a transform
-    :param transform:
+    :param node:
     :return:
     """
-    return Point3(*cmds.getAttr(f'{transform}.rotate')[0])
+    return Point3(*cmds.xform(node, query=True, rotation=True, worldSpace=True))
 
 
 def get_scale(node: str) -> Point3:
@@ -423,7 +467,7 @@ def get_scale(node: str) -> Point3:
     :param node:
     :return:
     """
-    return Point3(*cmds.getAttr(f'{node}.scale')[0])
+    return Point3(*cmds.xform(node, query=True, scale=True, worldSpace=True))
 
 
 def get_selected_geometry() -> list[str]:
@@ -450,10 +494,10 @@ def get_selected_transforms(first_only: bool = False, full_path: bool = False) -
     """
     state = State()
     set_component_mode(ComponentType.object)
-    selection = cmds.ls(sl=True, tr=True, long=full_path)
+    selection = cmds.ls(selection=True, transforms=True, long=full_path)
     state.restore()
     if selection:
-        return selection[0] if first_only and selection else selection
+        return selection[0] if first_only and selection else sorted(selection, key=lambda x: x.lower())
     else:
         return []
 
@@ -472,6 +516,22 @@ def get_shape_from_transform(node, full_path=False) -> str or None:
         return shape_list[0] if shape_list else None
     else:
         return None
+
+
+def get_size(node: str, check_rotations: bool = True) -> Point3:
+    """Works out size."""
+    return get_bounds(node=node, check_rotations=check_rotations).size
+
+
+def get_top_node(node):
+    """
+    Finds the top node in a hierarchy
+    :param node:
+    :return:
+    """
+    assert cmds.objExists(node), f'Node not found: {node}'
+    parent = cmds.listRelatives(node, parent=True, fullPath=True)
+    return node if parent is None else get_top_node(parent[0])
 
 
 def get_transform_from_shape(shape: str, full_path: bool = False) -> str or False:
@@ -497,17 +557,6 @@ def get_transforms(nodes=None, first_only: bool = False) -> list or str:
     selection = cmds.ls(nodes, tr=True) if nodes else cmds.ls(sl=True, tr=True)
     state.restore()
     return selection[0] if selection and first_only else selection
-
-
-def get_top_node(node):
-    """
-    Finds the top node in a hierarchy
-    :param node:
-    :return:
-    """
-    assert cmds.objExists(node), f'Node not found: {node}'
-    parent = cmds.listRelatives(node, parent=True, fullPath=True)
-    return node if parent is None else get_top_node(parent[0])
 
 
 def get_translation(node: str, absolute: bool = False) -> Point3:
@@ -616,7 +665,7 @@ def match_rotation():
     if len(transforms) < 2:
         warning_message(text='Select more than one node')
         return
-    rotation = get_rotation(transform=transforms[-1])
+    rotation = get_rotation(node=transforms[-1])
     set_rotation(nodes=transforms[:-1], value=rotation, absolute=True)
 
 

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from core.math_utils import interpolate_linear, get_midpoint_from_point_list, vector_to_euler_angles, get_normal_vector, \
     get_point_normal_angle_on_ellipse, get_point_position_on_ellipse
-from core.point_classes import Point3, Point2, POINT3_ORIGIN, POINT2_ORIGIN, Point3Pair, Z_AXIS, Y_AXIS, NEGATIVE_Z_AXIS
+from core.point_classes import Point3, Point2, ZERO3, ZERO2, Point3Pair, Z_AXIS, Y_AXIS, NEGATIVE_Z_AXIS
 from core.environment_utils import is_using_maya_python
 from core.core_enums import ComponentType, Axis
 
@@ -418,8 +418,8 @@ class DalekBuilder:
         """
         Build the body section out of curves
         """
-        self.pole = self.add_curve(name='pole', size=POINT2_ORIGIN, position=POINT3_ORIGIN)
-        self.base0 = self.add_curve(name='base0', size=self.dimensions.base_size, position=POINT3_ORIGIN)
+        self.pole = self.add_curve(name='pole', size=ZERO2, position=ZERO3)
+        self.base0 = self.add_curve(name='base0', size=self.dimensions.base_size, position=ZERO3)
         self.base1 = self.add_curve(name='base1', size=self.dimensions.base_size, position=self.dimensions.base_bevel_position)
         self.base2 = self.add_curve(name='base2', size=self.dimensions.base_top_size, position=self.dimensions.base_top_position)
         self.skirt0 = self.add_curve(name='skirt0', size=self.dimensions.skirt_size, position=self.dimensions.base_top_position, modify_skirt=True)
@@ -577,7 +577,7 @@ class DalekBuilder:
         gun_arm_base_height = 0.075
         self.gun_arm = cmds.polyCylinder(name='gun_arm', axis=Z_AXIS.values, subdivisionsAxis=12, height=gun_arm_base_height, radius=0.04)[0]
         set_translation(self.gun_arm, Point3(0, 0, gun_arm_base_height * 0.5))
-        set_pivot(self.gun_arm, value=POINT3_ORIGIN, reset=True)
+        set_pivot(self.gun_arm, value=ZERO3, reset=True)
         delete_faces(self.gun_arm, faces=get_faces_by_axis(self.gun_arm, axis=NEGATIVE_Z_AXIS))
         select_faces(self.gun_arm, faces=get_faces_by_axis(self.gun_arm, axis=Z_AXIS))
         cmds.polyExtrudeFacet(cmds.ls(sl=True), translateZ=0.025, offset=0.0125)
@@ -635,7 +635,7 @@ class DalekBuilder:
                                             height=self.dimensions.sucker_arm_length * 0.5,
                                             radius=self.dimensions.sucker_arm_diameter / 2)[0]
         set_pivot(self.sucker_arm, value=Point3(0, 0, -self.dimensions.sucker_arm_length * 0.25), reset=True)
-        set_translation(self.sucker_arm, value=POINT3_ORIGIN)
+        set_translation(self.sucker_arm, value=ZERO3)
         delete_faces(self.sucker_arm, faces=get_faces_by_axis(self.sucker_arm, axis=NEGATIVE_Z_AXIS))
         select_faces(self.sucker_arm, faces=get_faces_by_axis(self.sucker_arm, axis=Z_AXIS))
         cmds.polyExtrudeFacet(cmds.ls(sl=True), scaleX=0.5, scaleY=0.5, translateZ=self.dimensions.rim)
@@ -706,7 +706,7 @@ class DalekBuilder:
         top_edges = cmds.polyListComponentConversion(cmds.ls(sl=True), fromFace=True, toEdge=True)
         cmds.polyBevel(top_edges, offset=0.005)
         up_faces = get_faces_by_axis(transform=self.energy_dispenser_0, axis=Y_AXIS)
-        top_face = next(face for face in up_faces if len(get_vertices_from_face(transform=self.energy_dispenser_0, face_id=face)) > 4)
+        top_face = next(face for face in up_faces if len(get_vertices_from_face(node=self.energy_dispenser_0, face_id=face)) > 4)
         fix_cap(transform=self.energy_dispenser_0, face_id=top_face)
         set_edge_softness(self.energy_dispenser_0, angle=40)
         self.energy_dispenser_1 = cmds.duplicate(self.energy_dispenser_0, name='energy_dispenser_1')[0]

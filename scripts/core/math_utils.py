@@ -7,7 +7,7 @@ import pyperclip
 from typing import Sequence, Optional
 
 from core.point_classes import Point2, Point3, Point3Pair, Y_AXIS, X_AXIS, Z_AXIS, NEGATIVE_Y_AXIS, NEGATIVE_X_AXIS, \
-    NEGATIVE_Z_AXIS, POINT3_ORIGIN
+    NEGATIVE_Z_AXIS, ZERO3
 
 logging.basicConfig()
 logging.getLogger().setLevel(logging.DEBUG)
@@ -16,7 +16,7 @@ logging.getLogger().setLevel(logging.DEBUG)
 IDENTITY_MATRIX: np.array = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
 
 
-def calculate_size_with_y_offset(points: Point3Pair, y_offset: float) -> Point3:
+def calculate_bounds_with_y_offset(points: Point3Pair, y_offset: float) -> Point3Pair:
     """
     Rotate a pair of points about the Y-axis (right-handed, Y-up), then calculate the size
     Coordinate system (right-handed, Y-up). (i.e. Maya, Unity)
@@ -38,7 +38,43 @@ def calculate_size_with_y_offset(points: Point3Pair, y_offset: float) -> Point3:
         ref_point.y,
         -ref_point.x * sin_t + ref_point.z * cos_t)
 
-    return Point3Pair(POINT3_ORIGIN, rotated).size
+    return Point3Pair(ZERO3, rotated)
+
+
+def calculate_size_with_y_offset(points: Point3Pair, y_offset: float) -> Point3:
+    """
+    Rotate a pair of points about the Y-axis (right-handed, Y-up), then calculate the size
+    Coordinate system (right-handed, Y-up). (i.e. Maya, Unity)
+
+    :param points: Point3Pair
+    :param y_offset: Rotation angle in degrees
+    :return: Size: Point3
+    """
+    return calculate_bounds_with_y_offset(points=points, y_offset=y_offset).size
+
+
+def get_bounds_from_points(points: list[Point3], y_offset: float = 0.0) -> Point3Pair:
+    if y_offset:
+        rotated = []
+        for x in points:
+            rotated.append(rotate_point_about_y(point=x, y_rotation=y_offset))
+        points = rotated
+    minimum_point = Point3(*[min(point.values[i] for point in points) for i in range(3)])
+    maximum_point = Point3(*[max(point.values[i] for point in points) for i in range(3)])
+    return Point3Pair(minimum_point, maximum_point)
+
+
+def get_midpoint_from_point_list(points: Sequence[Point3]) -> Point3:
+    """
+    Gets the midpoint from a list of points
+    :param points:
+    :return:
+    """
+    x = sum(item.x for item in points) / len(points)
+    y = sum(item.y for item in points) / len(points)
+    z = sum(item.z for item in points) / len(points)
+
+    return Point3(x, y, z)
 
 
 def interpolate_linear(input_range: Point2, output_range: Point2, value: float) -> float:
@@ -55,19 +91,6 @@ def interpolate_linear(input_range: Point2, output_range: Point2, value: float) 
     mapped_value = output_range.x + output_size * coefficient
 
     return mapped_value
-
-
-def get_midpoint_from_point_list(points: Sequence[Point3]) -> Point3:
-    """
-    Gets the midpoint from a list of points
-    :param points:
-    :return:
-    """
-    x = sum(item.x for item in points) / len(points)
-    y = sum(item.y for item in points) / len(points)
-    z = sum(item.z for item in points) / len(points)
-
-    return Point3(x, y, z)
 
 
 def normalize_vector(input_vector: Point3):
@@ -123,24 +146,6 @@ def cross_product(vector_a: Point3, vector_b: Point3, normalize: bool = True):
     result = Point3(*np.cross(vector_a.values, vector_b.values))
 
     return normalize_vector(result) if normalize else result
-
-
-def vector_to_euler_angles(vector: Point3) -> Point3:
-    """
-    Converts a vector to Euler angles
-    Note, this is for Y up Maya right-handed coordinate system
-    The returned Point3 is of the form Point3(x, y, 0) with a zero z component
-    The x_angle tilts vector with respect to the Y-axis
-    The y-angle is determined as the angle of the Y-rotation the Z-axis, so the y-component is disregarded
-    The y-angle has to be signed and that is determined by the dot product with the X-axis
-    :param vector:
-    :return:
-    """
-    x_angle = angle_between_two_vectors(vector_a=vector, vector_b=Y_AXIS)
-    flattened_y = Point3(vector.x, 0, vector.z)
-    y_angle = angle_between_two_vectors(vector_a=flattened_y, vector_b=Z_AXIS, ref_axis=X_AXIS)
-
-    return Point3(radians_to_degrees(x_angle), radians_to_degrees(y_angle), 0)
 
 
 def get_normal_vector(a: Point3, b: Point3, c: Point3) -> Point3:
@@ -215,6 +220,32 @@ def flatten_matrix(matrix: np.array):
     return [x for y in matrix for x in y]
 
 
+def get_average_normal_from_points(points: Sequence[Point3]) -> Point3:
+    """
+    Finds the normal of the plane fitting a set of arbitrary points
+    :param points:
+    :return:
+    """
+    point_np_array = np.empty([3, len(points)])
+
+    for i in range(len(points)):
+        for j in range(3):
+            point_np_array[j][i] = points[i].values[j]
+
+    # Subtract out the centroid and take the SVD
+    singular_value_decomposition = np.linalg.svd(point_np_array - np.mean(point_np_array, axis=1, keepdims=True))
+
+    # Extract the left singular vectors
+    left = singular_value_decomposition[0]
+    normal = Point3(*left[:, -1])
+
+    # Flip if the Y axis is pointing down
+    if dot_product(Y_AXIS, normal) < 0:
+        normal = rotate_point(point=normal, axis=X_AXIS, theta=np.pi)
+
+    return normal
+
+
 def get_point_position_on_ellipse(degrees: float, ellipse_radius_pair: Point2) -> Point2:
     """
     Get the position of a point on an ellipse
@@ -268,69 +299,6 @@ def get_closest_position_on_line_to_point(point: Point3, line: Point3Pair) -> Po
     return Point3Pair(line.a, normalized_vector.multiply(scalar=dp)).sum
 
 
-def get_average_normal_from_points(points: Sequence[Point3]) -> Point3:
-    """
-    Finds the normal of the plane fitting a set of arbitrary points
-    :param points:
-    :return:
-    """
-    point_np_array = np.empty([3, len(points)])
-
-    for i in range(len(points)):
-        for j in range(3):
-            point_np_array[j][i] = points[i].values[j]
-
-    # Subtract out the centroid and take the SVD
-    singular_value_decomposition = np.linalg.svd(point_np_array - np.mean(point_np_array, axis=1, keepdims=True))
-
-    # Extract the left singular vectors
-    left = singular_value_decomposition[0]
-    normal = Point3(*left[:, -1])
-
-    # Flip if the Y axis is pointing down
-    if dot_product(Y_AXIS, normal) < 0:
-        normal = rotate_vector(vector=normal, axis=X_AXIS, theta=np.pi)
-
-    return normal
-
-
-def rotation_matrix(axis: Point3, theta: float) -> np.array:
-    """
-    Return the rotation matrix associated with counterclockwise rotation about
-    the given axis by theta radians.
-    """
-    axis = np.asarray(np.array(axis.values))
-    axis = axis / math.sqrt(np.dot(axis, axis))
-    a = math.cos(theta / 2.0)
-    b, c, d = -axis * math.sin(theta / 2.0)
-    aa, bb, cc, dd = a * a, b * b, c * c, d * d
-    bc, ad, ac, ab, bd, cd = b * c, a * d, a * c, a * b, b * d, c * d
-
-    return np.array([[aa + bb - cc - dd, 2 * (bc + ad), 2 * (bd - ac)],
-                     [2 * (bc - ad), aa + cc - bb - dd, 2 * (cd + ab)],
-                     [2 * (bd + ac), 2 * (cd - ab), aa + dd - bb - cc]])
-
-
-def rotate_vector(vector: Point3, axis: Point3, theta: float, algorithm: int = 0) -> Point3:
-    """
-    Rotates a vector about an axis
-    Both versions work, choose the algorithm
-    :param vector:
-    :param axis:
-    :param theta:
-    :param algorithm:
-    :return:
-    """
-    if algorithm:
-        matrix = expm(np.cross(np.eye(3), np.array(axis.values)/norm(np.array(axis.values)) * theta))
-    else:
-        matrix = rotation_matrix(axis=axis, theta=theta)
-
-    rotated = np.dot(matrix, np.array(vector.values))
-
-    return Point3(*rotated)
-
-
 def project_point_onto_plane(plane_position: Point3, unit_normal_vector: Point3, point: Point3) -> Point3:
     """
     https://stackoverflow.com/questions/9605556/how-to-project-a-point-onto-a-plane-in-3d
@@ -351,6 +319,86 @@ def project_point_onto_plane(plane_position: Point3, unit_normal_vector: Point3,
     return Point3Pair(projection_vector, point).delta
 
 
+def rotate_point(point: Point3, axis: Point3, theta: float, algorithm: bool = False) -> Point3:
+    """
+    Rotates a vector about an axis
+    Both versions work, choose the algorithm
+    :param point:
+    :param axis:
+    :param theta:
+    :param algorithm:
+    :return:
+    """
+    if algorithm:
+        matrix = expm(np.cross(np.eye(3), np.array(axis.values)/norm(np.array(axis.values)) * theta))
+    else:
+        matrix = rotation_matrix(axis=axis, theta=theta)
+
+    rotated = np.dot(matrix, np.array(point.values))
+
+    return Point3(*rotated)
+
+
+def rotate_point_about_y(point: Point3, y_rotation: float) -> Point3:
+    """
+    Rotates a 3D vector [x, y, z] around the y-axis using a right-hand coordinate system.
+
+    Args:
+        point (Point3): The input vector as [x, y, z].
+        y_rotation (float): The angle of rotation in degrees (counter-clockwise).
+
+    Returns:
+        Point3: The rotated vector as [x', y', z'].
+    """
+    # Convert angle from degrees to radians for math functions
+    angle_radians = math.radians(y_rotation)
+    cos_theta = math.cos(angle_radians)
+    sin_theta = math.sin(angle_radians)
+
+    # Apply the rotation matrix multiplication:
+    x_prime = point.x * cos_theta + point.z * sin_theta
+    y_prime = point.y
+    z_prime = -point.x * sin_theta + point.z * cos_theta
+
+    return Point3(x_prime, y_prime, z_prime)
+
+
+
+def rotation_matrix(axis: Point3, theta: float) -> np.array:
+    """
+    Return the rotation matrix associated with counterclockwise rotation about
+    the given axis by theta radians.
+    """
+    axis = np.asarray(np.array(axis.values))
+    axis = axis / math.sqrt(np.dot(axis, axis))
+    a = math.cos(theta / 2.0)
+    b, c, d = -axis * math.sin(theta / 2.0)
+    aa, bb, cc, dd = a * a, b * b, c * c, d * d
+    bc, ad, ac, ab, bd, cd = b * c, a * d, a * c, a * b, b * d, c * d
+
+    return np.array([[aa + bb - cc - dd, 2 * (bc + ad), 2 * (bd - ac)],
+                     [2 * (bc - ad), aa + cc - bb - dd, 2 * (cd + ab)],
+                     [2 * (bd + ac), 2 * (cd - ab), aa + dd - bb - cc]])
+
+
+def vector_to_euler_angles(vector: Point3) -> Point3:
+    """
+    Converts a vector to Euler angles
+    Note, this is for Y up Maya right-handed coordinate system
+    The returned Point3 is of the form Point3(x, y, 0) with a zero z component
+    The x_angle tilts vector with respect to the Y-axis
+    The y-angle is determined as the angle of the Y-rotation the Z-axis, so the y-component is disregarded
+    The y-angle has to be signed and that is determined by the dot product with the X-axis
+    :param vector:
+    :return:
+    """
+    x_angle = angle_between_two_vectors(vector_a=vector, vector_b=Y_AXIS)
+    flattened_y = Point3(vector.x, 0, vector.z)
+    y_angle = angle_between_two_vectors(vector_a=flattened_y, vector_b=Z_AXIS, ref_axis=X_AXIS)
+
+    return Point3(radians_to_degrees(x_angle), radians_to_degrees(y_angle), 0)
+
+
 if __name__ == '__main__':
-    my_points = Point3Pair(POINT3_ORIGIN, Point3(4, 8, 1))
+    my_points = Point3Pair(ZERO3, Point3(4, 8, 1))
     print(calculate_size_with_y_offset(points=my_points, y_offset=0))

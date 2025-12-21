@@ -21,7 +21,7 @@ DEBUG BLOCK END
 from core import DEVELOPER
 from core.core_enums import Axis
 from core.function_utils import get_lead_docstring_comment
-from core.point_classes import POINT3_ORIGIN
+from core.point_classes import ZERO3
 from maya_tools.character_utils import mirror_limbs, export_model_reference
 from maya_tools.display_utils import warning_message
 from maya_tools.helpers import get_midpoint_from_transform, create_locator, create_pivot_locators, auto_parent_locators
@@ -117,7 +117,7 @@ class RigBuilder(GridWidget):
         Event for create locator button
         """
         selection = cmds.ls(sl=True)
-        position = get_midpoint_from_transform(selection) if selection else POINT3_ORIGIN
+        position = get_midpoint_from_transform(selection) if selection else ZERO3
         locator = create_locator(position=position, size=self.current_size)
         set_component_mode(ComponentType.object)
         cmds.select(locator)

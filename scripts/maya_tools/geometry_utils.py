@@ -8,10 +8,12 @@ from dataclasses import dataclass
 from maya import cmds
 from typing import Optional, Sequence, Union
 
+from core.color_classes import RGBColor
 from core.core_enums import ComponentType, Axis
-from core.point_classes import Point3, Point3Pair, NEGATIVE_Y_AXIS, POINT3_ORIGIN
+from core.point_classes import Point3, Point3Pair, NEGATIVE_Y_AXIS, ZERO3
 from core import math_utils
 from core.math_utils import dot_product, normalize_vector, degrees_to_radians, get_midpoint_from_point_list
+from maya_tools.node_utils import get_shape_from_transform
 from maya_tools.scene_utils import message_script
 from maya_tools import display_utils, node_utils
 from maya_tools.maya_enums import ObjectType
@@ -26,7 +28,7 @@ def combine(transforms: list[str] | None = None, name: str = '', position: Optio
     if len(mesh_transforms) > 1:
         if not name:
             name = mesh_transforms[-1]
-        position = position if position else POINT3_ORIGIN
+        position = position if position else ZERO3
         parent = parent if parent else cmds.listRelatives(mesh_transforms[-1], parent=True)
         result = cmds.polyUnite(mesh_transforms, name=name, constructionHistory=history)[0]
         node_utils.set_pivot(result, value=position, reset=True)
@@ -165,7 +167,7 @@ def fix_cap(transform: str, face_id: int):
     :param transform:
     :param face_id:
     """
-    edges = get_edges_from_face(transform=transform, face_id=face_id)
+    edges = get_edges_from_face(node=transform, face_id=face_id)
     delete_faces(transform=transform, faces=face_id)
     select_edges(transform=transform, edges=edges)
     cmds.polyExtrudeEdge(cmds.ls(sl=True), scaleX=0.0, scaleY=0.0, scaleZ=0.0)
@@ -718,43 +720,42 @@ def delete_down_facing_faces(transform: str, tolerance_angle: float = 0.05):
         delete_faces(transform=transform, faces=down_facing)
 
 
-def get_vertices_from_face(transform: str, face_id: int, as_components: bool = False) -> list[int]:
+def get_vertices_from_face(node: str, face_id: int, as_components: bool = False) -> list[int]:
     """
     Gets the vertex ids from a face id
-    :param transform:
+    :param node:
     :param face_id:
     :param as_components:
     :return:
     """
-    vertices = cmds.polyListComponentConversion(f'{transform}.f[{face_id}]', fromFace=True, toVertex=True)
-
+    vertices = cmds.polyListComponentConversion(f'{node}.f[{face_id}]', fromFace=True, toVertex=True)
     return vertices if as_components else get_component_indices(
         component_list=vertices, component_type=ComponentType.vertex)
 
 
-def get_vertices_from_edge(transform: str, edge_id: int, as_components: bool = False) -> list[int]:
+def get_vertices_from_edge(node: str, edge_id: int, as_components: bool = False) -> list[int]:
     """
     Gets the vertex ids from an edge id
-    :param transform:
+    :param node:
     :param edge_id:
     :param as_components:
     :return:
     """
-    vertices = cmds.polyListComponentConversion(f'{transform}.e[{edge_id}]', fromEdge=True, toVertex=True)
+    vertices = cmds.polyListComponentConversion(f'{node}.e[{edge_id}]', fromEdge=True, toVertex=True)
 
     return vertices if as_components else get_component_indices(
         component_list=vertices, component_type=ComponentType.vertex)
 
 
-def get_edges_from_face(transform: str, face_id: int, as_components: bool = False) -> list[int]:
+def get_edges_from_face(node: str, face_id: int, as_components: bool = False) -> list[int]:
     """
     Gets the edge ids from a face id
-    :param transform:
+    :param node:
     :param face_id:
     :param as_components:
     :return:
     """
-    edges = cmds.polyListComponentConversion(f'{transform}.f[{face_id}]', fromFace=True, toEdge=True)
+    edges = cmds.polyListComponentConversion(f'{node}.f[{face_id}]', fromFace=True, toEdge=True)
     return edges if as_components else get_component_indices(component_list=edges, component_type=ComponentType.edge)
 
 
@@ -789,7 +790,7 @@ def filter_face_list_by_face_normal(transform: str, faces: list[int], axis: Poin
     return filtered
 
 
-def slice_faces(transform: str, faces: Sequence[int] = (), position: Point3 = POINT3_ORIGIN, axis: Axis = Axis.y):
+def slice_faces(transform: str, faces: Sequence[int] = (), position: Point3 = ZERO3, axis: Axis = Axis.y):
     """
     Slice selected faces using a cutting plane
     :param transform:
@@ -812,14 +813,14 @@ def get_face_above(transform: str, face_id: int) -> int or None:
     :param face_id:
     :return:
     """
-    edges = get_edges_from_face(transform=transform, face_id=face_id)
-    vertex_list = get_vertices_from_face(transform=transform, face_id=face_id)
+    edges = get_edges_from_face(node=transform, face_id=face_id)
+    vertex_list = get_vertices_from_face(node=transform, face_id=face_id)
     vertex_positions = {vertex_id: get_vertex_position(node=transform, vertex_id=vertex_id) for vertex_id in
                         vertex_list}
     edge_heights = {}
 
     for edge in edges:
-        a, b = get_vertices_from_edge(transform=transform, edge_id=edge)
+        a, b = get_vertices_from_edge(node=transform, edge_id=edge)
         edge_position = Point3Pair(vertex_positions[a], vertex_positions[b]).midpoint
         edge_heights[edge] = edge_position.y
 
@@ -1019,3 +1020,14 @@ def reverse_face_normals(transform: str, faces: list[int] or None = None):
         component_list = f'{transform}.f[*]'
 
     cmds.polyNormal(component_list, normalMode=3)
+
+
+def set_wireframe_color(node: str, color: RGBColor, shading: bool = True):
+    """Set the wireframe color."""
+    shape = node_utils.get_shape_from_transform(node=node)
+    cmds.setAttr(f"{shape}.overrideEnabled", 1)
+    cmds.setAttr(f"{shape}.overrideShading", 1 if shading else 0)
+    cmds.setAttr(f"{shape}.overrideRGBColors", 1)
+    cmds.setAttr(f"{shape}.overrideColorR", color.normalized[0])
+    cmds.setAttr(f"{shape}.overrideColorG", color.normalized[1])
+    cmds.setAttr(f"{shape}.overrideColorB", color.normalized[2])

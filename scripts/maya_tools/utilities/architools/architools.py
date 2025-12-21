@@ -16,6 +16,7 @@ from widgets.generic_widget import GenericWidget
 with contextlib.suppress(ImportError):
     from maya import cmds
     from maya_tools import helpers, node_utils
+    from maya_tools.utilities import boxy
     from maya_tools.utilities.architools import door_creator, LOCATOR_COLOR, staircase_creator, LOCATOR_SIZE
 
 TOOL_NAME = "Architools"
@@ -35,6 +36,8 @@ class Architools(GenericWidget):
         buttons: ButtonBar = self.add_widget(ButtonBar())
         buttons.add_icon_button(
             icon_path=image_path("edit.png"), tool_tip="Edit Stairs", clicked=self.edit_button_clicked)
+        buttons.add_icon_button(
+            icon_path=image_path("boxy.png"), tool_tip="Boxy Box", clicked=self.boxy_clicked)
         buttons.add_stretch()
         general_form: FormWidget = self.add_group_box(FormWidget(title="General Attributes"))
         self.skirt_thickness_input: QDoubleSpinBox = general_form.add_float_field(
@@ -67,6 +70,11 @@ class Architools(GenericWidget):
     def auto_texture_check_box_state_changed(self):
         """Event for auto_texture_check_box."""
         self.settings.setValue(self.auto_texture_check_box_state, self.auto_texture)
+
+    @staticmethod
+    def boxy_clicked():
+        """Event for boxy button."""
+        boxy.Boxy()
 
     def edit_button_clicked(self):
         """Event for edit button."""

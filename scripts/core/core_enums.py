@@ -49,13 +49,21 @@ class Axis(Enum):
 
 
 class ComponentType(Enum):
-    vertex = 'vertex'
+    cv = 'control vertex'
     edge = 'edge'
+    element = 'element'
     face = 'face'
     object = 'object'
-    vertex_face = 'vertex face'
-    element = 'element'
     uv = 'uv'
+    vertex = 'vertex'
+    vertex_face = 'vertex face'
+
+
+class CustomTypes(Enum):
+    boxy = auto()
+    door = auto()
+    staircase = auto()
+    window = auto()
 
 
 @unique

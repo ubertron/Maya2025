@@ -107,9 +107,13 @@ class Point3Pair:
     b: Point3
 
     def __repr__(self) -> str:
-        info = f'Position: {self.a}, {self.b}\nLength: {self.length:.3f}\nDelta: {self.delta}'
-        info += f'\nMidpoint: {self.midpoint}'
-        return info
+        return (
+            f'Position: {self.a}, {self.b}\n'
+            f'Length: {self.length:.3f}\n'
+            f'Delta: {self.delta}\n'
+            f'Midpoint: {self.midpoint}\n'
+            f'Size: {self.size}'
+        )
 
     @property
     def base_center(self) -> Point3:
@@ -177,16 +181,15 @@ class Point3Pair:
         return True
 
 
-
-
-POINT2_ORIGIN: Point2 = Point2(0.0, 0.0)
-POINT3_ORIGIN: Point3 = Point3(0.0, 0.0, 0.0)
+ZERO2: Point2 = Point2(0.0, 0.0)
+ZERO3: Point3 = Point3(0.0, 0.0, 0.0)
 X_AXIS: Point3 = Point3(1.0, 0.0, 0.0)
 Y_AXIS: Point3 = Point3(0.0, 1.0, 0.0)
 Z_AXIS: Point3 = Point3(0.0, 0.0, 1.0)
 NEGATIVE_X_AXIS: Point3 = Point3(-1.0, 0.0, 0.0)
 NEGATIVE_Y_AXIS: Point3 = Point3(0.0, -1.0, 0.0)
 NEGATIVE_Z_AXIS: Point3 = Point3(0.0, 0.0, -1.0)
+
 
 if __name__ == '__main__':
     point3_pair = Point3Pair(Point3(0.0, 0.0, 0.0), Point3(0.0, 1.0, 10.0))

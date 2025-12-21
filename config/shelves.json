@@ -48,6 +48,12 @@
                 "language": "python",
                 "tool_tip": "Get dimensions",
                 "script": "from maya_tools import helpers\nhelpers.get_dimensions(format_results=True, clipboard=True)"
+            },
+            "Boxy Box": {
+                "icon": "boxy.png",
+                "language": "python",
+                "tool_tip": "Boxy Box",
+                "script": "from maya_tools.utilities import boxy\nboxy.Boxy().create()"
             }
         },
         "AMS": {

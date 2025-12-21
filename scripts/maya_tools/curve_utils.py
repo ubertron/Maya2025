@@ -4,11 +4,11 @@ from maya import cmds
 from typing import Sequence, Optional
 
 from core.color_classes import RGBColor
-from core.point_classes import Point3, Point2
 from core.core_enums import Axis
+from core.point_classes import Point3, Point2
 from maya_tools import node_utils
-from maya_tools.maya_enums import ObjectType
 from maya_tools.helpers import create_locator
+from maya_tools.maya_enums import ObjectType
 
 
 def get_cvs(transform: Optional[str] = None, debug: bool = False, local: bool = False) -> list[Point3]:

@@ -1,18 +1,17 @@
 from __future__ import annotations
+
 import pyperclip
 
 from maya import cmds
-from typing import Optional
 
-from core.point_classes import Point3, Point3Pair
+from core.point_classes import Point3, Point3Pair, ZERO3
 from core.color_classes import RGBColor
 from core.core_enums import Axis
-from maya_tools import node_utils
+from maya_tools import display_utils, node_utils
 from maya_tools.geometry_utils import get_selected_vertices, get_vertex_position
 from maya_tools.node_utils import set_translation, is_locator, get_bounds
 from maya_tools.display_utils import in_view_message
 from maya_tools.undo_utils import UndoStack
-
 
 DEFAULT_SIZE: float = 10.0
 
@@ -22,7 +21,6 @@ def auto_parent_locators():
     Create a locator parented hierarchy based on selection order
     """
     locators = get_selected_locators()
-
     if len(locators) > 1:
         for i in range(0, len(locators) - 1):
             print(locators[i])
@@ -56,7 +54,6 @@ def create_pivot_locators(size: float = 1.0) -> list[str]:
         print('size here is ', size)
         locators = [create_locator(position=node_utils.get_pivot_position(x), size=size) \
                     for x in node_utils.get_selected_transforms()]
-
     return locators
 
 
@@ -117,20 +114,16 @@ def get_distance_between_two_transforms(format_result: bool = True):
     """
     transforms = cmds.ls(sl=True, tr=True)
     if len(transforms) == 2:
-        position_a = Point3(*cmds.getAttr(f'{transforms[0]}.translate')[0])
-        position_b = Point3(*cmds.getAttr(f'{transforms[1]}.translate')[0])
-        result = Point3Pair(a=position_a, b=position_b).length
-
+        result = Point3Pair(a=node_utils.get_translation(transforms[0]), b=node_utils.get_translation(transforms[1])).length
         if format_result:
-            print(f'Distance between {position_a} and {position_b} is {result}')
-
+            display_utils.info_message(f'Distance between {position_a} and {position_b} is {result}')
         return result
     else:
         cmds.warning('Please select two transforms.')
         return None
 
 
-def get_midpoint_from_transform(transform: Optional[str] = None, format_results: bool = False,
+def get_midpoint_from_transform(transform: str | None = None, format_results: bool = False,
                                 clipboard: bool = False) -> Point3 or None:
     """
     Calculate the midpoint of a transform
@@ -140,19 +133,15 @@ def get_midpoint_from_transform(transform: Optional[str] = None, format_results:
     """
     if not transform:
         transform = node_utils.get_transforms(first_only=True)
-
     if transform is None:
         cmds.warning(f'Pass one valid transform: {transform} [get_midpoint]')
         return None
     else:
         midpoint = get_bounds(node=transform).midpoint
-
         if format_results:
             in_view_message(f'{transform} midpoint: {midpoint.compact_repr}', persist_time=5000)
-
         if clipboard:
             pyperclip.copy(str(midpoint.values))
-
         return midpoint
 
 
@@ -183,6 +172,7 @@ def rename_selection(prefix: str, start_idx: int = 1, suffix: str = ''):
     """
     for idx, node in enumerate(cmds.ls(sl=True, tr=True)):
         cmds.rename(node, f'{prefix}{start_idx + idx}{suffix}')
+
 
 def zero_locator_rotations():
     selected = cmds.ls(sl=True)

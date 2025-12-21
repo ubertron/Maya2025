@@ -2,7 +2,7 @@ from maya import cmds
 from typing import Optional, Union
 
 from core.core_enums import Axis
-from core.point_classes import Point3, POINT3_ORIGIN
+from core.point_classes import Point3, ZERO3
 from maya_tools.node_utils import get_root_transform
 
 

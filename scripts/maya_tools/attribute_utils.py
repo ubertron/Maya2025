@@ -1,6 +1,9 @@
+from __future__ import annotations
+
+from enum import Enum, unique, auto
 from maya import cmds
 from typing import Any, Optional, Sequence, Union
-from enum import Enum, unique, auto
+
 from core.core_enums import DataType
 
 
@@ -63,6 +66,21 @@ def add_compound_attribute(node: str, parent_attr: str, data_type: DataType, att
         cmds.setAttr(f"{node}.{parent_attr}", *default_values, type=data_type.name)
     if read_only:
         cmds.setAttr(f"{node}.{parent_attr}", lock=True)
+
+
+def has_attribute(node: str, attr: str) -> bool:
+    """Queries if a node has an attribute."""
+    return cmds.attributeQuery(attr, node=node, exists=1)
+
+
+def get_attribute(node: str, attr: str) -> Any | False:
+    """Query the value of an attribute.
+
+    :param node:
+    :param attr:
+    :return: value or None
+    """
+    return cmds.getAttr(f"{node}.{attr}") if has_attribute(node=node, attr=attr) else None
 
 
 def set_attribute(node: str, attr: str, value: Union[int, float, str, Sequence], lock: bool = False):
