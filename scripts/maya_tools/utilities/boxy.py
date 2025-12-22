@@ -2,18 +2,18 @@
 
 https://docs.google.com/drawings/d/1-ZBwQI7VJAlBD0MT4IYBoy0yj76_p17w2ZN1HKV80KI
 """
-from enum import Enum, auto
 import logging
+from enum import Enum, auto
 
 from maya import cmds
 
 from core import color_classes, math_utils
-from core.core_enums import ComponentType, DataType, Side
-from core.point_classes import Point3, ZERO3, Point3Pair
+from core.core_enums import ComponentType, CustomType, DataType, Side
 from core.logging_utils import get_logger
+from core.point_classes import Point3, ZERO3
 from maya_tools import attribute_utils, geometry_utils, node_utils
-from maya_tools.node_utils import get_object_component_dict
 from maya_tools.maya_enums import ObjectType
+from maya_tools.node_utils import get_translation
 
 DEBUG_MODE = False
 DEFAULT_SIZE: float = 100.0
@@ -42,22 +42,93 @@ class Boxy:
         self.size = Point3(*[DEFAULT_SIZE for _ in range(3)])
         self.position = ZERO3
         self.rotation_y = 0.0
-        self.pivot = Side.bottom
+        self.pivot = Side.center
         self.selected_transforms = None
         self.original_selection = cmds.ls(selection=True, flatten=True)
-        self.selection = cmds.ls(selection=True, flatten=True)
+        self._init_selection()
         self._init_element_type_dict()
-        self.selected_transforms = node_utils.get_selected_transforms()
+        self.selected_transforms = [x for x in node_utils.get_selected_transforms() if not node_utils.is_boxy(x)]
 
     def __repr__(self):
         """Preview the analysis prior to creation."""
         return (
             f"Element types: {', '.join(x.name for x in self.element_types)}\n"
             f"Transforms: {', '.join(self.selected_transforms)}\n"
+            f"Selection: {', '.join(self.selection)}\n"
             f"Position: {self.position}\n"
             f"Rotation: {self.rotation_y}\n"
             f"Size: {self.size}\n"
         )
+
+    def _build(self):
+        """Build boxy box."""
+        height_base_line = -1 if self.pivot is Side.bottom else 1 if self.pivot is Side.top else 0
+        box = cmds.polyCube(name="boxy", width=self.size.x, height=self.size.y, depth=self.size.z,
+                            heightBaseline=height_base_line, constructionHistory=False)[0]
+        node_utils.set_translation(nodes=box, value=self.position, absolute=True)
+        rotation = Point3(0.0, self.rotation_y, 0.0)
+        node_utils.set_rotation(nodes=box, value=rotation, absolute=True)
+        geometry_utils.set_wireframe_color(node=box, color=color_classes.DEEP_GREEN, shading=False)
+        self.box = box
+        attribute_utils.add_attribute(
+            node=box, attr="custom_type", data_type=DataType.string, read_only=True, default_value=CustomType.boxy.name)
+        attribute_utils.add_compound_attribute(node=box, parent_attr="size", data_type=DataType.float3,
+                                               attrs=["x", "y", "z"], default_values=self.size.values, read_only=True)
+        return box
+
+    def _evaluate_for_multiple_selection(self):
+        """Set up boxy attributes for multiple nodes."""
+        bounds = node_utils.get_bounds_from_selection(self.selection)
+        self.position = {
+            Side.bottom: bounds.base_center,
+            Side.center: bounds.center,
+            Side.top: bounds.top_center,
+        }[self.pivot]
+        self.size = bounds.size
+
+    def _evaluate_for_single_selection(self, check_rotations: bool):
+        """Set up boxy attributes for a single node."""
+        self.rotation_y = node_utils.get_rotation(self.selected_transforms[0]).y
+        pivot = get_translation(self.selected_transforms[0])
+
+        # work out the size compensating for rotation
+        if self.components_only:
+            # get the bounds of locators/verts/cvs
+            points = node_utils.get_points_from_selection()
+            y_offset = -self.rotation_y if check_rotations else 0.0
+            bounds = math_utils.get_bounds_from_points(points=points, y_offset=y_offset, pivot=pivot)
+            self.size = bounds.size
+            position_pre_rotation = {
+                Side.bottom: bounds.base_center,
+                Side.center: bounds.center,
+                Side.top: bounds.top_center,
+            }[self.pivot]
+            self.position = math_utils.rotate_point_about_y(
+                point=position_pre_rotation, y_rotation=-y_offset, pivot=pivot)
+        else:
+            # get the bounds from the transform
+            bounds = node_utils.get_bounds(node=self.selected_transforms[0], check_rotations=check_rotations)
+            self.size = bounds.size
+            self.position = {
+                Side.bottom: bounds.base_center,
+                Side.center: bounds.center,
+                Side.top: bounds.top_center,
+            }[self.pivot]
+
+    def _init_selection(self):
+        """Initialize the selection. Convert any edges/faces to vertices."""
+        sanitized = []
+        selection = cmds.ls(selection=True, flatten=True)
+        for x in selection:
+            if ".e" in x:
+                vertices = cmds.ls(cmds.polyListComponentConversion(x, fromEdge=True, toVertex=True), flatten=True)
+                sanitized.extend(vertices)
+            elif ".f" in x:
+                faces = cmds.ls(cmds.polyListComponentConversion(x, fromFace=True, toVertex=True), flatten=True)
+                sanitized.extend(faces)
+            else:
+                sanitized.append(x)
+        self.selection = list(set(sanitized))
 
     @property
     def components_only(self) -> bool:
@@ -78,38 +149,19 @@ class Boxy:
     def element_types(self):
         return list(self.element_type_dict.keys())
 
-    def create(self, pivot: Side = Side.bottom, check_rotations: bool = True) -> str:
+    def create(self, pivot: Side = Side.center, check_rotations: bool = True) -> str:
         """Evaluate selection."""
+        assert pivot in (Side.center, Side.top, Side.bottom), f"Invalid pivot position: {pivot.name}"
+        self.pivot = pivot
         if ElementType.boxy in self.element_type_dict:
             for boxy_item in self.element_type_dict[ElementType.boxy]:
                 rebuild_boxy(node=boxy_item)
                 self.selection.remove(boxy_item)
         if len(self.selected_transforms) > 1:
-            # get bounds of all selected objects
-            bounding_box = cmds.exactWorldBoundingBox(self.selection)  # doesn't work properly with locators
-            # the bounds from that function get the bounding box of the locator representation, not what we want
-            # bounding_box = node_utils.get_bounds_from_selected(self.selection)
-            bounds = Point3Pair(Point3(*bounding_box[:3]), Point3(*bounding_box[3:]))
-            self.position = bounds.base_center if pivot is Side.bottom else bounds.midpoint
-            self.size = bounds.size
+            self._evaluate_for_multiple_selection()
         elif len(self.selected_transforms) == 1:
-            self.position = node_utils.get_translation(self.selected_transforms[0])
-            self.rotation_y = node_utils.get_rotation(self.selected_transforms[0]).y
-
-            # work out the size compensating for rotation
-            if self.components_only:
-                # get the bounds of locators/verts/cvs
-                points = node_utils.get_points_from_selection()
-                y_offset = -self.rotation_y if check_rotations else 0.0
-                bounds = math_utils.get_bounds_from_points(points=points, y_offset=y_offset)
-                self.size = bounds.size
-                # if self.two_locators_only:
-                #     self.position = bounds.base_center if pivot is Side.bottom else bounds.midpoint
-            else:
-                # get the bounds from the transform
-                self.size = node_utils.get_size(self.selected_transforms[0], check_rotations=check_rotations)
+            self._evaluate_for_single_selection(check_rotations=check_rotations)
         self._build()
-
 
     def _init_element_type_dict(self):
         """Initialize the selection type dict."""
@@ -128,31 +180,19 @@ class Boxy:
                     append_dict_list(element_type_dict, ElementType.boxy, x)
                 elif node_utils.is_locator(x):
                     append_dict_list(_dict=element_type_dict, key=ElementType.locator, value=x)
+                elif next((True for c in [".vtx", ".e", ".f"] if c in x), False):
+                    append_dict_list(_dict=element_type_dict, key=ElementType.vertex, value=x)
+                elif ".cv" in x:
+                    append_dict_list(_dict=element_type_dict, key=ElementType.cv, value=x)
                 elif node_utils.is_geometry(x):
                     append_dict_list(_dict=element_type_dict, key=ElementType.mesh, value=x)
                 elif node_utils.is_nurbs_curve(x):
                     append_dict_list(_dict=element_type_dict, key=ElementType.curve, value=x)
-                elif cmds.objectType(x) == ObjectType.mesh.name:
-                    append_dict_list(_dict=element_type_dict, key=ElementType.mesh, value=x)
                 elif cmds.objectType(x) == ObjectType.nurbsCurve.name:
                     append_dict_list(_dict=element_type_dict, key=ElementType.curve, value=x)
                 else:
                     append_dict_list(_dict=element_type_dict, key=ElementType.invalid, value=x)
         self._element_type_dict = element_type_dict
-
-    def _build(self):
-        """Build boxy box."""
-        box = cmds.polyCube(name="boxy", width=self.size.x, height=self.size.y, depth=self.size.z, heightBaseline=-1,
-                            constructionHistory=False)[0]
-        node_utils.set_translation(nodes=box, value=self.position, absolute=True)
-        node_utils.set_rotation(nodes=box, value=Point3(0.0, self.rotation_y, 0.0), absolute=True)
-        geometry_utils.set_wireframe_color(node=box, color=color_classes.DEEP_GREEN, shading=False)
-        self.box = box
-        attribute_utils.add_attribute(
-            node=box, attr="custom_type", data_type=DataType.string, read_only=True, default_value="boxy")
-        attribute_utils.add_compound_attribute(node=box, parent_attr="size", data_type=DataType.float3,
-                                               attrs=["x", "y", "z"], default_values=self.size.values, read_only=True)
-        return box
 
     @property
     def component_mode(self) -> ComponentType:

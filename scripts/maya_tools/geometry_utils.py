@@ -821,7 +821,7 @@ def get_face_above(transform: str, face_id: int) -> int or None:
 
     for edge in edges:
         a, b = get_vertices_from_edge(node=transform, edge_id=edge)
-        edge_position = Point3Pair(vertex_positions[a], vertex_positions[b]).midpoint
+        edge_position = Point3Pair(vertex_positions[a], vertex_positions[b]).center
         edge_heights[edge] = edge_position.y
 
     top_edge = max(edge_heights, key=edge_heights.get)

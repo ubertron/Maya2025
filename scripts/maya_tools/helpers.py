@@ -137,7 +137,7 @@ def get_midpoint_from_transform(transform: str | None = None, format_results: bo
         cmds.warning(f'Pass one valid transform: {transform} [get_midpoint]')
         return None
     else:
-        midpoint = get_bounds(node=transform).midpoint
+        midpoint = get_bounds(node=transform).center
         if format_results:
             in_view_message(f'{transform} midpoint: {midpoint.compact_repr}', persist_time=5000)
         if clipboard:

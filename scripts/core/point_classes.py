@@ -111,13 +111,13 @@ class Point3Pair:
             f'Position: {self.a}, {self.b}\n'
             f'Length: {self.length:.3f}\n'
             f'Delta: {self.delta}\n'
-            f'Midpoint: {self.midpoint}\n'
+            f'Midpoint: {self.center}\n'
             f'Size: {self.size}'
         )
 
     @property
     def base_center(self) -> Point3:
-        return Point3(self.midpoint.x, self.minimum.y, self.midpoint.z)
+        return Point3(self.center.x, self.minimum.y, self.center.z)
 
     @property
     def compact_repr(self) -> str:
@@ -143,7 +143,7 @@ class Point3Pair:
         return Point3(*[max(self.a.values[i], self.b.values[i]) for i in range(3)])
 
     @property
-    def midpoint(self) -> Point3:
+    def center(self) -> Point3:
         return Point3(*[(self.a.values[i] + self.b.values[i]) / 2 for i in range(3)])
 
     @property
@@ -163,6 +163,10 @@ class Point3Pair:
     @property
     def sum(self) -> Point3:
         return Point3(self.a.x + self.b.x, self.a.y + self.b.y, self.a.z + self.b.z)
+
+    @property
+    def top_center(self) -> Point3:
+        return Point3(self.center.x, self.maximum.y, self.center.z)
 
     def interpolate(self, value: float):
         """

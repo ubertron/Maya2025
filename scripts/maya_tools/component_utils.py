@@ -156,12 +156,12 @@ def planarize_vertices(transform: str, vertices: list[int], axis: Optional[Axis]
         elif position is Position.maximum:
             value = bounds.b.values[axis.value]
         else:
-            value = bounds.midpoint.values[axis.value]
+            value = bounds.center.values[axis.value]
 
         move_along_axis(component_list=component_list, axis=axis, value=value)
     else:
         axis: Point3 = get_average_normal_from_points(vertex_positions)
-        midpoint: Point3 = bounds.midpoint
+        midpoint: Point3 = bounds.center
 
         with UndoStack('setVertices'):
             for i in range(len(vertices)):

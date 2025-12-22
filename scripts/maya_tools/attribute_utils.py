@@ -68,6 +68,16 @@ def add_compound_attribute(node: str, parent_attr: str, data_type: DataType, att
         cmds.setAttr(f"{node}.{parent_attr}", lock=True)
 
 
+def delete_attribute(transform: str, attr: str):
+    """
+    Delete an attribute
+    :param transform:
+    :param attr:
+    """
+    cmds.setAttr(f'{transform}.{attr}', lock=False)
+    cmds.deleteAttr(f'{transform}.{attr}')
+
+
 def has_attribute(node: str, attr: str) -> bool:
     """Queries if a node has an attribute."""
     return cmds.attributeQuery(attr, node=node, exists=1)
@@ -99,16 +109,6 @@ def set_attribute(node: str, attr: str, value: Union[int, float, str, Sequence],
         cmds.setAttr(f'{node}.{attr}', value, type=attr_data.name, lock=lock)
     else:
         cmds.setAttr(f'{node}.{attr}', value, lock=lock)
-
-
-def delete_attribute(transform: str, attr: str):
-    """
-    Delete an attribute
-    :param transform:
-    :param attr:
-    """
-    cmds.setAttr(f'{transform}.{attr}', lock=False)
-    cmds.deleteAttr(f'{transform}.{attr}')
 
 
 if __name__ == '__main__':

@@ -146,43 +146,43 @@ class DoorData:
                 Point3(
                     self.door_frame_bounds.minimum.x,
                     self.door_frame_bounds.minimum.y,
-                    self.door_frame_bounds.midpoint.z
+                    self.door_frame_bounds.center.z
                 ),
                 Point3(
                     self.door_frame_bounds.minimum.x,
                     self.door_frame_bounds.maximum.y,
-                    self.door_frame_bounds.midpoint.z
+                    self.door_frame_bounds.center.z
                 ),
                 Point3(
                     self.door_frame_bounds.maximum.x,
                     self.door_frame_bounds.maximum.y,
-                    self.door_frame_bounds.midpoint.z
+                    self.door_frame_bounds.center.z
                 ),
                 Point3(
                     self.door_frame_bounds.maximum.x,
                     self.door_frame_bounds.minimum.y,
-                    self.door_frame_bounds.midpoint.z
+                    self.door_frame_bounds.center.z
                 )
             ]
         else:
             return [
                 Point3(
-                    self.door_frame_bounds.midpoint.x,
+                    self.door_frame_bounds.center.x,
                     self.door_frame_bounds.minimum.y,
                     self.door_frame_bounds.minimum.z
                 ),
                 Point3(
-                    self.door_frame_bounds.midpoint.x,
+                    self.door_frame_bounds.center.x,
                     self.door_frame_bounds.maximum.y,
                     self.door_frame_bounds.minimum.z
                 ),
                 Point3(
-                    self.door_frame_bounds.midpoint.x,
+                    self.door_frame_bounds.center.x,
                     self.door_frame_bounds.maximum.y,
                     self.door_frame_bounds.maximum.z
                 ),
                 Point3(
-                    self.door_frame_bounds.midpoint.x,
+                    self.door_frame_bounds.center.x,
                     self.door_frame_bounds.minimum.y,
                     self.door_frame_bounds.maximum.z
                 )

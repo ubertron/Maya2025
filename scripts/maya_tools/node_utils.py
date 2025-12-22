@@ -6,11 +6,11 @@ from maya import cmds
 from typing import Optional, Union
 
 from core import math_utils
-from core.core_enums import ComponentType, Attributes, DataType
+from core.core_enums import ComponentType, Attributes, DataType, CustomType
 from core.logging_utils import get_logger
 from core.point_classes import Point2, Point3, Point3Pair, ZERO3
+from maya_tools import attribute_utils
 from maya_tools.display_utils import warning_message, in_view_message
-from maya_tools.geometry_utils import get_vertices_from_edge, get_vertex_position, get_vertices_from_face
 from maya_tools.maya_enums import ObjectType, MayaAttributes
 
 LOGGER = get_logger(__name__)
@@ -199,6 +199,28 @@ def get_bounds(node: Optional[str] = None, format_results: bool = False,
         if clipboard:
             pyperclip.copy(str(bounds.values))
         return bounds
+
+
+def get_bounds_from_selection(selection_list: list | None = None) -> list[str]:
+    """Get bounds from selection accounting for locators."""
+    selection = cmds.ls(*selection_list) if selection_list else cmds.ls(selection=True)
+    locators = [x for x in selection if is_locator(x)]
+    for locator in locators:
+        selection.remove(locator)
+    locator_points = [get_translation(x) for x in locators]
+    if locator_points:
+        locator_bounds = math_utils.get_bounds_from_points(points=locator_points)
+    else:
+        locator_bounds = None
+    bounding_box = cmds.exactWorldBoundingBox(selection) if selection else None
+    if bounding_box:
+        selection_bounds = Point3Pair(Point3(*bounding_box[:3]), Point3(*bounding_box[3:]))
+        if locator_bounds:
+            minimum_point = Point3Pair(locator_bounds, selection_bounds).minimum
+            maximum_point = Point3Pair(locator_bounds, selection_bounds).maximum
+            return Point3Pair(minimum_point, maximum_point)
+        return selection_bounds
+    return locator_bounds
 
 
 def get_child_geometry(node: str) -> list[str]:
@@ -421,6 +443,7 @@ def get_object_type(node: str) -> str | None:
 
 def get_points_from_selection() -> list[Point3]:
     """Returns a list of points from locators and vertices in selection."""
+    from maya_tools.geometry_utils import get_vertex_position, get_vertices_from_edge, get_vertices_from_face
     points = []
     for x in cmds.ls(selection=True, flatten=True):
         object_type = cmds.objectType(x)
@@ -580,6 +603,10 @@ def get_type_from_transform(transform: str):
     :return:
     """
     return cmds.objectType(get_shape_from_transform(node=transform))
+
+
+def is_boxy(node: str) -> bool:
+    return attribute_utils.get_attribute(node=node, attr="custom_type") == CustomType.boxy.name
 
 
 def is_geometry(node: str) -> bool:

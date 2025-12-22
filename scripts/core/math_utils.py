@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 import math
 import logging
@@ -53,14 +55,22 @@ def calculate_size_with_y_offset(points: Point3Pair, y_offset: float) -> Point3:
     return calculate_bounds_with_y_offset(points=points, y_offset=y_offset).size
 
 
-def get_bounds_from_points(points: list[Point3], y_offset: float = 0.0) -> Point3Pair:
-    if y_offset:
-        rotated = []
-        for x in points:
-            rotated.append(rotate_point_about_y(point=x, y_rotation=y_offset))
-        points = rotated
+def get_bounds_from_points(points: list[Point3], y_offset: float = 0.0, pivot: Point3 | None = None) -> Point3Pair:
+    """Get the bounds of a set of points.
+    :param pivot:
+    :param points: Point3
+    :param y_offset: Rotation angle in degrees
+    :return: Size: Point3"""
     minimum_point = Point3(*[min(point.values[i] for point in points) for i in range(3)])
     maximum_point = Point3(*[max(point.values[i] for point in points) for i in range(3)])
+    if y_offset:
+        # center = Point3Pair(minimum_point, maximum_point).center
+        rotated = []
+        for x in points:
+            rotated.append(rotate_point_about_y(point=x, y_rotation=y_offset, pivot=pivot))
+        points = rotated
+        minimum_point = Point3(*[min(point.values[i] for point in points) for i in range(3)])
+        maximum_point = Point3(*[max(point.values[i] for point in points) for i in range(3)])
     return Point3Pair(minimum_point, maximum_point)
 
 
@@ -339,29 +349,42 @@ def rotate_point(point: Point3, axis: Point3, theta: float, algorithm: bool = Fa
     return Point3(*rotated)
 
 
-def rotate_point_about_y(point: Point3, y_rotation: float) -> Point3:
+def rotate_point_about_y(point: Point3, y_rotation: float, pivot: Point3 = None) -> Point3:
     """
     Rotates a 3D vector [x, y, z] around the y-axis using a right-hand coordinate system.
 
     Args:
         point (Point3): The input vector as [x, y, z].
         y_rotation (float): The angle of rotation in degrees (counter-clockwise).
+        pivot (Point3, optional): The center of rotation. Defaults to (0, 0, 0).
 
     Returns:
         Point3: The rotated vector as [x', y', z'].
     """
-    # Convert angle from degrees to radians for math functions
+    # Default to origin if no center specified
+    if pivot is None:
+        pivot = Point3(0, 0, 0)
+
+    # Step 1: Translate point to origin (relative to rotation center)
+    translated_x = point.x - pivot.x
+    translated_y = point.y - pivot.y
+    translated_z = point.z - pivot.z
+
+    # Step 2: Rotate around origin
     angle_radians = math.radians(y_rotation)
     cos_theta = math.cos(angle_radians)
     sin_theta = math.sin(angle_radians)
 
-    # Apply the rotation matrix multiplication:
-    x_prime = point.x * cos_theta + point.z * sin_theta
-    y_prime = point.y
-    z_prime = -point.x * sin_theta + point.z * cos_theta
+    x_prime = translated_x * cos_theta + translated_z * sin_theta
+    y_prime = translated_y
+    z_prime = -translated_x * sin_theta + translated_z * cos_theta
 
-    return Point3(x_prime, y_prime, z_prime)
+    # Step 3: Translate back
+    final_x = x_prime + pivot.x
+    final_y = y_prime + pivot.y
+    final_z = z_prime + pivot.z
 
+    return Point3(final_x, final_y, final_z)
 
 
 def rotation_matrix(axis: Point3, theta: float) -> np.array:

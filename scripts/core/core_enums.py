@@ -59,7 +59,7 @@ class ComponentType(Enum):
     vertex_face = 'vertex face'
 
 
-class CustomTypes(Enum):
+class CustomType(Enum):
     boxy = auto()
     door = auto()
     staircase = auto()
