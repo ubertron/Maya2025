@@ -432,7 +432,6 @@ def get_object_type(node: str) -> str | None:
             return ObjectType.locator
         else:
             shape = get_shape_from_transform(node=node)
-            print(f"{node} -> {shape}")
             object_type = cmds.objectType(shape)
             if object_type == ObjectType.mesh.name:
                 return ObjectType.geometry
@@ -950,7 +949,7 @@ def set_rotation(nodes: Union[str, list[str]], value: Point3, absolute: bool = T
     :param value:
     :param absolute:
     """
-    cmds.rotate(*value.values, nodes, absolute=absolute)
+    cmds.xform(nodes, worldSpace=absolute, rotation=value.values)
 
 
 def set_translation(nodes: str | list[str], value: Point3, absolute: bool = True):
