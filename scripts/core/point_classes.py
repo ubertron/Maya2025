@@ -108,7 +108,7 @@ class Point3Pair:
 
     def __repr__(self) -> str:
         return (
-            f'Position: {self.a}, {self.b}\n'
+            f'Position: a- {self.a}, b- {self.b}\n'
             f'Length: {self.length:.3f}\n'
             f'Delta: {self.delta}\n'
             f'Midpoint: {self.center}\n'

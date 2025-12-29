@@ -2,22 +2,48 @@
 
 https://docs.google.com/drawings/d/1-ZBwQI7VJAlBD0MT4IYBoy0yj76_p17w2ZN1HKV80KI
 """
+from __future__ import annotations
+
 import logging
+from dataclasses import dataclass
 from enum import Enum, auto
 
 from maya import cmds
 
 from core import color_classes, math_utils
+from core.color_classes import RGBColor
 from core.core_enums import ComponentType, CustomType, DataType, Side
 from core.logging_utils import get_logger
-from core.point_classes import Point3, ZERO3
+from core.point_classes import Point3, ZERO3, Point3Pair
 from maya_tools import attribute_utils, geometry_utils, node_utils
 from maya_tools.maya_enums import ObjectType
 from maya_tools.node_utils import get_translation
+from tests.validators import boxy_validator
 
 DEBUG_MODE = False
 DEFAULT_SIZE: float = 100.0
 LOGGER = get_logger(__name__, level=logging.DEBUG)
+
+
+@dataclass
+class BoxyData:
+    position: Point3
+    rotation: Point3
+    size: Point3
+    pivot: Side
+    color: RGBColor
+    name: str
+
+    @property
+    def dictionary(self) -> dict:
+        return {
+            "position": self.position.values,
+            "rotation": self.rotation.values,
+            "size": self.size.values,
+            "pivot": self.pivot.name,
+            "color": self.color.values,
+            "name": self.name,
+        }
 
 
 class ElementType(Enum):
@@ -43,6 +69,7 @@ class Boxy:
         self.position = ZERO3
         self.rotation_y = 0.0
         self.pivot = Side.center
+        self.color = color_classes.DEEP_GREEN
         self.selected_transforms = None
         self.original_selection = cmds.ls(selection=True, flatten=True)
         self._init_selection()
@@ -62,19 +89,15 @@ class Boxy:
 
     def _build(self):
         """Build boxy box."""
-        height_base_line = -1 if self.pivot is Side.bottom else 1 if self.pivot is Side.top else 0
-        box = cmds.polyCube(name="boxy", width=self.size.x, height=self.size.y, depth=self.size.z,
-                            heightBaseline=height_base_line, constructionHistory=False)[0]
-        node_utils.set_translation(nodes=box, value=self.position, absolute=True)
-        rotation = Point3(0.0, self.rotation_y, 0.0)
-        node_utils.set_rotation(nodes=box, value=rotation, absolute=True)
-        geometry_utils.set_wireframe_color(node=box, color=color_classes.DEEP_GREEN, shading=False)
-        self.box = box
-        attribute_utils.add_attribute(
-            node=box, attr="custom_type", data_type=DataType.string, read_only=True, default_value=CustomType.boxy.name)
-        attribute_utils.add_compound_attribute(node=box, parent_attr="size", data_type=DataType.float3,
-                                               attrs=["x", "y", "z"], default_values=self.size.values, read_only=True)
-        return box
+        boxy_data = BoxyData(
+            position=self.position,
+            rotation=Point3(0.0, self.rotation_y, 0.0),
+            size=self.size,
+            pivot=self.pivot,
+            color=color_classes.DEEP_GREEN,
+            name="boxy",
+        )
+        return build(boxy_data=boxy_data)
 
     def _evaluate_for_multiple_selection(self):
         """Set up boxy attributes for multiple nodes."""
@@ -89,22 +112,18 @@ class Boxy:
     def _evaluate_for_single_selection(self, check_rotations: bool):
         """Set up boxy attributes for a single node."""
         self.rotation_y = node_utils.get_rotation(self.selected_transforms[0]).y
-        pivot = get_translation(self.selected_transforms[0])
+        position = get_translation(self.selected_transforms[0])
 
         # work out the size compensating for rotation
         if self.components_only:
             # get the bounds of locators/verts/cvs
             points = node_utils.get_points_from_selection()
             y_offset = -self.rotation_y if check_rotations else 0.0
-            bounds = math_utils.get_bounds_from_points(points=points, y_offset=y_offset, pivot=pivot)
+            bounds = math_utils.get_bounds_from_points(points=points, y_offset=y_offset, pivot=position)
             self.size = bounds.size
-            position_pre_rotation = {
-                Side.bottom: bounds.base_center,
-                Side.center: bounds.center,
-                Side.top: bounds.top_center,
-            }[self.pivot]
+            position_pre_rotation = get_position_from_bounds(bounds=bounds, pivot=self.pivot)
             self.position = math_utils.rotate_point_about_y(
-                point=position_pre_rotation, y_rotation=-y_offset, pivot=pivot)
+                point=position_pre_rotation, y_rotation=-y_offset, pivot=position)
         else:
             # get the bounds from the transform
             bounds = node_utils.get_bounds(node=self.selected_transforms[0], check_rotations=check_rotations)
@@ -155,13 +174,14 @@ class Boxy:
         self.pivot = pivot
         if ElementType.boxy in self.element_type_dict:
             for boxy_item in self.element_type_dict[ElementType.boxy]:
-                rebuild_boxy(node=boxy_item)
+                rebuild(node=boxy_item, pivot=pivot, color=self.color)
                 self.selection.remove(boxy_item)
         if len(self.selected_transforms) > 1:
             self._evaluate_for_multiple_selection()
         elif len(self.selected_transforms) == 1:
             self._evaluate_for_single_selection(check_rotations=check_rotations)
-        self._build()
+        if len(self.selected_transforms):
+            self._build()
 
     def _init_element_type_dict(self):
         """Initialize the selection type dict."""
@@ -211,5 +231,68 @@ class Boxy:
         self._selected_transforms = value
 
 
-def rebuild_boxy(node: str):
-    print(f"Recalculating {node}")
+def build(boxy_data: BoxyData) -> str:
+    """Build boxy box."""
+    height_base_line = -1 if boxy_data.pivot is Side.bottom else 1 if boxy_data.pivot is Side.top else 0
+    box = cmds.polyCube(
+        name=boxy_data.name,
+        width=boxy_data.size.x, height=boxy_data.size.y, depth=boxy_data.size.z,
+        heightBaseline=height_base_line, constructionHistory=False)[0]
+    node_utils.set_translation(nodes=box, value=boxy_data.position, absolute=True)
+    node_utils.set_rotation(nodes=box, value=boxy_data.rotation, absolute=True)
+    geometry_utils.set_wireframe_color(node=box, color=boxy_data.color, shading=False)
+    attribute_utils.add_attribute(
+        node=box,
+        attr="custom_type",
+        data_type=DataType.string,
+        read_only=True,
+        default_value=CustomType.boxy.name)
+    attribute_utils.add_attribute(
+        node=box,
+        attr="pivot",
+        data_type=DataType.string,
+        read_only=True,
+        default_value=boxy_data.pivot.name)
+    attribute_utils.add_compound_attribute(
+        node=box,
+        parent_attr="size",
+        data_type=DataType.float3,
+        attrs=["x", "y", "z"],
+        default_values=boxy_data.size.values,
+        read_only=True)
+    return box
+
+
+def get_position_from_bounds(bounds: Point3Pair, pivot: Side) -> Point3:
+    """Get the position of a Boxy object from the bounds."""
+    assert pivot in (Side.bottom, Side.top, Side.center), f"Invalid pivot: {pivot}"
+    return {
+        Side.bottom: bounds.base_center,
+        Side.center: bounds.center,
+        Side.top: bounds.top_center,
+    }[pivot]
+
+
+def rebuild(node: str, pivot: Side | None = None, color: RGBColor | None = None) -> any:
+    """Rebuild a boxy node."""
+    result, issues = boxy_validator.test_selected_boxy(node=node)
+    if result is False:
+        print("Invalid boxy object")
+        print("\n".join(issues))
+        return False
+    pivot = pivot if pivot else Side[attribute_utils.get_attribute(node=node, attr="pivot")]
+    rotation = node_utils.get_rotation(node=node)
+    bounds: Point3Pair = node_utils.get_bounds(node=node, check_rotations=True)
+    position = get_position_from_bounds(bounds=bounds, pivot=pivot)
+    cmds.delete(node)
+    boxy_data = BoxyData(
+        position=position,
+        rotation=rotation,
+        size=bounds.size,
+        pivot=pivot,
+        color=color if color else color_classes.DEEP_GREEN,
+        name=node
+    )
+    boxy_object = build(boxy_data=boxy_data)
+    print(f"Boxy rebuilt: {boxy_object}")
+    return boxy_object
