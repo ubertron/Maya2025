@@ -17,6 +17,7 @@ from widgets.generic_widget import GenericWidget
 from widgets.grid_widget import GridWidget
 
 with contextlib.suppress(ImportError):
+    from maya import cmds
     from maya_tools.utilities.boxy import boxy
 
 TOOL_NAME = "Boxy Tool"
@@ -101,8 +102,18 @@ class BoxyTool(GenericWidget):
 
     def create_button_clicked(self):
         """Event for create button."""
+        selection = cmds.ls(selection=True)
         creator = boxy.Boxy(color=self.wireframe_color)
-        creator.create(pivot=self.pivot, inherit_rotations=self.inherit_rotations)
+        boxy_items = creator.create(pivot=self.pivot, inherit_rotations=self.inherit_rotations)
+        if len(boxy_items) == 0:
+            self.info = "No boxy objects created."
+            cmds.select(selection)
+        else:
+            if len(boxy_items) == 1:
+                self.info = f"Boxy object created: {boxy_items[0]}"
+            else:
+                self.info = f"Boxy objects created: {', '.join(boxy_items)}"
+            cmds.select(boxy_items)
 
     def pivot_combo_box_index_changed(self, arg):
         """Event for pivot combo box."""

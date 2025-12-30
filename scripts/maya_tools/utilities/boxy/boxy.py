@@ -84,11 +84,12 @@ class Boxy:
             f"Size: {self.size}\n"
         )
 
-    def _build(self):
+    def _build(self, inherit_rotations: bool = True):
         """Build boxy box."""
+        y_rotation = self.rotation_y if inherit_rotations else 0.0
         boxy_data = BoxyData(
             position=self.position,
-            rotation=Point3(0.0, self.rotation_y, 0.0),
+            rotation=Point3(0.0, y_rotation, 0.0),
             size=self.size,
             pivot=self.pivot,
             color=self.color,
@@ -110,7 +111,6 @@ class Boxy:
         """Set up boxy attributes for a single node."""
         self.rotation_y = node_utils.get_rotation(self.selected_transforms[0]).y
         position = get_translation(self.selected_transforms[0])
-
         # work out the size compensating for rotation
         if self.components_only:
             # get the bounds of locators/verts/cvs
@@ -165,7 +165,7 @@ class Boxy:
     def element_types(self):
         return list(self.element_type_dict.keys())
 
-    def create(self, pivot: Side = Side.center, inherit_rotations: bool = True) -> str:
+    def create(self, pivot: Side = Side.center, inherit_rotations: bool = True) -> list[str]:
         """Evaluate selection."""
         assert pivot in (Side.center, Side.top, Side.bottom), f"Invalid pivot position: {pivot.name}"
         self.pivot = pivot
@@ -179,10 +179,12 @@ class Boxy:
             self._evaluate_for_single_selection(inherit_rotations=inherit_rotations)
 
         # if only boxy items are selected, don't build because we've handled them already
-        num_boxy_items = len(self.element_type_dict.get(ElementType.boxy, []))
-        print(num_boxy_items, len(self.all_selected_transforms))
+        boxy_items = self.element_type_dict.get(ElementType.boxy, [])
+        num_boxy_items = len(boxy_items)
         if not (num_boxy_items and num_boxy_items == len(self.all_selected_transforms)):
-            self._build()
+            boxy_items.append(self._build(inherit_rotations=inherit_rotations))
+
+        return boxy_items
 
     def _init_element_type_dict(self):
         """Initialize the selection type dict."""
@@ -238,7 +240,7 @@ def build(boxy_data: BoxyData) -> str:
     box = cmds.polyCube(
         name=boxy_data.name,
         width=boxy_data.size.x, height=boxy_data.size.y, depth=boxy_data.size.z,
-        heightBaseline=height_base_line, constructionHistory=False)[0]
+        heightBaseline=height_base_line, constructionHistory=True)[0]
     node_utils.set_translation(nodes=box, value=boxy_data.position, absolute=True)
     node_utils.set_rotation(nodes=box, value=boxy_data.rotation, absolute=True)
     geometry_utils.set_wireframe_color(node=box, color=boxy_data.color, shading=False)
