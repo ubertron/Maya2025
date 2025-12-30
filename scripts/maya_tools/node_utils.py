@@ -167,38 +167,40 @@ def get_all_root_transforms() -> list[str]:
 
 def get_base_center(node: str) -> Point3:
     """Works out size respecting rotations."""
-    return get_bounds(node=node, check_rotations=True).base_center
+    return get_bounds(node=node, inherit_rotations=True).base_center
 
 
 def get_bounds(node: Optional[str] = None, format_results: bool = False,
-               clipboard: bool = False, check_rotations: bool = False) -> Point3Pair or None:
+               clipboard: bool = False, inherit_rotations: bool = False) -> Point3Pair or None:
     """
     Get the minimum and maximum points of the bounds of a transform
-    :param check_rotations:
+    :param inherit_rotations: reset rotation to zero prior to bounds calculation
     :param node:
     :param format_results:
     :param clipboard:
     :return:
     """
     if not node:
-        node = get_transforms(first_only=True)
-    if node is None:
-        cmds.warning(f'Pass one valid transform: {node} [get_bounds]')
-        return None
-    else:
-        rotation = None
-        if check_rotations:
-            rotation = get_rotation(node=node)
-            set_rotation(nodes=node, value=ZERO3)
-        bounding_box = cmds.exactWorldBoundingBox(node)
-        bounds = Point3Pair(Point3(*bounding_box[:3]), Point3(*bounding_box[3:]))
-        if check_rotations:
-            set_rotation(nodes=node, value=rotation)
-        if format_results:
-            in_view_message(f'{node} bounds: {bounds.compact_repr}', persist_time=5000)
-        if clipboard:
-            pyperclip.copy(str(bounds.values))
-        return bounds
+        transforms = get_selected_transforms()
+        assert len(transforms) == 1, "Select a single transform"
+        node = transforms[0]
+    pivot_position = get_translation(node=node, absolute=True)
+    rotation = get_rotation(node=node)
+    if inherit_rotations:
+        # center pivot and reset rotation
+        pivot_to_center(transform=node, reset=False)
+        set_rotation(nodes=node, value=ZERO3)
+    bounding_box = cmds.exactWorldBoundingBox(node)
+    bounds = Point3Pair(Point3(*bounding_box[:3]), Point3(*bounding_box[3:]))
+    if inherit_rotations:
+        # reset the rotation and pivot
+        set_rotation(nodes=node, value=rotation)
+        set_pivot(nodes=node, value=pivot_position, reset=False)
+    if format_results:
+        in_view_message(f'{node} bounds: {bounds.compact_repr}', persist_time=5000)
+    if clipboard:
+        pyperclip.copy(str(bounds.values))
+    return bounds
 
 
 def get_bounds_from_selection(selection_list: list | None = None) -> list[str]:
@@ -221,6 +223,12 @@ def get_bounds_from_selection(selection_list: list | None = None) -> list[str]:
             return Point3Pair(minimum_point, maximum_point)
         return selection_bounds
     return locator_bounds
+
+
+def get_center(node: str) -> Point3:
+    """Get the geometric center point of a mesh node."""
+    bounding_box = cmds.exactWorldBoundingBox(node)
+    return Point3Pair(Point3(*bounding_box[:3]), Point3(*bounding_box[3:])).center
 
 
 def get_child_geometry(node: str) -> list[str]:
@@ -540,9 +548,9 @@ def get_shape_from_transform(node, full_path=False) -> str or None:
         return None
 
 
-def get_size(node: str, check_rotations: bool = True) -> Point3:
+def get_size(node: str, inherit_rotations: bool = True) -> Point3:
     """Works out size."""
-    return get_bounds(node=node, check_rotations=check_rotations).size
+    return get_bounds(node=node, inherit_rotations=inherit_rotations).size
 
 
 def get_top_node(node):

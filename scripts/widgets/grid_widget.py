@@ -5,7 +5,7 @@ import platform
 import shiboken6
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QPushButton, QSpacerItem, QMainWindow
+from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QPushButton, QSpacerItem, QMainWindow, QComboBox
 from typing import Callable, Optional
 
 from core import DARWIN_STR
@@ -80,6 +80,12 @@ class GridWidget(QWidget):
             button.clicked.connect(event)
         return self.add_widget(
             widget=button, row=row, column=column, row_span=row_span, col_span=col_span, replace=replace)
+
+    def add_combo_box(self, items: list[str], default_index: int, row: int, column: int, row_span: int = 1, col_span: int = 1):
+        combo_box = QComboBox()
+        combo_box.addItems(items)
+        combo_box.setCurrentIndex(default_index)
+        return self.add_widget(widget=combo_box, row=row, column=column, row_span=row_span, col_span=col_span)
 
     def add_label(self, text: str, row: int, column: int, row_span: int = 1, col_span: int = 1,
                   alignment: enum = Qt.AlignmentFlag.AlignCenter, replace: bool = False,

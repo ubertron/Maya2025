@@ -1,7 +1,4 @@
-"""Boxy helper object.
-
-https://docs.google.com/drawings/d/1-ZBwQI7VJAlBD0MT4IYBoy0yj76_p17w2ZN1HKV80KI
-"""
+"""Boxy helper object."""
 from __future__ import annotations
 
 import logging
@@ -63,13 +60,13 @@ class Boxy:
     Use to define base centered bounding boxes and as a placeholder for objects
     """
 
-    def __init__(self):
+    def __init__(self, color: RGBColor = color_classes.DEEP_GREEN):
         self.box = None
         self.size = Point3(*[DEFAULT_SIZE for _ in range(3)])
         self.position = ZERO3
         self.rotation_y = 0.0
         self.pivot = Side.center
-        self.color = color_classes.DEEP_GREEN
+        self.color = color
         self.selected_transforms = None
         self.original_selection = cmds.ls(selection=True, flatten=True)
         self._init_selection()
@@ -94,7 +91,7 @@ class Boxy:
             rotation=Point3(0.0, self.rotation_y, 0.0),
             size=self.size,
             pivot=self.pivot,
-            color=color_classes.DEEP_GREEN,
+            color=self.color,
             name="boxy",
         )
         return build(boxy_data=boxy_data)
@@ -109,7 +106,7 @@ class Boxy:
         }[self.pivot]
         self.size = bounds.size
 
-    def _evaluate_for_single_selection(self, check_rotations: bool):
+    def _evaluate_for_single_selection(self, inherit_rotations: bool):
         """Set up boxy attributes for a single node."""
         self.rotation_y = node_utils.get_rotation(self.selected_transforms[0]).y
         position = get_translation(self.selected_transforms[0])
@@ -118,7 +115,7 @@ class Boxy:
         if self.components_only:
             # get the bounds of locators/verts/cvs
             points = node_utils.get_points_from_selection()
-            y_offset = -self.rotation_y if check_rotations else 0.0
+            y_offset = -self.rotation_y if inherit_rotations else 0.0
             bounds = math_utils.get_bounds_from_points(points=points, y_offset=y_offset, pivot=position)
             self.size = bounds.size
             position_pre_rotation = get_position_from_bounds(bounds=bounds, pivot=self.pivot)
@@ -126,7 +123,7 @@ class Boxy:
                 point=position_pre_rotation, y_rotation=-y_offset, pivot=position)
         else:
             # get the bounds from the transform
-            bounds = node_utils.get_bounds(node=self.selected_transforms[0], check_rotations=check_rotations)
+            bounds = node_utils.get_bounds(node=self.selected_transforms[0], inherit_rotations=inherit_rotations)
             self.size = bounds.size
             self.position = {
                 Side.bottom: bounds.base_center,
@@ -168,7 +165,7 @@ class Boxy:
     def element_types(self):
         return list(self.element_type_dict.keys())
 
-    def create(self, pivot: Side = Side.center, check_rotations: bool = True) -> str:
+    def create(self, pivot: Side = Side.center, inherit_rotations: bool = True) -> str:
         """Evaluate selection."""
         assert pivot in (Side.center, Side.top, Side.bottom), f"Invalid pivot position: {pivot.name}"
         self.pivot = pivot
@@ -179,8 +176,11 @@ class Boxy:
         if len(self.selected_transforms) > 1:
             self._evaluate_for_multiple_selection()
         elif len(self.selected_transforms) == 1:
-            self._evaluate_for_single_selection(check_rotations=check_rotations)
-        if len(self.selected_transforms):
+            self._evaluate_for_single_selection(inherit_rotations=inherit_rotations)
+
+        # if only boxy items are selected, don't build because we've handled them already
+        num_boxy_items = len(self.element_type_dict.get(ElementType.boxy, []))
+        if not (num_boxy_items and num_boxy_items == len(node_utils.get_selected_transforms())):
             self._build()
 
     def _init_element_type_dict(self):
@@ -282,7 +282,7 @@ def rebuild(node: str, pivot: Side | None = None, color: RGBColor | None = None)
         return False
     pivot = pivot if pivot else Side[attribute_utils.get_attribute(node=node, attr="pivot")]
     rotation = node_utils.get_rotation(node=node)
-    bounds: Point3Pair = node_utils.get_bounds(node=node, check_rotations=True)
+    bounds: Point3Pair = node_utils.get_bounds(node=node, inherit_rotations=True)
     position = get_position_from_bounds(bounds=bounds, pivot=pivot)
     cmds.delete(node)
     boxy_data = BoxyData(

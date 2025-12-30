@@ -49,11 +49,17 @@
                 "tool_tip": "Get dimensions",
                 "script": "from maya_tools import helpers\nhelpers.get_dimensions(format_results=True, clipboard=True)"
             },
-            "Boxy Box": {
+            "Boxy Tool": {
                 "icon": "boxy.png",
                 "language": "python",
                 "tool_tip": "Boxy Box",
-                "script": "from maya_tools.utilities import boxy\nboxy.Boxy().create()"
+                "script": "from maya_tools.utilities.boxy import boxy_tool, UI_SCRIPT\nboxy_tool.BoxyTool().show_workspace_control(ui_script=UI_SCRIPT)"
+            },
+            "Test Boxy": {
+                "icon": "test.png",
+                "language": "python",
+                "tool_tip": "Test Boxy",
+                "script": "from wild_west import boxy_sandbox\nboxy_sandbox.run_test_cases()"
             }
         },
         "AMS": {

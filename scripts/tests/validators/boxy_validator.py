@@ -417,9 +417,9 @@ def test_selected_boxy(node=None):
     result, issues = validator_boxy(node)
 
     if result:
-        print("✅ PASSED: Object is a valid boxy geometry!")
+        print("✅ PASSED: Object is a valid boxy object!")
     else:
-        print("❌ FAILED: Object is not a valid boxy geometry")
+        print("❌ FAILED: Object is not a valid boxy object")
         print("\nIssues found:")
         for issue in issues:
             print(f"  • {issue}")

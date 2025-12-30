@@ -16,7 +16,7 @@ class VersionInfo:
 
 
 class Versions:
-    def __init__(self, versions: list[str]):
+    def __init__(self, versions: list[VersionInfo]):
         self.versions = versions
 
     @property

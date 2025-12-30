@@ -38,20 +38,23 @@ class Point3:
         return f'x: {self.x:.2f}, y: {self.y:.2f}, z: {self.z:.2f}'
 
     @property
-    def volume(self) -> float:
-        return self.x * self.y * self.z
-
-    @property
-    def values(self) -> tuple[float]:
-        return self.x, self.y, self.z
-
-    @property
     def list(self) -> list[float]:
         return [self.x, self.y, self.z]
 
     @property
     def magnitude(self) -> float:
         return math.sqrt(sum(self.values[i] ** 2 for i in range(3)))
+
+    @property
+    def values(self) -> tuple[float]:
+        return self.x, self.y, self.z
+
+    @property
+    def volume(self) -> float:
+        return self.x * self.y * self.z
+
+    def negate(self) -> Point3:
+        return Point3(-self.x, -self.y, -self.z)
 
     def within_y_threshold(self, y_value: float, threshold: float = 0.01) -> bool:
         """

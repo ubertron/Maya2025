@@ -1,6 +1,5 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from maya import cmds
 
 
 @dataclass
@@ -8,6 +7,10 @@ class RGBColor:
     r: int
     g: int
     b: int
+
+    @property
+    def css(self) -> str:
+        return f"rgb({self.r},{self.g},{self.b})"
 
     @property
     def hex(self) -> str:
