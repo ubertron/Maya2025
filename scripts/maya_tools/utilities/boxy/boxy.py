@@ -67,11 +67,11 @@ class Boxy:
         self.rotation_y = 0.0
         self.pivot = Side.center
         self.color = color
-        self.selected_transforms = None
         self.original_selection = cmds.ls(selection=True, flatten=True)
         self._init_selection()
         self._init_element_type_dict()
-        self.selected_transforms = [x for x in node_utils.get_selected_transforms() if not node_utils.is_boxy(x)]
+        self.all_selected_transforms = node_utils.get_selected_transforms()
+        self.selected_transforms = [x for x in self.all_selected_transforms if not node_utils.is_boxy(x)]
 
     def __repr__(self):
         """Preview the analysis prior to creation."""
@@ -180,7 +180,8 @@ class Boxy:
 
         # if only boxy items are selected, don't build because we've handled them already
         num_boxy_items = len(self.element_type_dict.get(ElementType.boxy, []))
-        if not (num_boxy_items and num_boxy_items == len(node_utils.get_selected_transforms())):
+        print(num_boxy_items, len(self.all_selected_transforms))
+        if not (num_boxy_items and num_boxy_items == len(self.all_selected_transforms)):
             self._build()
 
     def _init_element_type_dict(self):
@@ -232,7 +233,7 @@ class Boxy:
 
 
 def build(boxy_data: BoxyData) -> str:
-    """Build boxy box."""
+    """Build boxy object."""
     height_base_line = -1 if boxy_data.pivot is Side.bottom else 1 if boxy_data.pivot is Side.top else 0
     box = cmds.polyCube(
         name=boxy_data.name,
