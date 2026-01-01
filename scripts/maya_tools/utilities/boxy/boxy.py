@@ -263,6 +263,12 @@ def build(boxy_data: BoxyData) -> str:
         attrs=["x", "y", "z"],
         default_values=boxy_data.size.values,
         read_only=True)
+    attribute_utils.add_color_attribute(
+        node=box,
+        attr="wireframe_color",
+        default_value=boxy_data.color,
+        read_only=True
+    )
     return box
 
 
