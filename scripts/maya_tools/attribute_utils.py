@@ -8,14 +8,16 @@ from core import color_classes
 from core.core_enums import DataType
 
 
-def add_attribute(node: str, attr: str, data_type: DataType, read_only: bool = False,
+def add_attribute(node: str, attr: str, data_type: DataType,
+                  channel_box: bool = False, lock: bool = False,
                   default_value: Optional[Any] = None) -> None:
     """
     Add an attribute to a DAG node
     :param node:
     :param attr:
     :param data_type:
-    :param read_only:
+    :param lock:
+    :param channel_box:
     :param default_value:
     """
     if data_type in (DataType.float, DataType.double):
@@ -24,18 +26,18 @@ def add_attribute(node: str, attr: str, data_type: DataType, read_only: bool = F
         cmds.addAttr(node, longName=attr, dataType=data_type.name)
     if default_value is not None:
         set_attribute(node=node, attr=attr, value=default_value)
-    if read_only:
-        cmds.setAttr(f"{node}.{attr}", lock=True)
+    cmds.setAttr(f"{node}.{attr}", lock=lock, channelBox=channel_box)
 
 
-def add_color_attribute(node: str, attr: str, read_only: bool = False,
+def add_color_attribute(node: str, attr: str, channel_box: bool = False, lock: bool = False,
                         default_value: color_classes.RGBColor = color_classes.MAGENTA) -> None:
     """
     Add a color attribute to a DAG node
     :param default_value:
     :param node:
     :param attr:
-    :param read_only:
+    :param channel_box:
+    :param lock:
     :return:
     """
     cmds.addAttr(
@@ -64,20 +66,20 @@ def add_color_attribute(node: str, attr: str, read_only: bool = False,
     )
     if default_value is not None:
         set_attribute(node=node, attr=attr, value=default_value.normalized)
-    if read_only:
-        cmds.setAttr(f"{node}.{attr}", lock=True)
+    cmds.setAttr(f"{node}.{attr}", lock=lock, channelBox=channel_box)
 
 
 def add_compound_attribute(node: str, parent_attr: str, data_type: DataType, attrs: list[str],
-                           default_values: Optional[Any] = None, read_only: bool = False) -> None:
+                           default_values: Optional[Any] = None, channel_box: bool = False, lock: bool = False) -> None:
     """
     Add a compound attribute to a DAG node
-    :param read_only:
     :param default_values:
     :param node:
     :param parent_attr:
     :param data_type:
     :param attrs:
+    :param channel_box:
+    :param lock:
     """
     child_data_type: DataType = {
         DataType.double2: DataType.double,
@@ -93,20 +95,23 @@ def add_compound_attribute(node: str, parent_attr: str, data_type: DataType, att
         cmds.addAttr(node, longName=attr, attributeType=child_data_type.name, parent=parent_attr)
     if default_values is not None:
         set_attribute(node=node, attr=parent_attr, value=default_values)
-    if read_only:
-        cmds.setAttr(f"{node}.{parent_attr}", lock=True)
+    cmds.setAttr(f"{node}.{parent_attr}", channelBox=channel_box, lock=lock)
 
 
-def add_enum_attribute(node: str, attr: str, values: list[str], default_index: int = 0) -> None:
+def add_enum_attribute(node: str, attr: str, values: list[str], default_index: int = 0,
+                       channel_box: bool = False, lock: bool = False) -> None:
     """
     Add an attribute to a DAG node.
     :param node:
     :param attr:
     :param values:
+    :param channel_box:
+    :param lock:
     :param default_index:
     """
     cmds.addAttr(node, longName=attr, attributeType=DataType.enum.name, enumName=":".join(values), keyable=True)
     cmds.setAttr(f"{node}.{attr}", default_index)
+    cmds.setAttr(f"{node}.{attr}", channelBox=channel_box, lock=lock)
 
 
 def delete_attribute(transform: str, attr: str):

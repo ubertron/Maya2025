@@ -96,21 +96,21 @@ class DoorCreator(ArchCreator):
 
         # attributes
         attribute_utils.add_attribute(
-            node=door_frame, attr="custom_type", data_type=DataType.string, read_only=True, default_value="door")
+            node=door_frame, attr="custom_type", data_type=DataType.string, lock=True, default_value="door")
         attribute_utils.add_compound_attribute(
             node=door_frame, parent_attr="size", data_type=DataType.float3, attrs=["x", "y", "z"],
-            read_only=True, default_values=self.data.size.values)
+            lock=True, default_values=self.data.size.values)
         attribute_utils.add_attribute(
-            node=door_frame, attr="frame", data_type=DataType.float, read_only=True, default_value=self.frame)
+            node=door_frame, attr="frame", data_type=DataType.float, lock=True, default_value=self.frame)
         attribute_utils.add_attribute(
-            node=door_frame, attr="skirt", data_type=DataType.float, read_only=True, default_value=self.skirt)
+            node=door_frame, attr="skirt", data_type=DataType.float, lock=True, default_value=self.skirt)
         attribute_utils.add_attribute(
-            node=door_frame, attr="door_depth", data_type=DataType.float, read_only=True, default_value=self.door_depth)
+            node=door_frame, attr="door_depth", data_type=DataType.float, lock=True, default_value=self.door_depth)
         attribute_utils.add_attribute(
-            node=door_frame, attr="hinge_side", data_type=DataType.string, read_only=True,
+            node=door_frame, attr="hinge_side", data_type=DataType.string, lock=True,
             default_value=self.hinge_side.name)
         attribute_utils.add_attribute(
-            node=door_frame, attr="opening_side", data_type=DataType.string, read_only=True,
+            node=door_frame, attr="opening_side", data_type=DataType.string, lock=True,
             default_value=self.opening_side.name)
 
         # texture

@@ -186,33 +186,34 @@ class Boxy:
 
         return boxy_items
 
+    @staticmethod
+    def append_dict_list(_dict, key, value) -> None:
+        """Add a value to a list in a dict."""
+        if key in _dict:
+            _dict[key].append(value)
+        else:
+            _dict[key] = [value]
+
     def _init_element_type_dict(self):
         """Initialize the selection type dict."""
         element_type_dict = {}
 
-        def append_dict_list(_dict, key, value) -> None:
-            """Add a value to a list in a dict."""
-            if key in _dict:
-                _dict[key].append(value)
-            else:
-                _dict[key]=[value]
-
         if self.selection:
             for x in self.selection:
                 if attribute_utils.get_attribute(node=x, attr="custom_type") == ElementType.boxy.name:
-                    append_dict_list(element_type_dict, ElementType.boxy, x)
+                    self.append_dict_list(element_type_dict, ElementType.boxy, x)
                 elif node_utils.is_locator(x):
-                    append_dict_list(_dict=element_type_dict, key=ElementType.locator, value=x)
+                    self.append_dict_list(_dict=element_type_dict, key=ElementType.locator, value=x)
                 elif next((True for c in [".vtx", ".e", ".f"] if c in x), False):
-                    append_dict_list(_dict=element_type_dict, key=ElementType.vertex, value=x)
+                    self.append_dict_list(_dict=element_type_dict, key=ElementType.vertex, value=x)
                 elif ".cv" in x:
-                    append_dict_list(_dict=element_type_dict, key=ElementType.cv, value=x)
+                    self.append_dict_list(_dict=element_type_dict, key=ElementType.cv, value=x)
                 elif node_utils.is_geometry(x):
-                    append_dict_list(_dict=element_type_dict, key=ElementType.mesh, value=x)
+                    self.append_dict_list(_dict=element_type_dict, key=ElementType.mesh, value=x)
                 elif node_utils.is_nurbs_curve(x):
-                    append_dict_list(_dict=element_type_dict, key=ElementType.curve, value=x)
+                    self.append_dict_list(_dict=element_type_dict, key=ElementType.curve, value=x)
                 elif cmds.objectType(x) == ObjectType.nurbsCurve.name:
-                    append_dict_list(_dict=element_type_dict, key=ElementType.curve, value=x)
+                    self.append_dict_list(_dict=element_type_dict, key=ElementType.curve, value=x)
                 else:
                     append_dict_list(_dict=element_type_dict, key=ElementType.invalid, value=x)
         self._element_type_dict = element_type_dict
@@ -237,38 +238,61 @@ class Boxy:
 def build(boxy_data: BoxyData) -> str:
     """Build boxy object."""
     height_base_line = -1 if boxy_data.pivot is Side.bottom else 1 if boxy_data.pivot is Side.top else 0
-    box = cmds.polyCube(
+    box, poly_cube_node = cmds.polyCube(
         name=boxy_data.name,
         width=boxy_data.size.x, height=boxy_data.size.y, depth=boxy_data.size.z,
-        heightBaseline=height_base_line, constructionHistory=True)[0]
+        heightBaseline=height_base_line, constructionHistory=True)
+    shape = node_utils.get_shape_from_transform(node=box)
     node_utils.set_translation(nodes=box, value=boxy_data.position, absolute=True)
     node_utils.set_rotation(nodes=box, value=boxy_data.rotation, absolute=True)
     geometry_utils.set_wireframe_color(node=box, color=boxy_data.color, shading=False)
+
+    # add attributes
     attribute_utils.add_attribute(
         node=box,
         attr="custom_type",
         data_type=DataType.string,
-        read_only=True,
+        channel_box=True,
+        lock=True,
         default_value=CustomType.boxy.name)
-    attribute_utils.add_attribute(
+    attribute_utils.add_enum_attribute(
         node=box,
         attr="pivot",
-        data_type=DataType.string,
-        read_only=True,
-        default_value=boxy_data.pivot.name)
+        values=("bottom", "center", "top"),
+        default_index=("bottom", "center", "top").index(boxy_data.pivot.name),
+        channel_box=True
+    )
     attribute_utils.add_compound_attribute(
         node=box,
         parent_attr="size",
         data_type=DataType.float3,
-        attrs=["x", "y", "z"],
+        attrs=["size_x", "size_y", "size_z"],
         default_values=boxy_data.size.values,
-        read_only=True)
+        channel_box=True,
+        lock=False)
+    attribute_utils.add_attribute(
+        node=box,
+        attr="magnitude",
+        data_type=DataType.float,
+        default_value=Point3(*boxy_data.size.values).magnitude,
+        lock=False)
     attribute_utils.add_color_attribute(
         node=box,
         attr="wireframe_color",
         default_value=boxy_data.color,
-        read_only=True
+        channel_box=True,
+        lock=False
     )
+
+    # connect attributes
+    cmds.connectAttr(f"{box}.size_x", f"{poly_cube_node}.width")
+    cmds.connectAttr(f"{box}.size_y", f"{poly_cube_node}.height")
+    cmds.connectAttr(f"{box}.size_z", f"{poly_cube_node}.depth")
+    cmds.connectAttr(f"{box}.wireframe_color", f"{shape}.overrideColorRGB")
+    cmds.expression(name='pivotToBaseline', string=f"{poly_cube_node}.heightBaseline = {box}.pivot - 1;")
+    magnitude_expression = f"{box}.magnitude = mag(<<{box}.size_x, {box}.size_y, {box}.size_z>>)"
+    cmds.expression(name='calculateMagnitude', string=magnitude_expression)
+
     return box
 
 
@@ -284,7 +308,7 @@ def get_position_from_bounds(bounds: Point3Pair, pivot: Side) -> Point3:
 
 def rebuild(node: str, pivot: Side | None = None, color: RGBColor | None = None) -> any:
     """Rebuild a boxy node."""
-    result, issues = boxy_validator.test_selected_boxy(node=node)
+    result, issues = boxy_validator.test_selected_boxy(node=node, test_poly_cube=False)
     if result is False:
         print("Invalid boxy object")
         print("\n".join(issues))

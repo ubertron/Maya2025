@@ -1,5 +1,3 @@
-
-
 from widgets.generic_widget import GenericWidget
 from core.date_time_utils import get_date_time_string
 

@@ -15,6 +15,7 @@ from widgets.clickable_label import ClickableLabel
 from widgets.form_widget import FormWidget
 from widgets.generic_widget import GenericWidget
 from widgets.grid_widget import GridWidget
+from widgets.image_label import ImageLabel
 
 with contextlib.suppress(ImportError):
     from maya import cmds
@@ -36,6 +37,7 @@ class BoxyTool(GenericWidget):
     def __init__(self):
         super().__init__(title=VERSIONS.title, margin=8, spacing=8)
         self.settings = QSettings(DEVELOPER, TOOL_NAME)
+        self.logo = self.add_widget(ImageLabel(image_path("boxy_logo.png")))
         left_alignment = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         grid = self.add_group_box(GridWidget(title="Boxy Parameters", spacing=8))
         grid.add_label(text="Pivot Position", row=0, column=0, alignment=left_alignment)
@@ -58,10 +60,11 @@ class BoxyTool(GenericWidget):
         self.color_picker.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
         self.name_field.setPlaceholderText("Enter base name...")
         self.rotation_check_box.setChecked(True)
-        self.setFixedHeight(self.sizeHint().height())
         self.color_picker.clicked.connect(self.color_picker_clicked)
         self.pivot_combo_box.setCurrentIndex(self.settings.value(self.pivot_index, 1))
         self.pivot_combo_box.currentIndexChanged.connect(self.pivot_combo_box_index_changed)
+        self.logo.setFixedSize(self.sizeHint().width(), 80)
+        self.setFixedSize(self.sizeHint())
 
     @property
     def info(self) -> str:

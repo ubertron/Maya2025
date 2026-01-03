@@ -16,7 +16,7 @@ from widgets.generic_widget import GenericWidget
 with contextlib.suppress(ImportError):
     from maya import cmds
     from maya_tools import helpers, node_utils
-    from maya_tools.utilities import boxy
+    from maya_tools.utilities.boxy import boxy
     from maya_tools.utilities.architools import door_creator, LOCATOR_COLOR, staircase_creator, LOCATOR_SIZE
 
 TOOL_NAME = "Architools"
@@ -37,7 +37,7 @@ class Architools(GenericWidget):
         buttons.add_icon_button(
             icon_path=image_path("edit.png"), tool_tip="Edit Stairs", clicked=self.edit_button_clicked)
         buttons.add_icon_button(
-            icon_path=image_path("boxy.png"), tool_tip="Boxy Box", clicked=self.boxy_clicked)
+            icon_path=image_path("boxy.png"), tool_tip="Create Base-Pivot Boxy", clicked=self.boxy_clicked)
         buttons.add_stretch()
         general_form: FormWidget = self.add_group_box(FormWidget(title="General Attributes"))
         self.skirt_thickness_input: QDoubleSpinBox = general_form.add_float_field(
@@ -74,7 +74,7 @@ class Architools(GenericWidget):
     @staticmethod
     def boxy_clicked():
         """Event for boxy button."""
-        boxy.Boxy()
+        boxy.Boxy().create(pivot=Side.bottom, inherit_rotations=True)
 
     def edit_button_clicked(self):
         """Event for edit button."""

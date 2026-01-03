@@ -140,9 +140,9 @@ class StaircaseCreator:
 
         # add the attributes to the stair geometry so the locators can be recreated.
         attribute_utils.add_attribute(node=stair_geometry, attr="custom_type", data_type=DataType.string,
-                                      read_only=True, default_value="staircase")
+                                      lock=True, default_value="staircase")
         attribute_utils.add_attribute(node=stair_geometry, attr="target_rise", data_type=DataType.float,
-                                      read_only=False, default_value=self.default_rise)
+                                      lock=False, default_value=self.default_rise)
         axis_index = ["x", "z"].index(self.axis.name)
         attribute_utils.add_enum_attribute(node=stair_geometry, attr="axis", values=["x", "z"], default_index=axis_index)
         cmds.select(stair_geometry)

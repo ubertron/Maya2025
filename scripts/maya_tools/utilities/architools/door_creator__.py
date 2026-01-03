@@ -267,11 +267,11 @@ class DoorCreator:
 
         # attributes
         attribute_utils.add_attribute(node=door_frame, attr="custom_type", data_type=DataType.string,
-                                      read_only=True, default_value="door")
+                                      lock=True, default_value="door")
         attribute_utils.add_attribute(node=door_frame, attr="trim", data_type=DataType.float,
-                                      read_only=False, default_value=self.skirt)
+                                      lock=False, default_value=self.skirt)
         attribute_utils.add_attribute(node=door_frame, attr="frame", data_type=DataType.float,
-                                      read_only=False, default_value=self.frame)
+                                      lock=False, default_value=self.frame)
 
         # texture
         if auto_texture:

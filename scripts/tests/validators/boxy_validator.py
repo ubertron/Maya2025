@@ -21,7 +21,7 @@ import maya.cmds as cmds
 import maya.api.OpenMaya as om
 
 
-def validator_boxy(node):
+def validator_boxy(node: str, test_poly_cube: bool = True):
     """
     Validate that a polygon object is a proper cuboid.
 
@@ -30,15 +30,17 @@ def validator_boxy(node):
     2. Must have a "custom_type" attribute set to "boxy"
     3. Must have a "pivot" attribute that returns a string value
     4. Must have a "size" attribute that returns three float values
-    5. Must have exactly 6 faces
-    6. All vertices must be welded (no overlapping vertices)
-    7. Must be cuboid-shaped (rectangular box)
-    8. Opposite faces must be coplanar (dot product of normals = -1)
-    9. All face corners must be right angles (90 degrees)
-    10. Face normals must align with object's pivot axes
+    5. Must have a polyCube node connected to shape's inMesh (if test_poly_cube=True)
+    6. Must have exactly 6 faces
+    7. All vertices must be welded (no overlapping vertices)
+    8. Must be cuboid-shaped (rectangular box)
+    9. Opposite faces must be coplanar (dot product of normals = -1)
+    10. All face corners must be right angles (90 degrees)
+    11. Face normals must align with object's pivot axes
 
     Args:
         node (str): Name of the polygon object to validate
+        test_poly_cube (bool): Whether to test for polyCube connection (default: True)
 
     Returns:
         tuple: (bool, list)
@@ -47,6 +49,7 @@ def validator_boxy(node):
 
     Example:
         result, issues = validator_boxy(node="pCube1")
+        result, issues = validator_boxy(node="pCube1", test_poly_cube=False)
         if not result:
             for issue in issues:
                 print(f"  - {issue}")
@@ -71,14 +74,14 @@ def validator_boxy(node):
             issues.append(f"Failed to read 'custom_type' attribute: {str(e)}")
             return False, issues  # Early return - error checking boxy type
 
-    # Test 2: Check for "pivot" attribute (must be string)
+    # Test 2: Check for "pivot" attribute (must be string or int for enum)
     if not cmds.attributeQuery('pivot', node=node, exists=True):
         issues.append(f"Node '{node}' does not have required 'pivot' attribute")
     else:
         try:
             pivot_value = cmds.getAttr(f'{node}.pivot')
-            if not isinstance(pivot_value, str):
-                issues.append(f"Attribute 'pivot' must be a string, found {type(pivot_value).__name__}")
+            if not isinstance(pivot_value, (str, int)):
+                issues.append(f"Attribute 'pivot' must be a string or int, found {type(pivot_value).__name__}")
         except Exception as e:
             issues.append(f"Failed to read 'pivot' attribute: {str(e)}")
 
@@ -107,6 +110,31 @@ def validator_boxy(node):
         return False, [f"Node '{node}' is not a polygon mesh"]
 
     shape = shapes[0]
+
+    # Test 4: Check that a polyCube node is connected to the shape's inMesh
+    if test_poly_cube:
+        polycube_connected = False
+        try:
+            # Get connections to the shape's inMesh attribute
+            connections = cmds.listConnections(f'{shape}.inMesh', source=True, destination=False, plugs=True)
+
+            if connections:
+                for connection in connections:
+                    # Extract the node name from the plug (e.g., "polyCube1.output" -> "polyCube1")
+                    source_node = connection.split('.')[0]
+
+                    # Check if this node is a polyCube
+                    if cmds.objectType(source_node) == 'polyCube':
+                        # Verify it's connected via the .output attribute
+                        if '.output' in connection:
+                            polycube_connected = True
+                            break
+
+            if not polycube_connected:
+                issues.append(f"Shape node '{shape}' must have a polyCube node connected to its .inMesh attribute")
+
+        except Exception as e:
+            issues.append(f"Failed to check polyCube connection: {str(e)}")
 
     try:
         # Get MFnMesh for the shape
@@ -375,13 +403,14 @@ def _is_close(a, b, tolerance=0.0001):
 
 
 # Convenience function for testing
-def test_selected_boxy(node=None):
+def test_selected_boxy(node=None, test_poly_cube: bool = True):
     """
     Test a boxy geometry object.
 
     Args:
         node (str, optional): Name of the object to test. If None, uses current selection.
                              Must be a single node name (string), not a list.
+        test_poly_cube (bool): Whether to test for polyCube connection (default: True)
 
     Returns:
         tuple: (bool, list) - (passed, issues)
@@ -414,12 +443,12 @@ def test_selected_boxy(node=None):
     print(f"Validating Boxy Geometry: {node}")
     print('='*60)
 
-    result, issues = validator_boxy(node)
+    result, issues = validator_boxy(node, test_poly_cube=test_poly_cube)
 
     if result:
-        print("✅ PASSED: Object is a valid boxy object!")
+        print("✅ PASSED: Object is a valid boxy geometry!")
     else:
-        print("❌ FAILED: Object is not a valid boxy object")
+        print("❌ FAILED: Object is not a valid boxy geometry")
         print("\nIssues found:")
         for issue in issues:
             print(f"  • {issue}")
