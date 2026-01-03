@@ -7,6 +7,6 @@ $PROJECT_ROOT/.venv/bin/python3 $PROJECT_ROOT/scripts/maya_tools/utilities/maya_
   --scripts-root $PROJECT_ROOT/scripts \
   --name TimeDateTool \
   --icon $PROJECT_ROOT/images/icons/time.png \
-  --shelf "Custom" \
+  --shelf "Robotools" \
   --menu "Robotools" \
   --launch "maya_tools.utilities.time_date_tool.TimeDateTool().show()"

@@ -219,15 +219,27 @@ class MayaToolBundler:
 
         # Copy icon if provided
         icon_filename = None
-        if icon_path and Path(icon_path).exists():
-            icon_dest = self.plugin_dir / 'icons' / Path(icon_path).name
+        if icon_path:
+            icon_path_obj = Path(icon_path)
+
+            # Validate icon exists
+            if not icon_path_obj.exists():
+                raise FileNotFoundError(f"Icon file not found: {icon_path}")
+
+            # Validate icon file extension
+            valid_extensions = {'.png', '.svg', '.jpg', '.jpeg', '.bmp', '.xpm', '.ico'}
+            if icon_path_obj.suffix.lower() not in valid_extensions:
+                raise ValueError(f"Invalid icon format: {icon_path_obj.suffix}. Must be one of: {', '.join(valid_extensions)}")
+
+            # Copy icon
+            icon_dest = self.plugin_dir / 'icons' / icon_path_obj.name
             icon_dest.parent.mkdir(exist_ok=True)
-            shutil.copy2(icon_path, icon_dest)
-            icon_filename = Path(icon_path).name
+            shutil.copy2(icon_path_obj, icon_dest)
+            icon_filename = icon_path_obj.name
             print(f"Copied icon: {icon_path}")
 
         # Create plugin file
-        plugin_file = self._create_plugin_file(menu_parent, shelf_name)
+        plugin_file = self._create_plugin_file(menu_parent, shelf_name, icon_filename)
 
         # Create launch scripts
         result = {'plugin_dir': str(self.plugin_dir), 'plugin_file': plugin_file}
@@ -249,7 +261,7 @@ class MayaToolBundler:
 
         return result
 
-    def _create_plugin_file(self, menu_parent: str = None, shelf_name: str = None) -> str:
+    def _create_plugin_file(self, menu_parent: str = None, shelf_name: str = None, icon_filename: str = None) -> str:
         """Create the Maya plugin .py file."""
         plugin_file = self.plugin_dir / f'{self.plugin_name}.py'
 
@@ -339,11 +351,54 @@ def remove_menu():
 '''
             menu_uninit = "remove_menu()"
 
-        # Shelf cleanup code
+        # Shelf creation code
         shelf_code = ""
         shelf_uninit = ""
         if shelf_name:
+            icon_for_shelf = icon_filename or "commandButton.png"
             shelf_code = f'''
+
+def create_shelf_button():
+    """Create shelf button for the tool."""
+    shelf_name = "{shelf_name}"
+    tool_label = "{self.plugin_name}"
+    plugin_dir = r"{self.plugin_dir}"
+    icon_name = "{icon_for_shelf}"
+    icon_path = os.path.join(plugin_dir, "icons", icon_name)
+    
+    # Create shelf if it doesn't exist
+    if not cmds.shelfLayout(shelf_name, exists=True):
+        print(f"Shelf '{{shelf_name}}' does not exist. Creating it...")
+        mel.eval(f'addNewShelfTab("{{shelf_name}}")')
+    
+    # Remove existing button if it exists
+    buttons = cmds.shelfLayout(shelf_name, query=True, childArray=True) or []
+    for button in buttons:
+        try:
+            if cmds.objectTypeUI(button) == 'shelfButton':
+                label = cmds.shelfButton(button, query=True, label=True)
+                if label == tool_label:
+                    cmds.deleteUI(button)
+        except:
+            continue
+    
+    # Use icon if it exists, otherwise use default
+    if os.path.exists(icon_path):
+        icon = icon_path
+    else:
+        icon = icon_name
+    
+    # Create shelf button
+    cmds.shelfButton(
+        parent=shelf_name,
+        label=tool_label,
+        annotation="Launch {{tool_label}}",
+        image=icon,
+        command="import maya.cmds as cmds; cmds.{self.plugin_name}()",
+        sourceType="python"
+    )
+    print(f"Shelf button '{{tool_label}}' added to '{{shelf_name}}' shelf")
+
 
 def remove_shelf_button():
     """Remove shelf button for the tool."""
@@ -372,7 +427,6 @@ def remove_shelf_button():
     remaining_buttons = cmds.shelfLayout(shelf_name, query=True, childArray=True) or []
     if not remaining_buttons:
         # Get the shelf's parent (the tab layout)
-        import maya.mel as mel
         shelf_parent = mel.eval('$temp = $gShelfTopLevel')
         cmds.deleteUI(shelf_name, layout=True)
         print(f"Shelf '{{shelf_name}}' was empty and has been removed")
@@ -445,6 +499,7 @@ def initializePlugin(plugin):
             {self.plugin_name}Command.creator
         )
         {"create_menu()" if menu_parent else "pass"}
+        {"create_shelf_button()" if shelf_name else "pass"}
     except:
         sys.stderr.write(f"Failed to register command: {{{self.plugin_name}Command.kPluginCmdName}}")
         raise
