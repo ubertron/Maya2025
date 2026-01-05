@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Set, List, Dict
 
 # Bundler version
-BUNDLER_VERSION = "1.1.1"
+BUNDLER_VERSION = "1.2.5"
 
 
 class DependencyAnalyzer:
@@ -266,13 +266,16 @@ class MayaToolBundler:
         result['readme'] = readme_path
 
         print(f"\n✓ Plugin bundled successfully!")
-        print(f"  Location: {self.plugin_dir}")
+        print(f"  Plugin file: {self.output_dir / f'{self.plugin_name}.py'}")
+        print(f"  Support files: {self.plugin_dir}")
 
         return result
 
     def _create_plugin_file(self, menu_parent: str = None, shelf_name: str = None, icon_filename: str = None) -> str:
         """Create the Maya plugin .py file."""
-        plugin_file = self.plugin_dir / f'{self.plugin_name}.py'
+        # Create plugin file in parent directory (output_dir) instead of plugin_dir
+        # This makes it visible to Maya's Plugin Manager at the top level
+        plugin_file = self.output_dir / f'{self.plugin_name}.py'
 
         main_module = self.root_file.stem
 
@@ -402,9 +405,24 @@ def create_shelf_button():
     """Create shelf button for the tool."""
     shelf_name = "{shelf_name}"
     tool_label = "{self.plugin_name}"
-    plugin_dir = r"{self.plugin_dir}"
+    # Find icon path relative to this plugin file
+    # Plugin file is at: plug-ins/PluginName.py
+    # Icons are at: plug-ins/PluginName/icons/
     icon_name = "{icon_for_shelf}"
-    icon_path = os.path.join(plugin_dir, "icons", icon_name)
+    
+    # Get the directory where this plugin file lives
+    plugins = cmds.pluginInfo(query=True, listPlugins=True) or []
+    plugin_base_dir = None
+    for plugin_name in plugins:
+        if plugin_name.startswith("{self.plugin_name}"):
+            plugin_file = cmds.pluginInfo(plugin_name, query=True, path=True)
+            plugin_base_dir = os.path.dirname(plugin_file)
+            break
+    
+    if plugin_base_dir:
+        icon_path = os.path.join(plugin_base_dir, "{self.plugin_name}", "icons", icon_name)
+    else:
+        icon_path = icon_name
     
     # Create shelf if it doesn't exist
     if not cmds.shelfLayout(shelf_name, exists=True):
@@ -499,7 +517,9 @@ def _setup_plugin_path():
         for plugin_name in plugins:
             if plugin_name.startswith("{self.plugin_name}"):
                 plugin_file = cmds.pluginInfo(plugin_name, query=True, path=True)
-                _plugin_path = os.path.dirname(plugin_file)
+                plugin_dir = os.path.dirname(plugin_file)
+                # Scripts are in a subdirectory named after the plugin
+                _plugin_path = os.path.join(plugin_dir, "{self.plugin_name}")
                 scripts_path = os.path.join(_plugin_path, 'scripts')
                 if scripts_path not in sys.path:
                     sys.path.insert(0, scripts_path)
@@ -532,9 +552,66 @@ class {self.plugin_name}Command(OpenMaya.MPxCommand):
 
 {menu_code}{shelf_code}
 
+def cleanup_tool_instances():
+    """Clean up any open tool instances when plugin is unloaded."""
+    try:
+        # For dockable tools, delete workspace controls
+        all_workspace_controls = cmds.lsUI(workspaceControls=True) or []
+        for workspace_control in all_workspace_controls:
+            # Check if this workspace control might be related to our plugin
+            if "{self.plugin_name}" in workspace_control or workspace_control.endswith("_WorkspaceControl"):
+                try:
+                    # Try to get the UI script to see if it's ours
+                    ui_script = cmds.workspaceControl(workspace_control, query=True, uiScript=True)
+                    if ui_script and "{self.plugin_name}" in ui_script:
+                        cmds.deleteUI(workspace_control)
+                        print(f"Closed workspace control: {{workspace_control}}")
+                except:
+                    pass
+        
+        # For non-dockable tools, search Maya main window children
+        # Try both PySide2 and PySide6
+        for pyside_module in ["PySide6", "PySide2"]:
+            try:
+                # Import the required modules
+                QtWidgets = __import__(f"{{pyside_module}}.QtWidgets", fromlist=["QtWidgets"]).QtWidgets
+                shiboken = __import__(f"shiboken6" if pyside_module == "PySide6" else "shiboken2", fromlist=["wrapInstance"])
+                
+                # Get Maya main window
+                from maya import OpenMayaUI as omui
+                main_window_ptr = omui.MQtUtil.mainWindow()
+                maya_main_window = shiboken.wrapInstance(int(main_window_ptr), QtWidgets.QMainWindow)
+                
+                # Search through all children of Maya main window
+                for widget in maya_main_window.findChildren(QtWidgets.QWidget):
+                    # Check by objectName or class name
+                    if (widget.objectName() == "{self.plugin_name}" or 
+                        widget.__class__.__name__ == "{self.plugin_name}"):
+                        try:
+                            widget.close()
+                            widget.deleteLater()
+                            print(f"Closed tool window: {{widget.__class__.__name__}}")
+                        except:
+                            pass
+                
+                break  # Successfully found and processed, don't try other PySide version
+            except (ImportError, AttributeError):
+                continue
+            
+    except Exception as e:
+        print(f"Warning: Error during tool cleanup: {{e}}")
+
+
 def initializePlugin(plugin):
     """Initialize the plugin."""
-    pluginFn = OpenMaya.MFnPlugin(plugin, "Auto-generated", "1.0")
+    # Import developer name from core
+    try:
+        from core import DEVELOPER
+        vendor = DEVELOPER
+    except ImportError:
+        vendor = "Robotools"  # Fallback if core module not available
+    
+    pluginFn = OpenMaya.MFnPlugin(plugin, vendor, "1.0")
     try:
         _setup_plugin_path()
         pluginFn.registerCommand(
@@ -552,6 +629,9 @@ def uninitializePlugin(plugin):
     """Uninitialize the plugin."""
     pluginFn = OpenMaya.MFnPlugin(plugin)
     try:
+        # Close any open tool instances
+        cleanup_tool_instances()
+        
         {shelf_uninit if shelf_uninit else "pass"}
         {menu_uninit if menu_uninit else "pass"}
         pluginFn.deregisterCommand({self.plugin_name}Command.kPluginCmdName)
@@ -706,13 +786,47 @@ if __name__ == '__main__':
 
 ## Installation
 
-1. **The plugin is ready to use** - it's already in your Maya plug-ins directory:
-   `{self.plugin_dir}`
+### Step 1: Copy Plugin Files
 
-2. **Load the plugin** in Maya:
-   - Open Maya's Plug-in Manager: `Windows > Settings/Preferences > Plug-in Manager`
-   - Find `{self.plugin_name}.py` in the list
-   - Check both "Loaded" and "Auto load" boxes
+Copy both the plugin file and support folder to your Maya plug-ins directory:
+
+**Files to copy:**
+- `{self.plugin_name}.py` (plugin file)
+- `{self.plugin_name}/` (support folder)
+
+**Default Maya plug-ins locations:**
+- **Windows**: `Documents/maya/<version>/plug-ins/`
+- **Mac**: `~/Library/Preferences/Autodesk/maya/<version>/plug-ins/`
+- **Linux**: `~/maya/<version>/plug-ins/`
+
+**Alternative: Custom plug-ins directory**
+
+If you prefer a custom location, set the `MAYA_PLUG_IN_PATH` environment variable in your `Maya.env` file:
+
+1. Locate your `Maya.env` file:
+   - **Windows**: `Documents/maya/<version>/Maya.env`
+   - **Mac**: `~/Library/Preferences/Autodesk/maya/<version>/Maya.env`
+   - **Linux**: `~/maya/<version>/Maya.env`
+
+2. Add or edit the `MAYA_PLUG_IN_PATH` line:
+   ```
+   MAYA_PLUG_IN_PATH = /your/custom/path/to/plug-ins
+   ```
+   
+3. For multiple paths, use `;` (Windows) or `:` (Mac/Linux):
+   ```
+   MAYA_PLUG_IN_PATH = /path/one;/path/two        (Windows)
+   MAYA_PLUG_IN_PATH = /path/one:/path/two        (Mac/Linux)
+   ```
+
+For more information about Maya.env, see: [Autodesk Maya Environment Variables](https://help.autodesk.com/view/MAYAUL/2024/ENU/?guid=GUID-8EFB1AC1-ED7D-4099-9EEE-624097872C04)
+
+### Step 2: Load the Plugin
+
+1. Restart Maya (if it was running)
+2. Open Maya's Plug-in Manager: `Windows > Settings/Preferences > Plug-in Manager`
+3. Find `{self.plugin_name}.py` in the list
+4. Check both "Loaded" and "Auto load" boxes
 
 ## Creating Launch UI
 
@@ -778,16 +892,17 @@ Once installed, launch the tool via:
 ## Uninstallation
 
 1. Unload the plugin from the Plug-in Manager
-2. Delete the `{self.plugin_name}` folder from: `{self.plugin_dir}`
+2. Delete both files from your plug-ins directory:
+   - Plugin file: `{self.plugin_name}.py`
+   - Support folder: `{self.plugin_name}/`
 
 ## Distribution
 
-To share this plugin with others:
-1. Copy the entire `{self.plugin_name}` folder
-2. Recipients should place it in their Maya plug-ins directory:
-   - Windows: `Documents/maya/<version>/plug-ins/`
-   - Mac: `~/Library/Preferences/Autodesk/maya/<version>/plug-ins/`
-   - Linux: `~/maya/<version>/plug-ins/`
+To share this plugin with others, provide both:
+1. The plugin file: `{self.plugin_name}.py`
+2. The support folder: `{self.plugin_name}/`
+
+Recipients should follow the Installation instructions above to install the plugin in their Maya environment.
 '''
 
         with open(readme_file, 'w') as f:
