@@ -9,6 +9,7 @@ TOOL_NAME = "Time Date Tool"
 VERSIONS = Versions(versions=[
     VersionInfo(name=TOOL_NAME, version="1.0.0", codename="snake", info="first release")
 ])
+UI_SCRIPT = "from maya_tools.utilities import time_date_tool\ntime_date_tool.TimeDateTool().restore()"
 
 class TimeDateTool(GenericWidget):
     def __init__(self):

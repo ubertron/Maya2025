@@ -53,9 +53,6 @@ class Point3:
     def volume(self) -> float:
         return self.x * self.y * self.z
 
-    def negate(self) -> Point3:
-        return Point3(-self.x, -self.y, -self.z)
-
     def within_y_threshold(self, y_value: float, threshold: float = 0.01) -> bool:
         """
         Returns true if the y-values fit within threshold

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Set, List, Dict
 
 # Bundler version
-BUNDLER_VERSION = "1.0.2"
+BUNDLER_VERSION = "1.1.1"
 
 
 class DependencyAnalyzer:
@@ -147,13 +147,14 @@ class MayaToolBundler:
     """Bundles a Maya tool with all dependencies into a portable plugin."""
 
     def __init__(self, root_file: Path, output_dir: Path, plugin_name: str = None,
-                 launch_command: str = None, scripts_root: Path = None):
+                 launch_command: str = None, scripts_root: Path = None, dockable: bool = False):
         self.root_file = root_file.resolve()
         self.output_dir = output_dir.resolve()
         self.plugin_name = plugin_name or self.root_file.stem
         self.plugin_dir = self.output_dir / self.plugin_name
         self.launch_command = launch_command
         self.scripts_root = scripts_root
+        self.dockable = dockable
 
     def _get_timestamp(self) -> str:
         """Get current timestamp for plugin generation."""
@@ -281,9 +282,40 @@ class MayaToolBundler:
             # e.g., "maya_tools.utilities.time_date_tool.TimeDateTool().show()"
             # -> import maya_tools.utilities.time_date_tool
             import_match = self.launch_command.split('(')[0].rsplit('.', 1)[0]
-            launch_code = f"            _setup_plugin_path()\n            import {import_match}\n            {self.launch_command}"
+
+            if self.dockable:
+                # For dockable widgets, modify the command to use show_workspace_control
+                # e.g., "maya_tools.utilities.time_date_tool.TimeDateTool().show()"
+                # -> "maya_tools.utilities.time_date_tool.TimeDateTool().show_workspace_control(ui_script=maya_tools.utilities.time_date_tool.UI_SCRIPT)"
+                # For module-based tools, UI_SCRIPT may be in parent module's __init__.py
+                base_command = self.launch_command.replace('.show()', '')
+                parent_module = '.'.join(import_match.split('.')[:-1]) if '.' in import_match else import_match
+
+                launch_code = f'''            _setup_plugin_path()
+            import {import_match}
+            # Try to get UI_SCRIPT from module or parent module (for module-based tools)
+            ui_script_module = {import_match} if hasattr({import_match}, 'UI_SCRIPT') else None
+            if ui_script_module is None and '{parent_module}':
+                import {parent_module}
+                ui_script_module = {parent_module} if hasattr({parent_module}, 'UI_SCRIPT') else None
+            if ui_script_module:
+                {base_command}.show_workspace_control(ui_script=ui_script_module.UI_SCRIPT)
+            else:
+                cmds.warning("{self.plugin_name}: UI_SCRIPT not found in module or parent module")'''
+            else:
+                launch_code = f"            _setup_plugin_path()\n            import {import_match}\n            {self.launch_command}"
         else:
-            launch_code = f'''            _setup_plugin_path()
+            if self.dockable:
+                launch_code = f'''            _setup_plugin_path()
+            import {main_module}
+            # Launch as dockable workspace control
+            if hasattr({main_module}, 'UI_SCRIPT'):
+                widget = {main_module}.{self.plugin_name}()
+                widget.show_workspace_control(ui_script={main_module}.UI_SCRIPT)
+            else:
+                cmds.warning("{self.plugin_name}: UI_SCRIPT not found for dockable widget")'''
+            else:
+                launch_code = f'''            _setup_plugin_path()
             import {main_module}
             # Check if main() or show() function exists
             if hasattr({main_module}, 'main'):
@@ -666,6 +698,10 @@ if __name__ == '__main__':
         """Create installation README."""
         readme_file = self.plugin_dir / 'README.md'
 
+        dockable_info = ""
+        if self.dockable:
+            dockable_info = "\n**Note**: This tool is configured as a dockable workspace control and will dock into Maya's UI.\n"
+
         content = f'''# {self.plugin_name} - Maya Plugin
 
 ## Installation
@@ -683,7 +719,7 @@ if __name__ == '__main__':
 The plugin registers a Maya command `{self.plugin_name}()` that can be called from:
 - MEL: `{self.plugin_name}`
 - Python: `cmds.{self.plugin_name}()`
-
+{dockable_info}
 ### Automatic Setup (Recommended)
 
 The plugin is configured to launch via:
@@ -780,6 +816,9 @@ Examples:
   # With custom launch command
   python maya_tool_bundler.py /path/to/tool.py --launch "tool.show_ui()" --menu "MayaWindow|mainModelMenu"
   
+  # Dockable widget (requires UI_SCRIPT constant in tool)
+  python maya_tool_bundler.py /path/to/tool.py --dockable --launch "maya_tools.utilities.time_date_tool.TimeDateTool().show()" --shelf "Robotools"
+  
 Default paths:
   Icon directory: /Users/andrewdavis/Dropbox/Technology/Python3/Projects/Maya2025/images/icons/
   Output directory: Imports from core.core_paths.PLUGINS_DIR
@@ -793,6 +832,7 @@ Default paths:
     parser.add_argument('--launch', help='Custom launch command (e.g., "my_module.launch()")')
     parser.add_argument('--menu', help='Parent menu to add tool to (e.g., "MayaWindow|mainRigMenu")')
     parser.add_argument('--shelf', help='Shelf name to add button to (e.g., "Custom")')
+    parser.add_argument('--dockable', action='store_true', help='Make tool dockable (requires UI_SCRIPT constant)')
 
     args = parser.parse_args()
 
@@ -811,7 +851,7 @@ Default paths:
             print("Please specify --output-dir explicitly")
             sys.exit(1)
 
-    bundler = MayaToolBundler(root_file, output_dir, args.name, args.launch, scripts_root)
+    bundler = MayaToolBundler(root_file, output_dir, args.name, args.launch, scripts_root, args.dockable)
     result = bundler.bundle(args.icon, args.menu, args.shelf)
 
     print("\nFiles created:")
