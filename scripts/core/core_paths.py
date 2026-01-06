@@ -18,6 +18,7 @@ SHELVES_CONFIG: Path = PROJECT_ROOT / 'config' / 'shelves.json'
 SITE_PACKAGES: Path = PROJECT_ROOT / 'site-packages'
 SCRIPTS_DIR = PROJECT_ROOT / 'scripts'
 PLUGINS_DIR: Path = PROJECT_ROOT / 'plugins'
+ROBOTOOLS_PLUGINS_DIR: Path = PLUGINS_DIR / 'robotools'
 STARTUP_DIR = SCRIPTS_DIR / 'startup'
 MAYA_VERSIONS = ("maya2025", "maya2026")
 MAYA_APP_DIR: Path = next(AUTODESK_DIR / y for y in MAYA_VERSIONS if AUTODESK_DIR.joinpath(y).exists())

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Set, List, Dict
 
 # Bundler version
-BUNDLER_VERSION = "1.2.5"
+BUNDLER_VERSION = "1.2.6"
 
 
 class DependencyAnalyzer:
@@ -936,7 +936,7 @@ Examples:
   
 Default paths:
   Icon directory: /Users/andrewdavis/Dropbox/Technology/Python3/Projects/Maya2025/images/icons/
-  Output directory: Imports from core.core_paths.PLUGINS_DIR
+  Output directory: Imports from core.core_paths.ROBOTOOLS_PLUGINS_DIR
         '''
     )
     parser.add_argument('root_file', help='Path to the main Python file of your tool')
@@ -954,15 +954,15 @@ Default paths:
     root_file = Path(args.root_file)
     scripts_root = Path(args.scripts_root) if args.scripts_root else None
 
-    # Import PLUGINS_DIR if output_dir not specified
+    # Import ROBOTOOLS_PLUGINS_DIR if output_dir not specified
     if args.output_dir:
         output_dir = Path(args.output_dir)
     else:
         try:
-            from core.core_paths import PLUGINS_DIR
-            output_dir = PLUGINS_DIR
+            from core.core_paths import ROBOTOOLS_PLUGINS_DIR
+            output_dir = ROBOTOOLS_PLUGINS_DIR
         except ImportError:
-            print("Error: Could not import PLUGINS_DIR from core.core_paths")
+            print("Error: Could not import ROBOTOOLS_PLUGINS_DIR from core.core_paths")
             print("Please specify --output-dir explicitly")
             sys.exit(1)
 
