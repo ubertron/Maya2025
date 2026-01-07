@@ -1,5 +1,5 @@
 #!/bin/bash
-# Deployment script for Boxy tool (module-based)
+# Deployment script for Boxy tool (RELEASE - Obfuscated)
 
 PROJECT_ROOT=~/Dropbox/Technology/Python3/Projects/Maya2025
 
@@ -16,4 +16,5 @@ $PROJECT_ROOT/.venv/bin/python3 $PROJECT_ROOT/scripts/maya_tools/utilities/maya_
   --shelf "Robotools" \
   --menu "Robotools" \
   --launch "maya_tools.utilities.boxy.boxy_tool.BoxyTool().show()" \
-  --dockable
+  --dockable \
+  --obfuscate

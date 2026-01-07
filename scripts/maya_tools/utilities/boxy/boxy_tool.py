@@ -3,7 +3,7 @@ import contextlib
 
 from PySide6.QtCore import Qt, QSettings
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QCheckBox, QComboBox, QColorDialog, QLabel, QLineEdit, QSizePolicy
+from PySide6.QtWidgets import QCheckBox, QComboBox, QColorDialog, QDoubleSpinBox, QLabel, QLineEdit, QSizePolicy
 
 from core import color_classes, DEVELOPER
 from core.color_classes import RGBColor
@@ -25,6 +25,7 @@ TOOL_NAME = "Boxy Tool"
 VERSIONS = Versions(
     versions=[
         VersionInfo(name=TOOL_NAME, version="1.0", codename="cobra", info="first release"),
+        VersionInfo(name=TOOL_NAME, version="1.0.1", codename="banshee", info="size field added"),
     ]
 )
 
@@ -33,21 +34,24 @@ class BoxyTool(GenericWidget):
     color_key = "color"
     default_name = "boxy"
     pivot_index = "pivot_index"
+    size_key = "size"
 
     def __init__(self):
         super().__init__(title=VERSIONS.title, margin=8, spacing=8)
         self.settings = QSettings(DEVELOPER, TOOL_NAME)
         self.logo = self.add_widget(ImageLabel(image_path("boxy_logo.png")))
         left_alignment = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-        grid = self.add_group_box(GridWidget(title="Boxy Parameters", spacing=8))
+        grid: GridWidget = self.add_group_box(GridWidget(title="Boxy Parameters", spacing=8))
         grid.add_label(text="Pivot Position", row=0, column=0, alignment=left_alignment)
         self.pivot_combo_box: QComboBox = grid.add_combo_box(items=["bottom", "center", "top"], default_index=1, row=0, column=1)
         grid.add_label(text="Wirefame Color", row=1, column=0, alignment=left_alignment)
         self.color_picker: ClickableLabel = grid.add_widget(widget=ClickableLabel(""), row=1, column=1)
         grid.add_label(text="Base Name", row=2, column=0, alignment=left_alignment)
         self.name_field = grid.add_widget(widget=QLineEdit(self.default_name), row=2, column=1)
-        grid.add_label(text="Inherit Rotation", row=3, column=0, alignment=left_alignment)
-        self.rotation_check_box = grid.add_widget(widget=QCheckBox(), row=3, column=1)
+        grid.add_label(text="Default Size", row=3, column=0, alignment=left_alignment)
+        self.size_field: QDoubleSpinBox = grid.add_widget(widget=QDoubleSpinBox(), row=3, column=1)
+        grid.add_label(text="Inherit Rotation", row=4, column=0, alignment=left_alignment)
+        self.rotation_check_box = grid.add_widget(widget=QCheckBox(), row=4, column=1)
         self.create_button = self.add_button(
             text="Create", tool_tip="Create boxy object", clicked=self.create_button_clicked)
         self.info_label = self.add_label(text="Ready...", side=Side.left)
@@ -63,8 +67,18 @@ class BoxyTool(GenericWidget):
         self.color_picker.clicked.connect(self.color_picker_clicked)
         self.pivot_combo_box.setCurrentIndex(self.settings.value(self.pivot_index, 1))
         self.pivot_combo_box.currentIndexChanged.connect(self.pivot_combo_box_index_changed)
+        self.size_field.setValue(self.settings.value(self.size_key, 10.0))
+        self.size_field.setRange(0.1, 100000.0)
+        self.size_field.setDecimals(1)
+        self.size_field.setSingleStep(0.1)
+        self.size_field.valueChanged.connect(self.size_field_value_changed)
         self.logo.setFixedSize(self.sizeHint().width(), 80)
         self.setFixedSize(self.sizeHint())
+
+    @property
+    def default_size(self):
+        """Default size."""
+        return self.size_field.value()
 
     @property
     def info(self) -> str:
@@ -107,7 +121,8 @@ class BoxyTool(GenericWidget):
         """Event for create button."""
         selection = cmds.ls(selection=True)
         creator = boxy.Boxy(color=self.wireframe_color)
-        boxy_items = creator.create(pivot=self.pivot, inherit_rotations=self.inherit_rotations)
+        boxy_items = creator.create(
+            pivot=self.pivot, inherit_rotations=self.inherit_rotations, default_size=self.default_size)
         if len(boxy_items) == 0:
             self.info = "No boxy objects created."
             cmds.select(selection)
@@ -121,6 +136,10 @@ class BoxyTool(GenericWidget):
     def pivot_combo_box_index_changed(self, arg):
         """Event for pivot combo box."""
         self.settings.setValue(self.pivot_index, arg)
+
+    def size_field_value_changed(self, arg):
+        """Event for size field."""
+        self.settings.setValue(self.size_key, arg)
 
 
 if __name__ == "__main__":

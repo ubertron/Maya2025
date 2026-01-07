@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Set, List, Dict
 
 # Bundler version
-BUNDLER_VERSION = "1.2.6"
+BUNDLER_VERSION = "1.5.1"
 
 
 class DependencyAnalyzer:
@@ -147,7 +147,8 @@ class MayaToolBundler:
     """Bundles a Maya tool with all dependencies into a portable plugin."""
 
     def __init__(self, root_file: Path, output_dir: Path, plugin_name: str = None,
-                 launch_command: str = None, scripts_root: Path = None, dockable: bool = False):
+                 launch_command: str = None, scripts_root: Path = None, dockable: bool = False,
+                 obfuscate: bool = False):
         self.root_file = root_file.resolve()
         self.output_dir = output_dir.resolve()
         self.plugin_name = plugin_name or self.root_file.stem
@@ -155,6 +156,7 @@ class MayaToolBundler:
         self.launch_command = launch_command
         self.scripts_root = scripts_root
         self.dockable = dockable
+        self.obfuscate = obfuscate
 
     def _get_timestamp(self) -> str:
         """Get current timestamp for plugin generation."""
@@ -269,7 +271,58 @@ class MayaToolBundler:
         print(f"  Plugin file: {self.output_dir / f'{self.plugin_name}.py'}")
         print(f"  Support files: {self.plugin_dir}")
 
+        # Obfuscate if requested
+        if self.obfuscate:
+            print(f"\n⚙ Obfuscating plugin code...")
+            self._obfuscate_plugin()
+            print(f"✓ Obfuscation complete!")
+
         return result
+
+    def _obfuscate_plugin(self) -> None:
+        """Compile plugin code to .pyc bytecode for basic protection."""
+        import py_compile
+        import os
+
+        print(f"  Compiling Python files to bytecode (.pyc)...")
+
+        # Compile scripts directory
+        scripts_dir = self.plugin_dir / 'scripts'
+        if scripts_dir.exists():
+            py_files = list(scripts_dir.rglob('*.py'))
+            compiled_count = 0
+
+            for py_file in py_files:
+                try:
+                    # Compile to .pyc
+                    py_compile.compile(py_file, doraise=True, optimize=2)
+
+                    # Find the generated .pyc file
+                    pycache_dir = py_file.parent / '__pycache__'
+                    if pycache_dir.exists():
+                        # Find the .pyc file for this module
+                        pyc_files = list(pycache_dir.glob(f'{py_file.stem}*.pyc'))
+                        if pyc_files:
+                            # Move .pyc to same directory as .py and remove .py
+                            pyc_file = pyc_files[0]
+                            dest_pyc = py_file.parent / f'{py_file.stem}.pyc'
+                            shutil.move(str(pyc_file), str(dest_pyc))
+
+                            # Remove original .py file
+                            py_file.unlink()
+                            compiled_count += 1
+
+                except Exception as e:
+                    # Keep the .py file if compilation fails
+                    pass
+
+            # Clean up __pycache__ directories
+            for pycache_dir in scripts_dir.rglob('__pycache__'):
+                if pycache_dir.is_dir():
+                    shutil.rmtree(pycache_dir)
+
+            print(f"    Compiled: {compiled_count}/{len(py_files)} file(s) to bytecode")
+            print(f"    Note: .pyc files work on any platform with the same Python version")
 
     def _create_plugin_file(self, menu_parent: str = None, shelf_name: str = None, icon_filename: str = None) -> str:
         """Create the Maya plugin .py file."""
@@ -782,59 +835,88 @@ if __name__ == '__main__':
         if self.dockable:
             dockable_info = "\n**Note**: This tool is configured as a dockable workspace control and will dock into Maya's UI.\n"
 
-        content = f'''# {self.plugin_name} - Maya Plugin
+        content = f'''# {self.plugin_name} - Maya Plugin Installation Guide
 
-## Installation
+## Quick Installation (4 Steps)
 
-### Step 1: Copy Plugin Files
+### Step 1: Choose Installation Location
 
-Copy both the plugin file and support folder to your Maya plug-ins directory:
+Place the `robotools` folder in a location of your choice. 
 
-**Files to copy:**
-- `{self.plugin_name}.py` (plugin file)
-- `{self.plugin_name}/` (support folder)
+**Recommended location:**
+```
+Documents/maya/<version>/plug-ins/robotools
+```
 
-**Default Maya plug-ins locations:**
-- **Windows**: `Documents/maya/<version>/plug-ins/`
-- **Mac**: `~/Library/Preferences/Autodesk/maya/<version>/plug-ins/`
-- **Linux**: `~/maya/<version>/plug-ins/`
+Or any custom directory you prefer.
 
-**Alternative: Custom plug-ins directory**
+### Step 2: Update Maya.env
 
-If you prefer a custom location, set the `MAYA_PLUG_IN_PATH` environment variable in your `Maya.env` file:
+Add the `robotools` folder path to your `MAYA_PLUG_IN_PATH` environment variable.
 
-1. Locate your `Maya.env` file:
-   - **Windows**: `Documents/maya/<version>/Maya.env`
-   - **Mac**: `~/Library/Preferences/Autodesk/maya/<version>/Maya.env`
-   - **Linux**: `~/maya/<version>/Maya.env`
+**Find your Maya.env file:**
+- **Windows**: `Documents/maya/<version>/Maya.env`
+- **Mac**: `~/Library/Preferences/Autodesk/maya/<version>/Maya.env`
+- **Linux**: `~/maya/<version>/Maya.env`
 
-2. Add or edit the `MAYA_PLUG_IN_PATH` line:
-   ```
-   MAYA_PLUG_IN_PATH = /your/custom/path/to/plug-ins
-   ```
-   
-3. For multiple paths, use `;` (Windows) or `:` (Mac/Linux):
-   ```
-   MAYA_PLUG_IN_PATH = /path/one;/path/two        (Windows)
-   MAYA_PLUG_IN_PATH = /path/one:/path/two        (Mac/Linux)
-   ```
+**Edit Maya.env and add:**
 
-For more information about Maya.env, see: [Autodesk Maya Environment Variables](https://help.autodesk.com/view/MAYAUL/2024/ENU/?guid=GUID-8EFB1AC1-ED7D-4099-9EEE-624097872C04)
+**Windows:**
+```
+MAYA_PLUG_IN_PATH = C:/path/to/robotools
+```
 
-### Step 2: Load the Plugin
+**Mac/Linux:**
+```
+MAYA_PLUG_IN_PATH = /path/to/robotools
+```
 
-1. Restart Maya (if it was running)
-2. Open Maya's Plug-in Manager: `Windows > Settings/Preferences > Plug-in Manager`
-3. Find `{self.plugin_name}.py` in the list
-4. Check both "Loaded" and "Auto load" boxes
+**If you already have MAYA_PLUG_IN_PATH set, append to it:**
 
-## Creating Launch UI
+**Windows:**
+```
+MAYA_PLUG_IN_PATH = C:/existing/path;C:/path/to/robotools
+```
+
+**Mac/Linux:**
+```
+MAYA_PLUG_IN_PATH = /existing/path:/path/to/robotools
+```
+
+**Example:**
+```
+# Mac
+MAYA_PLUG_IN_PATH = /Users/yourname/Documents/maya/2026/plug-ins/robotools
+
+# Windows
+MAYA_PLUG_IN_PATH = C:/Users/yourname/Documents/maya/2026/plug-ins/robotools
+```
+
+💡 **Tip:** Create the Maya.env file if it doesn't exist.
+
+📚 **More info:** [Autodesk Maya Environment Variables](https://help.autodesk.com/view/MAYAUL/2024/ENU/?guid=GUID-8EFB1AC1-ED7D-4099-9EEE-624097872C04)
+
+### Step 3: Restart Maya
+
+Close and reopen Maya for the environment variable changes to take effect.
+
+### Step 4: Load the Plugin
+
+1. In Maya, go to: **Windows > Settings/Preferences > Plug-in Manager**
+2. Find `{self.plugin_name}.py` in the list
+3. Check **both** boxes:
+   - ☑️ **Loaded** (loads the plugin now)
+   - ☑️ **Auto load** (loads automatically on Maya startup)
+
+✅ **Done!** The plugin is now installed and ready to use.
+{dockable_info}
+## Using the Plugin
 
 The plugin registers a Maya command `{self.plugin_name}()` that can be called from:
-- MEL: `{self.plugin_name}`
-- Python: `cmds.{self.plugin_name}()`
-{dockable_info}
-### Automatic Setup (Recommended)
+- **MEL**: `{self.plugin_name}`
+- **Python**: `cmds.{self.plugin_name}()`
+
+### Launch Options
 
 The plugin is configured to launch via:
 '''
@@ -889,20 +971,23 @@ Once installed, launch the tool via:
 
         content += f'''- **Command**: `cmds.{self.plugin_name}()` in Script Editor or MEL
 
+## Troubleshooting
+
+**Plugin not showing in Plug-in Manager?**
+- Check that MAYA_PLUG_IN_PATH is set correctly in Maya.env
+- Verify you restarted Maya after editing Maya.env
+- Make sure the path points to the `robotools` folder
+
+**Plugin won't load?**
+- Check the Script Editor for error messages
+- Ensure all files are in the correct locations
+
 ## Uninstallation
 
-1. Unload the plugin from the Plug-in Manager
-2. Delete both files from your plug-ins directory:
-   - Plugin file: `{self.plugin_name}.py`
-   - Support folder: `{self.plugin_name}/`
-
-## Distribution
-
-To share this plugin with others, provide both:
-1. The plugin file: `{self.plugin_name}.py`
-2. The support folder: `{self.plugin_name}/`
-
-Recipients should follow the Installation instructions above to install the plugin in their Maya environment.
+1. Open Plug-in Manager and uncheck both boxes for `{self.plugin_name}.py`
+2. Remove the `MAYA_PLUG_IN_PATH` line from your Maya.env file
+3. Delete the `robotools` folder
+4. Restart Maya
 '''
 
         with open(readme_file, 'w') as f:
@@ -948,7 +1033,7 @@ Default paths:
     parser.add_argument('--menu', help='Parent menu to add tool to (e.g., "MayaWindow|mainRigMenu")')
     parser.add_argument('--shelf', help='Shelf name to add button to (e.g., "Custom")')
     parser.add_argument('--dockable', action='store_true', help='Make tool dockable (requires UI_SCRIPT constant)')
-
+    parser.add_argument('--obfuscate', action='store_true', help='Compile to bytecode (.pyc) for basic code protection (cross-platform)')
     args = parser.parse_args()
 
     root_file = Path(args.root_file)
@@ -966,7 +1051,7 @@ Default paths:
             print("Please specify --output-dir explicitly")
             sys.exit(1)
 
-    bundler = MayaToolBundler(root_file, output_dir, args.name, args.launch, scripts_root, args.dockable)
+    bundler = MayaToolBundler(root_file, output_dir, args.name, args.launch, scripts_root, args.dockable, args.obfuscate)
     result = bundler.bundle(args.icon, args.menu, args.shelf)
 
     print("\nFiles created:")

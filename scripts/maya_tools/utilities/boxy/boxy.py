@@ -165,10 +165,12 @@ class Boxy:
     def element_types(self):
         return list(self.element_type_dict.keys())
 
-    def create(self, pivot: Side = Side.center, inherit_rotations: bool = True) -> list[str]:
+    def create(self, pivot: Side = Side.center, inherit_rotations: bool = True,
+               default_size: float = 10.0) -> list[str]:
         """Evaluate selection."""
         assert pivot in (Side.center, Side.top, Side.bottom), f"Invalid pivot position: {pivot.name}"
         self.pivot = pivot
+        self.size = Point3(default_size, default_size, default_size)
         if ElementType.boxy in self.element_type_dict:
             for boxy_item in self.element_type_dict[ElementType.boxy]:
                 rebuild(node=boxy_item, pivot=pivot, color=self.color)

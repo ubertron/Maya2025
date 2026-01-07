@@ -12,4 +12,5 @@ $PROJECT_ROOT/.venv/bin/python3 $PROJECT_ROOT/scripts/maya_tools/utilities/maya_
   --shelf "Robotools" \
   --menu "Robotools" \
   --launch "maya_tools.utilities.time_date_tool.TimeDateTool().show()" \
-  --dockable
+  --dockable \
+  --obfuscate
