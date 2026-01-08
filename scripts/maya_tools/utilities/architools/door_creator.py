@@ -6,15 +6,13 @@ import logging
 import math
 from maya import cmds
 
-from core import color_classes, math_utils
-from core.core_enums import Side, Axis, DataType
+from core.core_enums import Side, DataType, CustomType
 from core.logging_utils import get_logger
-from core.point_classes import Point3, Point3Pair, X_AXIS, Z_AXIS
+from core.point_classes import Point3
 from maya_tools import attribute_utils, curve_utils, material_utils, node_utils
 from maya_tools.utilities.architools import CURVE_COLOR
 from maya_tools.utilities.architools.arch_creator import ArchCreator
-from maya_tools.utilities.architools.door_data import DoorData
-from maya_tools.utilities.boxy import boxy
+from maya_tools.utilities.architools.data.door_data import DoorData
 
 LOGGER = get_logger(name=__name__, level=logging.INFO)
 
@@ -23,7 +21,7 @@ class DoorCreator(ArchCreator):
     def __init__(self, frame: float = 10.0, skirt: float = 2.0, door_depth: float = 5.0,
                  hinge_side: Side = Side.left, opening_side: Side = Side.front,
                  auto_texture: bool = False):
-        super().__init__(auto_texture=auto_texture)
+        super().__init__(custom_type=CustomType.door, auto_texture=auto_texture)
 
         # initialize bespoke properties
         assert hinge_side in (Side.left, Side.right), "Invalid hinge side"
@@ -58,24 +56,25 @@ class DoorCreator(ArchCreator):
         # 2)  curves from the arch data
         for x in self.data.doorway_profile_points:
             LOGGER.debug(x)
-        doorway_curves = [curve_utils.create_curve_from_points(points=self.data.doorway_profile_points, close=False,
-                                                            name="door_curve0", color=CURVE_COLOR)]
-        node_utils.set_pivot(nodes=doorway_curves[0], value=self.data.doorway_profile_positions[0])
+        curves = [curve_utils.create_curve_from_points(
+            points=self.data.doorway_profile_points, close=False, name=f"{self.custom_type.name}_curve0", color=CURVE_COLOR)]
+        node_utils.set_pivot(nodes=curves[0], value=self.data.doorway_profile_positions[0])
 
         for i in range(1, 4):
-            doorway_curves.append(node_utils.duplicate(node=doorway_curves[0], name=f"door_curve{i}"))
-            node_utils.set_translation(nodes=doorway_curves[i], value=self.data.doorway_profile_positions[i])
-            node_utils.set_rotation(nodes=doorway_curves[i], value=Point3(0, 0, self.data.doorway_profile_rotations[i]))
+            curves.append(node_utils.duplicate(node=curves[0], name=f"{self.custom_type.name}_curve{i}"))
+            node_utils.set_translation(nodes=curves[i], value=self.data.doorway_profile_positions[i])
+            node_utils.set_rotation(nodes=curves[i], value=Point3(0, 0, self.data.doorway_profile_rotations[i]))
             if 0 < i < 3:
-                cmds.setAttr(f"{doorway_curves[i]}.scaleX", math.sqrt(2))
+                cmds.setAttr(f"{curves[i]}.scaleX", math.sqrt(2))
 
         # 3) create the geometry
         cmds.nurbsToPolygonsPref(polyType=1, format=3)
-        door_frame, loft = cmds.loft(*doorway_curves, degree=1, polygon=1, name="door_frame")
+        door_frame, loft = cmds.loft(*curves, degree=1, polygon=1, name="door_frame")
 
         # 4) add the attributes
         attribute_utils.add_attribute(
-            node=door_frame, attr="custom_type", data_type=DataType.string, lock=True, default_value="door")
+            node=door_frame, attr="custom_type", data_type=DataType.string, lock=True,
+            default_value=self.custom_type.name)
         attribute_utils.add_compound_attribute(
             node=door_frame, parent_attr="size", data_type=DataType.float3, attrs=["x", "y", "z"],
             lock=True, default_values=self.data.size.values)
@@ -100,33 +99,9 @@ class DoorCreator(ArchCreator):
         cmds.polySoftEdge(door_frame, angle=0)
         node_utils.pivot_to_base(node=door_frame)
         cmds.delete(door_frame, constructionHistory=True)
-        cmds.delete(doorway_curves, self.boxy_node)
+        cmds.delete(curves, self.boxy_node)
         node_utils.set_translation(door_frame, value=self.data.translation)
         node_utils.set_rotation(door_frame, value=Point3(0, self.data.y_rotation, 0))
         cmds.select(clear=True)
         cmds.select(door_frame)
         return door_frame
-
-
-def convert_door_to_boxy(door: str, delete: bool = False) -> any:
-    """Convert a door object to a boxy node."""
-    try:
-        data = boxy.BoxyData(
-            position=node_utils.get_translation(node=door),
-            rotation=node_utils.get_rotation(node=door),
-            size=Point3(*cmds.getAttr(f"{door}.size")[0]),
-            pivot=Side.bottom,
-            color=color_classes.DEEP_GREEN,
-            name="boxy"
-        )
-        if delete:
-            cmds.delete(door)
-        return boxy.build(boxy_data=data)
-    except Exception as e:
-        LOGGER.info(f"Could not create boxy for door {door}: {e}")
-        return False
-
-
-def get_selected_doors() -> list[str]:
-    """Get a list of all selected doors."""
-    return [x for x in node_utils.get_selected_transforms(full_path=True) if  node_utils.is_door(x)]

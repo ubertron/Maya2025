@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from core.core_enums import Axis, Side
+from core.core_enums import Side
 from core.point_classes import Point3, Point3Pair
-from maya_tools.utilities.architools.arch_data import ArchData
+from maya_tools.utilities.architools.data.arch_data import ArchData
 
 
 @dataclass
@@ -26,6 +26,7 @@ class DoorData(ArchData):
             f"Size: {self.size}\n"
             f"Start: {self.bounds.a}\n"
             f"End: {self.bounds.b}\n"
+            f'{"-" * 26}\n'
             f"Door Width: {self.door_width}\n"
             f"Door Height: {self.door_height}\n"
             f"Door Depth: {self.door_depth}\n"
@@ -137,5 +138,5 @@ TEST_DOOR_DATA = DoorData(
 
 if __name__ == "__main__":
     print(TEST_DOOR_DATA)
-    print(TEST_DOOR_DATA.data)
-    print(TEST_DOOR_DATA.door_frame_bounds)
+    # print(TEST_DOOR_DATA.data)
+    # print(TEST_DOOR_DATA.door_frame_bounds)

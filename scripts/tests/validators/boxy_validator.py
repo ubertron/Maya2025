@@ -7,18 +7,31 @@ Place this file at:
 tests/validators/validator_boxy.py
 
 Usage:
-    from tests.validators.validator_boxy import validator_boxy
-    
+    from tests.validators.validator_boxy import validator_boxy, logger
+    import logging
+
+    # Basic validation
     result, issues = validator_boxy(node="pCube1")
     if result:
         print("Valid boxy object")
     else:
         print("Invalid boxy object")
         print("\\n".join(issues))
+
+    # Control logging output
+    logger.setLevel(logging.DEBUG)  # Show all validation details
+    logger.setLevel(logging.INFO)   # Show only pass/fail (default)
+    logger.setLevel(logging.WARNING)  # Suppress all output
 """
 
+import logging
 import maya.cmds as cmds
 import maya.api.OpenMaya as om
+
+from core.logging_utils import get_logger
+
+# Initialize logger
+LOGGER = get_logger(name=__name__, level=logging.INFO)
 
 
 def validator_boxy(node: str, test_poly_cube: bool = True):
@@ -415,45 +428,52 @@ def test_selected_boxy(node=None, test_poly_cube: bool = True):
     Returns:
         tuple: (bool, list) - (passed, issues)
 
+    Logging:
+        By default, only pass/fail results are logged (INFO level).
+        To see detailed validation issues, set logger to DEBUG level:
+            logger.setLevel(logging.DEBUG)
+        To disable all output:
+            logger.setLevel(logging.WARNING)
+
     For quick testing in Maya script editor.
     """
     # Validate input
     if node is not None:
         # Check that a string was passed, not a list or other type
         if not isinstance(node, str):
-            print("❌ ERROR: node argument must be a single string, not a list or other type")
-            print(f"   Received: {type(node).__name__}")
+            LOGGER.error("node argument must be a single string, not a list or other type")
+            LOGGER.debug(f"Received: {type(node).__name__}")
             return False, ["node argument must be a single string"]
     else:
         # Use selection if no node specified
         selected = cmds.ls(selection=True)
 
         if not selected:
-            print("❌ Please select an object first or provide a node name!")
+            LOGGER.error("Please select an object first or provide a node name!")
             return False, ["No object selected or specified"]
 
         if len(selected) > 1:
-            print(f"❌ ERROR: Multiple objects selected ({len(selected)}). Please select only one object.")
-            print(f"   Selected: {', '.join(selected)}")
+            LOGGER.error(f"Multiple objects selected ({len(selected)}). Please select only one object.")
+            LOGGER.debug(f"Selected: {', '.join(selected)}")
             return False, [f"Multiple objects selected: {', '.join(selected)}. Only one allowed."]
 
         node = selected[0]
 
-    print(f"\n{'='*60}")
-    print(f"Validating Boxy Geometry: {node}")
-    print('='*60)
+    LOGGER.debug(f"\n{'=' * 60}")
+    LOGGER.debug(f"Validating Boxy Geometry: {node}")
+    LOGGER.debug('=' * 60)
 
     result, issues = validator_boxy(node, test_poly_cube=test_poly_cube)
 
     if result:
-        print("✅ PASSED: Object is a valid boxy geometry!")
+        LOGGER.debug(f"✅ PASSED: Object '{node}' is a valid boxy node")
     else:
-        print("❌ FAILED: Object is not a valid boxy geometry")
-        print("\nIssues found:")
+        LOGGER.info(f"❌ FAILED: Object '{node}' is not a valid boxy node")
+        LOGGER.debug("\nIssues found:")
         for issue in issues:
-            print(f"  • {issue}")
+            LOGGER.debug(f"  • {issue}")
 
-    print('='*60 + '\n')
+    LOGGER.debug('=' * 60 + '\n')
 
     return result, issues
 

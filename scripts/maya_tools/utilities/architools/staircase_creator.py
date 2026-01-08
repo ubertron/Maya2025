@@ -3,82 +3,41 @@ from __future__ import annotations
 
 import contextlib
 import logging
-from dataclasses import dataclass
 
-from core import color_classes, math_utils
-from core.core_enums import Axis, DataType
+from core import math_utils
+from core.core_enums import Axis, DataType, CustomType
 from core.logging_utils import get_logger
-from core.point_classes import Point3, Point3Pair, Y_AXIS
-from maya_tools.utilities.architools import LOCATOR_COLOR
-from maya_tools.utilities.architools import CURVE_COLOR
-from maya_tools.utilities.architools.arch_creator import ArchCreator
-from maya_tools.utilities.architools.stair_data import StairData
+from core.point_classes import Point3, Y_AXIS
 
 with contextlib.suppress(ImportError):
     from maya import cmds
-    from maya_tools import display_utils, node_utils, attribute_utils, geometry_utils, material_utils, helpers
+    from maya_tools import node_utils, attribute_utils, geometry_utils, material_utils, curve_utils
+    from maya_tools.utilities.architools import CURVE_COLOR
+    from maya_tools.utilities.architools.arch_creator import ArchCreator
+    from maya_tools.utilities.architools.data.staircase_data import StaircaseData
 
 LOGGER = get_logger(__name__, level=logging.INFO)
 
 
-@dataclass
-class StaircaseData:
-    start: Point3
-    end: Point3
-    count: int
-    angle: float
-
-    def __repr__(self) -> str:
-        return (
-            f"Start: {self.start}\n"
-            f"End: {self.end}\n"
-            f"Count: {self.count}\n"
-            f"Rise: {self.rise}\n"
-            f"Tread: {self.tread}\n"
-        )
-
-    @property
-    def data(self) -> dict:
-        return {
-            "start": self.start.values,
-            "end": self.end.values,
-            "count": self.count,
-            "rise": self.rise,
-            "tread": self.tread,
-        }
-
-    @property
-    def delta(self) -> Point3:
-        return Point3Pair(self.start, self.end).delta
-
-    @property
-    def rise(self) -> float:
-        return self.delta.y / self.count
-
-    @property
-    def tread(self) -> float:
-        return self.delta.values[self.axis.value] / (self.count - 1)
-
-
 class StaircaseCreator(ArchCreator):
-    def __init__(self, default_rise: float = 20.0):
-        super().__init__()
+    def __init__(self, target_rise: float = 20.0, auto_texture: bool = False):
+        super().__init__(custom_type=CustomType.staircase, auto_texture=auto_texture)
 
         # initialize bespoke properties
-        self.default_rise = default_rise
+        self.target_rise = target_rise
 
     def initialize_arch_data(self):
         """Initialize the data from the boxy node."""
 
         # evaluate count based on default tread
-        count = round(self.size.y / self.default_rise)
-        LOGGER.debug(y_delta, count)
+        count = round(self.size.y / self.target_rise)
+        LOGGER.debug(self.size.y, count)
 
-        self.data = StairData(
-            start=start,
-            end=end,
-            axis=self.axis,
-            count=count
+        self.data = StaircaseData(
+            translation=self.translation,
+            y_rotation=self.rotation.y,
+            size=self.size,
+            count=count,
         )
 
     @property
@@ -89,98 +48,52 @@ class StaircaseCreator(ArchCreator):
     def data(self, value: StaircaseData):
         self._data = value
 
-    def create(self, auto_texture: bool = False):
+    def create(self):
         """Create the staircase geometry."""
         # 1) initialize arch data
         self.initialize_arch_data()
 
         # 2) create curves from the arch data
-        stair_curves = [curve_utils.create_curve_from_points(points=self.data.stair_profile_points, close=False,
-                                                               name="stair_curve0", color=CURVE_COLOR)]
+        curve0 = curve_utils.create_curve_from_points(
+            self.data.profile_points, close=False, name=f"{self.custom_type.name}_curve0", color=CURVE_COLOR)
+        cmds.setAttr(f"{curve0}.translateX", -self.data.size.x / 2)
+        curve1 = cmds.duplicate(curve0, name=f"{self.custom_type.name}_curve1")[0]
+        cmds.setAttr(f"{curve1}.translateX", self.data.size.x / 2)
+        curves = [curve0, curve1]
+
         # 3) create the geometry
         cmds.nurbsToPolygonsPref(polyType=1, format=3)
-        staircase, loft = cmds.loft(*stair_curves, degree=1, polygon=1, name="staircase")
-
-        # 4) add the attributes
-
-        # 5) texture
-        if auto_texture:
-            material_utils.auto_texture(transform=door_frame)
-
-        # 6) cleanup
-
-        a_positions = []
-        b_positions = []
-        for i in range(self.data.count):
-            y = self.data.start.y + i * self.data.rise
-            if self.axis is Axis.z:
-                xa = self.data.start.x
-                za = self.data.start.z + i * self.data.tread
-                xb = self.data.end.x
-                zb = za
-            else:
-                xa = self.data.start.x + i * self.data.tread
-                za = self.data.start.z
-                xb = xa
-                zb = self.data.end.z
-            a_positions.extend([Point3(xa, y, za), Point3(xa, y + self.data.rise, za)])
-            b_positions.extend([Point3(xb, y, zb), Point3(xb, y + self.data.rise, zb)])
-        spline_a = cmds.curve(
-            name="spline_a",
-            point=[x.values for x in a_positions],
-            degree=1)
-        spline_b = cmds.curve(
-            name="spline_b",
-            point=[x.values for x in b_positions],
-            degree=1)
-        cmds.nurbsToPolygonsPref(polyType=1, format=3)
-        stair_geometry, loft = cmds.loft(spline_a, spline_b, degree=1, polygon=1, name="staircase")
+        geometry, loft = cmds.loft(*curves, degree=1, polygon=1, name=self.custom_type.name)
 
         # reverse the staircase normals if the stairs are inside out
-        tread_normal = geometry_utils.get_face_normal(node=stair_geometry, face_id=1)
+        tread_normal = geometry_utils.get_face_normal(node=geometry, face_id=1)
         dot_product = math_utils.dot_product(vector_a=tread_normal, vector_b=Y_AXIS, normalize=True)
         if dot_product < 0.0:
-            cmds.polyNormal(stair_geometry, normalMode=0, userNormalMode=0)
+            cmds.polyNormal(geometry, normalMode=0, userNormalMode=0)
 
-        # add the attributes to the stair geometry so the locators can be recreated.
-        attribute_utils.add_attribute(node=stair_geometry, attr="custom_type", data_type=DataType.string,
-                                      lock=True, default_value="staircase")
-        attribute_utils.add_attribute(node=stair_geometry, attr="target_rise", data_type=DataType.float,
-                                      lock=False, default_value=self.default_rise)
-        axis_index = ["x", "z"].index(self.axis.name)
-        attribute_utils.add_enum_attribute(node=stair_geometry, attr="axis", values=["x", "z"], default_index=axis_index)
-        cmds.select(stair_geometry)
+        # 4) add the attributes
+        attribute_utils.add_attribute(
+            node=geometry, attr="custom_type", data_type=DataType.string, lock=True,
+            default_value=self.custom_type.name)
+        attribute_utils.add_compound_attribute(
+            node=geometry, parent_attr="size", data_type=DataType.float3, attrs=["x", "y", "z"], lock=True,
+            default_values=self.data.size.values)
+        attribute_utils.add_attribute(
+            node=geometry, attr="target_rise", data_type=DataType.float, lock=True, default_value=self.target_rise)
 
-        # texture the staircase
-        if auto_texture:
-            material_utils.auto_texture(transform=stair_geometry)
+        # 5) texture
+        if self.auto_texture:
+            material_utils.auto_texture(transform=geometry)
 
-        # clean up
-        cmds.polySoftEdge(stair_geometry, angle=0)
-        cmds.delete(stair_geometry, constructionHistory=True)
-        cmds.delete(spline_a, spline_b, self.locators)
-        cmds.select(stair_geometry)
-        node_utils.pivot_to_base(node=stair_geometry)
-        display_utils.info_message(text=f"Staircase created: {stair_geometry}")
-        return stair_geometry
-
-
-def restore_locators_from_staircase(node: str, locator_size: float = 10.0) -> tuple[list, float, Axis] | None:
-    """Recreate the staircase locators from a staircase object."""
-    if node_utils.is_staircase(node=node):
-        target_rise = cmds.getAttr(f"{node}.target_rise")
-        axis = Axis[["x", "z"][cmds.getAttr(f"{node}.axis")]]
-        num_verts = cmds.polyEvaluate(node, vertex=True)
-        locator_positions = (
-            geometry_utils.get_vertex_position(node=node, vertex_id=0),
-            geometry_utils.get_vertex_position(node=node, vertex_id=num_verts - 1)
-        )
-        locators = []
-        for idx, point in enumerate(locator_positions):
-            locators.append(helpers.create_locator(position=point, name=f"staircase_locator{idx}", size=locator_size, color=LOCATOR_COLOR))
-        cmds.delete(node)
-        return locators, target_rise, axis
-    return None
+        # 6) cleanup
+        cmds.polySoftEdge(geometry, angle=0)
+        cmds.delete(geometry, constructionHistory=True)
+        cmds.delete(curves, self.boxy_node)
+        node_utils.set_translation(geometry, value=self.data.translation)
+        node_utils.set_rotation(geometry, value=Point3(0, self.data.y_rotation, 0))
+        cmds.select(clear=True)
+        cmds.select(geometry)
+        return geometry
 
 
 if __name__ == "__main__":
@@ -191,5 +104,4 @@ if __name__ == "__main__":
     cmds.select("locator*")
     stairs = StaircaseCreator(axis=Axis.z)
     print(stairs.data)
-    # print(stairs.data.delta)
     stairs.create()

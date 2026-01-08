@@ -1,12 +1,11 @@
 from dataclasses import dataclass
 
-from core.core_enums import Axis
-from core.point_classes import Point3, Point3Pair, X_AXIS, Z_AXIS
-from maya_tools.utilities.architools.arch_data import ArchData
+from core.point_classes import Point3
+from maya_tools.utilities.architools.data.arch_data import ArchData
 
 
 @dataclass
-class StairData(ArchData):
+class StaircaseData(ArchData):
     """Class contains all the data necessary to construct a door object."""
 
     count: int
@@ -17,6 +16,7 @@ class StairData(ArchData):
             f"Rotation: {self.y_rotation}\n"
             f"Start: {self.bounds.a}\n"
             f"End: {self.bounds.b}\n"
+            f'{"-" * 26}\n'
             f"Count: {self.count}\n"
             f"rise: {self.rise}\n"
             f"tread: {self.tread}\n"
@@ -35,6 +35,16 @@ class StairData(ArchData):
         }
 
     @property
+    def profile_points(self) -> list[Point3]:
+        """Positions of the cv's for a stair curve."""
+        points = []
+        start_z = -self.bounds.size.z / 2
+        for i in range(self.count):
+            points.append(Point3(0, i * self.rise, start_z + i * self.tread))
+            points.append(Point3(0, (i + 1) * self.rise, start_z + i * self.tread))
+        return points
+
+    @property
     def rise(self) -> float:
         return self.size.y / self.count
 
@@ -43,7 +53,7 @@ class StairData(ArchData):
         return self.size.z / (self.count - 1)
 
 
-TEST_STAIR_DATA = StairData(
+TEST_STAIR_DATA = StaircaseData(
     translation=Point3(2.4, 0.0, -4.2),
     y_rotation=30.0,
     size=Point3(95.0, 205.0, 240.0),

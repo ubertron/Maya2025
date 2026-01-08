@@ -277,9 +277,9 @@ def get_dimensions(node: Optional[str] = None, format_results: bool = False,
     :param clipboard:
     """
     if not node:
-        node = get_transforms(first_only=True)
+        node = get_selected_transforms(full_path=True) if get_selected_transforms() else None
 
-    if node is None:
+    if not node:
         cmds.warning(f'Pass one valid transform: {node} [get_dimensions]')
         return None
     else:
@@ -516,20 +516,17 @@ def get_selected_joints() -> list[str]:
     return [x for x in get_selected_transforms() if cmds.objectType(x) == ObjectType.joint.name]
 
 
-def get_selected_transforms(first_only: bool = False, full_path: bool = False) -> list[str] or str:
-    """
-    Get a list of selected transform nodes
-    This works if in component selection mode as well as object selection mode
-    :return:
-    """
-    state = State()
-    set_component_mode(ComponentType.object)
-    selection = cmds.ls(selection=True, transforms=True, long=full_path)
-    state.restore()
-    if selection:
-        return selection[0] if first_only and selection else sorted(selection, key=lambda x: x.lower())
-    else:
-        return []
+def get_selected_transforms(full_path: bool = False, first_only: bool = False) -> list[str]:
+    """Get selected transforms."""
+    transforms = []
+    selection = cmds.ls(selection=True, flatten=True, long=full_path)
+    for x in selection:
+        if cmds.objectType(x) == "transform":
+            transforms.append(x)
+        elif cmds.objectType(x) in ("mesh", "curve"):
+            transforms.append(x.split(".")[0])
+    transforms = sorted(list(set(transforms)), key=lambda x: x.lower())
+    return transforms[0] if (first_only and len(transforms)) else transforms
 
 
 def get_shape_from_transform(node, full_path=False) -> str or None:
@@ -575,18 +572,12 @@ def get_transform_from_shape(shape: str, full_path: bool = False) -> str or Fals
     return result[0] if result else False
 
 
-def get_transforms(nodes=None, first_only: bool = False) -> list or str:
+def get_transforms(full_path: bool = False) -> list[str]:
     """
     Gets the currently selected transform whether in object mode or component mode
-    :param nodes:
-    :param first_only:
     :return:
     """
-    state = State()
-    set_component_mode(ComponentType.object)
-    selection = cmds.ls(nodes, tr=True) if nodes else cmds.ls(sl=True, tr=True)
-    state.restore()
-    return selection[0] if selection and first_only else selection
+    return cmds.ls(transforms=True, flatten=full_path)
 
 
 def get_translation(node: str, absolute: bool = False) -> Point3:
@@ -613,11 +604,7 @@ def get_type_from_transform(transform: str):
 
 
 def is_boxy(node: str) -> bool:
-    return attribute_utils.get_attribute(node=node, attr="custom_type") == CustomType.boxy.name
-
-
-def is_door(node: str) -> bool:
-    return attribute_utils.get_attribute(node=node, attr="custom_type") == CustomType.door.name
+    return is_custom_type(node=node, custom_type=CustomType.boxy)
 
 
 def is_geometry(node: str) -> bool:
@@ -673,13 +660,10 @@ def is_nurbs_curve(node: str) -> bool:
     return cmds.objectType(shape) == ObjectType.nurbsCurve.name if shape else False
 
 
-def is_staircase(node: str) -> bool:
-    """Is node a staircase object.
-
-    staircase is a custom object defined in scripts/maya_tools/utilities/architools/architools.py
-    """
+def is_custom_type(node: str, custom_type: CustomType) -> bool:
+    """Is node a custom type."""
     return cmds.attributeQuery("custom_type", node=node, exists=True) and \
-        cmds.getAttr(f"{node}.custom_type") == "staircase"
+        cmds.getAttr(f"{node}.custom_type") == custom_type.name
 
 
 def match_pivot_to_last(transforms: Optional[Union[str, list[str]]] = None):

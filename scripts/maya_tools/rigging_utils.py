@@ -151,19 +151,17 @@ def create_locator_hierarchy_from_joints(transform: str = '', mirror_joints: boo
     :return:
     """
     if not transform:
-        transform = get_selected_transforms(first_only=True)
-        if not transform:
-            cmds.warning('Nothing selected')
+        selected_transforms = get_selected_transforms()
+        if selected_transforms:
+            transform = selected_transforms[0]
+        else:
+            warning_message('No valid transform')
             return
 
-    if transform:
-        if is_object_type(transform, object_type=ObjectType.joint):
-            root_joint = get_root_joint(transform=transform)
-        else:
-            warning_message(f'Selection is not a joint: {transform}')
-            return
+    if is_object_type(transform, object_type=ObjectType.joint):
+        root_joint = get_root_joint(transform=transform)
     else:
-        warning_message('No valid transform')
+        warning_message(f'Selection is not a joint: {transform}')
         return
 
     position = Point3(*cmds.xform(root_joint, query=True, worldSpace=True, translation=True))

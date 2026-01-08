@@ -2,8 +2,6 @@
 import logging
 
 from maya_tools.utilities.architools.arch_creator import ArchCreator
-from maya_tools.utilities.architools.window_data import WindowData
-from core.point_classes import Point3, Point3Pair
 from core.logging_utils import get_logger
 
 LOGGER = get_logger(name=__name__, level=logging.DEBUG)

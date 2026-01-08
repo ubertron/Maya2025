@@ -19,7 +19,7 @@ from tests.validators import boxy_validator
 
 DEBUG_MODE = False
 DEFAULT_SIZE: float = 100.0
-LOGGER = get_logger(__name__, level=logging.DEBUG)
+LOGGER = get_logger(__name__, level=logging.INFO)
 
 
 @dataclass
@@ -385,5 +385,5 @@ def rebuild(node: str, pivot: Side | None = None, color: RGBColor | None = None)
         name=node
     )
     boxy_object = build(boxy_data=boxy_data)
-    print(f"Boxy rebuilt: {boxy_object}")
+    LOGGER.debug(f"Boxy rebuilt: {boxy_object}")
     return boxy_object

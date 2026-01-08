@@ -123,14 +123,12 @@ class RigBuilder(GridWidget):
         cmds.select(locator)
 
     def create_pivot_locators_clicked(self):
-        """
-        Event for pivot locator button
-        """
+        """Event for pivot locator button."""
         create_pivot_locators(size=self.current_size)
 
     def toggle_locators_joints_clicked(self):
-        transform = get_selected_transforms(first_only=True)
-        if transform:
+        """Event for toggle locator joints button."""
+        for transform in get_selected_transforms():
             result = toggle_locators_joints(transform=transform, mirror_joints=self.mirror_joints,
                                             axis=self.current_axis, size=self.current_size)
             print(f'{result} created')

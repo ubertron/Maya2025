@@ -132,8 +132,8 @@ def get_midpoint_from_transform(transform: str | None = None, format_results: bo
     :param clipboard:
     """
     if not transform:
-        transform = node_utils.get_transforms(first_only=True)
-    if transform is None:
+        transform = node_utils.get_selected_transforms(first_only=True)
+    if not transform:
         cmds.warning(f'Pass one valid transform: {transform} [get_midpoint]')
         return None
     else:

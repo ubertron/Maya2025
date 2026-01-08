@@ -310,9 +310,10 @@ def get_selected_components(node: str = '', component_type: ComponentType = Comp
     :param component_type:
     :return:
     """
-    node = node_utils.get_transforms(node)
+    node = node if node else node_utils.get_selected_transforms(first_only=True)
     assert component_type in (ComponentType.face, ComponentType.vertex, ComponentType.edge), 'Component not supported.'
     assert node, 'Please supply a transform.'
+    assert cmds.objExists(node), 'Node does not exist.'
     component_label: dict = {ComponentType.edge: 'e', ComponentType.face: 'f', ComponentType.vertex: 'vtx'}
     state = node_utils.State()
     cmds.select(node)
