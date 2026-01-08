@@ -11,8 +11,8 @@ class WindowData(ArchData):
 
     def __repr__(self):
         return (
-            f"Position: {self.position}\n"
-            f"Rotation: {self.rotation}\n"
+            f"Position: {self.translation}\n"
+            f"Rotation: {self.y_rotation}\n"
             f"Size: {self.size}\n"
             f"Start: {self.bounds.a}\n"
             f"End: {self.bounds.b}\n"
@@ -22,8 +22,8 @@ class WindowData(ArchData):
 
 
 TEST_WINDOW_DATA: WindowData = WindowData(
-    position=Point3(20.5, 0.0, -4.2),
-    rotation=45.0,
+    translation=Point3(20.5, 0.0, -4.2),
+    y_rotation=45.0,
     size=Point3(150.0, 90.0, 25.0),
     sill_thickness=2.0,
     sill_depth=4.0

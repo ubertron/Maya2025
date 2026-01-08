@@ -14,7 +14,7 @@ class WindowCreator(ArchCreator):
         super().__init__()
         LOGGER.debug(">>> Initializing WindowCreator")
 
-    def validate(self):
+    def initialize_arch_data(self):
         LOGGER.debug(">>> Validating data")
         self.data = TEST_WINDOW_DATA
 

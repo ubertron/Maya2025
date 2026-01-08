@@ -9,7 +9,7 @@ from maya import cmds
 
 from core import color_classes, math_utils
 from core.color_classes import RGBColor
-from core.core_enums import ComponentType, CustomType, DataType, Side
+from core.core_enums import ComponentType, CustomType, DataType, Side, Axis
 from core.logging_utils import get_logger
 from core.point_classes import Point3, ZERO3, Point3Pair
 from maya_tools import attribute_utils, geometry_utils, node_utils
@@ -245,6 +245,7 @@ def build(boxy_data: BoxyData) -> str:
         width=boxy_data.size.x, height=boxy_data.size.y, depth=boxy_data.size.z,
         heightBaseline=height_base_line, constructionHistory=True)
     shape = node_utils.get_shape_from_transform(node=box)
+    cmds.toggle(box, selectHandle=True)
     node_utils.set_translation(nodes=box, value=boxy_data.position, absolute=True)
     node_utils.set_rotation(nodes=box, value=boxy_data.rotation, absolute=True)
     geometry_utils.set_wireframe_color(node=box, color=boxy_data.color, shading=False)
@@ -298,6 +299,56 @@ def build(boxy_data: BoxyData) -> str:
     return box
 
 
+def edit_boxy_orientation(node: str, rotation: float, axis: Axis) -> str | False:
+    """Rotate the pivot by 90° about an axis."""
+    result, issues = boxy_validator.test_selected_boxy(node=node, test_poly_cube=False)
+    if result is False:
+        print("Invalid boxy object")
+        print("\n".join(issues))
+        return False
+    if rotation % 90 != 0:
+        print(f"Invalid rotation: {rotation}")
+        return False
+    node = rebuild(node=node)
+    boxy_data = get_boxy_data(node=node)
+    new_size = {
+        Axis.x: Point3(boxy_data.size.x, boxy_data.size.z, boxy_data.size.y),
+        Axis.y: Point3(boxy_data.size.z, boxy_data.size.y, boxy_data.size.x),
+        Axis.z: Point3(boxy_data.size.y, boxy_data.size.x, boxy_data.size.z)
+    }[axis]
+    boxy_data.size = new_size
+    if axis is Axis.x:
+        boxy_data.rotation.x = boxy_data.rotation.x + rotation
+    elif axis is Axis.y:
+        boxy_data.rotation.y = boxy_data.rotation.y + rotation
+    else:
+        boxy_data.rotation.z = boxy_data.rotation.z + rotation
+    cmds.delete(node)
+    return build(boxy_data=boxy_data)
+
+
+def get_boxy_data(node: str) -> BoxyData:
+    """Get BoxyData from a boxy node."""
+    return BoxyData(
+        position=node_utils.get_translation(node=node),
+        rotation=node_utils.get_rotation(node=node),
+        size=node_utils.get_size(node=node, inherit_rotations=True),
+        pivot=get_pivot(node=node),
+        color=RGBColor(*cmds.getAttr(f"{node}.color")[0]),
+        name=node
+    )
+
+
+def get_pivot(node: str) -> Side:
+    """Get the pivot of a boxy node."""
+    pivot_index = attribute_utils.get_attribute(node=node, attr="pivot")
+    return {
+        0: Side.bottom,
+        1: Side.center,
+        2: Side.top,
+    }[pivot_index]
+
+
 def get_position_from_bounds(bounds: Point3Pair, pivot: Side) -> Point3:
     """Get the position of a Boxy object from the bounds."""
     assert pivot in (Side.bottom, Side.top, Side.center), f"Invalid pivot: {pivot}"
@@ -308,6 +359,11 @@ def get_position_from_bounds(bounds: Point3Pair, pivot: Side) -> Point3:
     }[pivot]
 
 
+def get_selected_boxy_nodes() -> list[str]:
+    """Get a list of all boxy nodes selected."""
+    return [x for x in node_utils.get_selected_transforms(full_path=True) if node_utils.is_boxy(x)]
+
+
 def rebuild(node: str, pivot: Side | None = None, color: RGBColor | None = None) -> any:
     """Rebuild a boxy node."""
     result, issues = boxy_validator.test_selected_boxy(node=node, test_poly_cube=False)
@@ -315,7 +371,7 @@ def rebuild(node: str, pivot: Side | None = None, color: RGBColor | None = None)
         print("Invalid boxy object")
         print("\n".join(issues))
         return False
-    pivot = pivot if pivot else Side[attribute_utils.get_attribute(node=node, attr="pivot")]
+    pivot = pivot if pivot else get_pivot(node=node)
     rotation = node_utils.get_rotation(node=node)
     bounds: Point3Pair = node_utils.get_bounds(node=node, inherit_rotations=True)
     position = get_position_from_bounds(bounds=bounds, pivot=pivot)

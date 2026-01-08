@@ -10,6 +10,9 @@ from core.core_enums import Axis, DataType
 from core.logging_utils import get_logger
 from core.point_classes import Point3, Point3Pair, Y_AXIS
 from maya_tools.utilities.architools import LOCATOR_COLOR
+from maya_tools.utilities.architools import CURVE_COLOR
+from maya_tools.utilities.architools.arch_creator import ArchCreator
+from maya_tools.utilities.architools.stair_data import StairData
 
 with contextlib.suppress(ImportError):
     from maya import cmds
@@ -22,7 +25,6 @@ LOGGER = get_logger(__name__, level=logging.INFO)
 class StaircaseData:
     start: Point3
     end: Point3
-    axis: Axis
     count: int
     angle: float
 
@@ -31,7 +33,6 @@ class StaircaseData:
             f"Start: {self.start}\n"
             f"End: {self.end}\n"
             f"Count: {self.count}\n"
-            f"Axis: {self.axis.name}\n"
             f"Rise: {self.rise}\n"
             f"Tread: {self.tread}\n"
         )
@@ -41,7 +42,6 @@ class StaircaseData:
         return {
             "start": self.start.values,
             "end": self.end.values,
-            "axis": self.axis.name,
             "count": self.count,
             "rise": self.rise,
             "tread": self.tread,
@@ -60,39 +60,25 @@ class StaircaseData:
         return self.delta.values[self.axis.value] / (self.count - 1)
 
 
-class StaircaseCreator:
-    def __init__(self, default_rise: float = 20.0, axis: Axis = Axis.z, angle: float = 0.0):
+class StaircaseCreator(ArchCreator):
+    def __init__(self, default_rise: float = 20.0):
+        super().__init__()
+
+        # initialize bespoke properties
         self.default_rise = default_rise
-        assert axis in (Axis.x, Axis.z), "Invalid axis"
-        self.angle = angle
-        self.axis: Axis = axis
-        self.data = None
-        self._validate()
 
-    def _validate(self):
-        """Initialize the data from the locators."""
-        self.locators = [x for x in cmds.ls(sl=True, tr=True) if node_utils.is_locator(x)]
-        assert len(self.locators) == 2, "Select two locators"
-        positions = [node_utils.get_translation(x) for x in self.locators]
-        positions.sort(key=lambda x: x.y)
-        start, end = positions
-        assert start.y < end.y, "Second locator must be above first"
-        assert start.x != end.x and start.z != end.z, "Locators must not be coincident"
-        LOGGER.debug(f"Start: {start}\nEnd: {end}")
-
-        # validate minimum bounds for locators
+    def initialize_arch_data(self):
+        """Initialize the data from the boxy node."""
 
         # evaluate count based on default tread
-        y_delta = end.y - start.y
-        count = round(y_delta / self.default_rise)
+        count = round(self.size.y / self.default_rise)
         LOGGER.debug(y_delta, count)
 
-        self.data = StaircaseData(
+        self.data = StairData(
             start=start,
             end=end,
             axis=self.axis,
-            count=count,
-            angle=self.angle
+            count=count
         )
 
     @property
@@ -105,6 +91,24 @@ class StaircaseCreator:
 
     def create(self, auto_texture: bool = False):
         """Create the staircase geometry."""
+        # 1) initialize arch data
+        self.initialize_arch_data()
+
+        # 2) create curves from the arch data
+        stair_curves = [curve_utils.create_curve_from_points(points=self.data.stair_profile_points, close=False,
+                                                               name="stair_curve0", color=CURVE_COLOR)]
+        # 3) create the geometry
+        cmds.nurbsToPolygonsPref(polyType=1, format=3)
+        staircase, loft = cmds.loft(*stair_curves, degree=1, polygon=1, name="staircase")
+
+        # 4) add the attributes
+
+        # 5) texture
+        if auto_texture:
+            material_utils.auto_texture(transform=door_frame)
+
+        # 6) cleanup
+
         a_positions = []
         b_positions = []
         for i in range(self.data.count):

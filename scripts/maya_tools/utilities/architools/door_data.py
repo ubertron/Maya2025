@@ -21,8 +21,8 @@ class DoorData(ArchData):
 
     def __repr__(self) -> str:
         return (
-            f"Position: {self.position}\n"
-            f"Rotation: {self.rotation}\n"
+            f"Position: {self.translation}\n"
+            f"Y-Rotation: {self.y_rotation}\n"
             f"Size: {self.size}\n"
             f"Start: {self.bounds.a}\n"
             f"End: {self.bounds.b}\n"
@@ -38,8 +38,8 @@ class DoorData(ArchData):
     @property
     def data(self) -> dict:
         return {
-            "position": self.position,
-            "rotation": self.rotation,
+            "position": self.translation,
+            "rotation": self.y_rotation,
             "start": self.bounds.a.values,
             "end": self.bounds.b.values,
             "door_depth": self.door_depth,
@@ -124,8 +124,8 @@ class DoorData(ArchData):
 
 
 TEST_DOOR_DATA = DoorData(
-    position=Point3(2.4, 0.0, -4.2),
-    rotation=30.0,
+    translation=Point3(2.4, 0.0, -4.2),
+    y_rotation=30.0,
     size=Point3(95.0, 205.0, 30.0),
     door_depth=5.0,
     hinge_side=Side.left,

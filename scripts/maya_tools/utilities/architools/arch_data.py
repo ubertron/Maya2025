@@ -10,8 +10,8 @@ from core.point_classes import Point3, Point3Pair
 
 @dataclass
 class ArchData:
-    position: Point3  # translation of the object from the origin
-    rotation: float  # y-axis rotation of the object
+    translation: Point3  # translation of the object from the origin
+    y_rotation: float  # y-axis rotation of the object
     size: Point3  # size of space to create the asset in
 
     @property

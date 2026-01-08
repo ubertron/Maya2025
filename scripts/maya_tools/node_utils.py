@@ -616,6 +616,10 @@ def is_boxy(node: str) -> bool:
     return attribute_utils.get_attribute(node=node, attr="custom_type") == CustomType.boxy.name
 
 
+def is_door(node: str) -> bool:
+    return attribute_utils.get_attribute(node=node, attr="custom_type") == CustomType.door.name
+
+
 def is_geometry(node: str) -> bool:
     """Is a node a geometry node."""
     if cmds.objectType(node) == ObjectType.transform.name:
