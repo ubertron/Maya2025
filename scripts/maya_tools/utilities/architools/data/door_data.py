@@ -55,7 +55,7 @@ class DoorData(ArchData):
         return self.size.x - (2 * self.skirt)
 
     @property
-    def door_frame_bounds(self) -> Point3Pair:
+    def frame_bounds(self) -> Point3Pair:
         minimum = Point3(
             self.bounds.minimum.x - self.frame + self.skirt,
             self.bounds.minimum.y,
@@ -79,7 +79,10 @@ class DoorData(ArchData):
     def doorway_profile_points(self) -> list[Point3]:
         """Control Vertex positions for profile curve."""
         points = []
-        point = Point3(self.bounds.minimum.x - self.frame + self.skirt, self.bounds.minimum.y, self.bounds.maximum.z)
+        point = Point3(
+            self.bounds.minimum.x - self.frame + self.skirt,
+            self.bounds.minimum.y,
+            self.bounds.maximum.z)
         points.append(Point3(*point.values))
         point.z = point.z + self.skirt
         points.append(Point3(*point.values))
@@ -98,26 +101,27 @@ class DoorData(ArchData):
         """Positions of the four profile curves of the doorway."""
         return [
             Point3(
-                self.door_frame_bounds.minimum.x,
-                self.door_frame_bounds.minimum.y,
-                self.door_frame_bounds.center.z
+                self.frame_bounds.minimum.x,
+                self.frame_bounds.minimum.y,
+                self.frame_bounds.center.z
             ),
             Point3(
-                self.door_frame_bounds.minimum.x,
-                self.door_frame_bounds.maximum.y,
-                self.door_frame_bounds.center.z
+                self.frame_bounds.minimum.x,
+                self.frame_bounds.maximum.y,
+                self.frame_bounds.center.z
             ),
             Point3(
-                self.door_frame_bounds.maximum.x,
-                self.door_frame_bounds.maximum.y,
-                self.door_frame_bounds.center.z
+                self.frame_bounds.maximum.x,
+                self.frame_bounds.maximum.y,
+                self.frame_bounds.center.z
             ),
             Point3(
-                self.door_frame_bounds.maximum.x,
-                self.door_frame_bounds.minimum.y,
-                self.door_frame_bounds.center.z
+                self.frame_bounds.maximum.x,
+                self.frame_bounds.minimum.y,
+                self.frame_bounds.center.z
             )
         ]
+
     @property
     def doorway_profile_rotations(self) -> list[float]:
         """Rotations of the four profile curves of the doorway."""

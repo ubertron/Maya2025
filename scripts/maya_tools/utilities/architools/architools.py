@@ -10,8 +10,10 @@ from core.core_enums import Axis, Side
 from core.point_classes import Point3Pair, X_AXIS, Z_AXIS
 from core.core_paths import image_path
 from core.version_info import VersionInfo, Versions
+from maya_tools.utilities.architools import TOOL_NAME
 from maya_tools.utilities.architools.widgets.door_widget import DoorWidget
 from maya_tools.utilities.architools.widgets.staircase_widget import StaircaseWidget
+from maya_tools.utilities.architools.widgets.window_widget import WindowWidget
 from widgets.button_bar import ButtonBar
 from widgets.form_widget import FormWidget
 from widgets.generic_widget import GenericWidget
@@ -21,13 +23,13 @@ with contextlib.suppress(ImportError):
     from maya_tools import node_utils
     from maya_tools.utilities.boxy import boxy
 
-TOOL_NAME = "Architools"
 VERSIONS = Versions(versions=[
     VersionInfo(name=TOOL_NAME, version="0.0.1", codename="hawk", info="first_release"),
     VersionInfo(name=TOOL_NAME, version="0.0.2", codename="funky chicken", info="generics added"),
     VersionInfo(name=TOOL_NAME, version="0.0.3", codename="funky pigeon", info="tabs added"),
     VersionInfo(name=TOOL_NAME, version="0.0.4", codename="leopard", info="boxy integration"),
     VersionInfo(name=TOOL_NAME, version="0.0.5", codename="banshee", info="boxy-based staircase"),
+    VersionInfo(name=TOOL_NAME, version="0.0.6", codename="squirrel", info="window added"),
 ])
 
 
@@ -52,6 +54,7 @@ class Architools(GenericWidget):
         self.tab_widget: QTabWidget = self.add_widget(QTabWidget())
         self.tab_widget.addTab(DoorWidget(parent=self), DoorWidget().windowTitle())
         self.tab_widget.addTab(StaircaseWidget(parent=self), StaircaseWidget().windowTitle())
+        self.tab_widget.addTab(WindowWidget(parent=self), WindowWidget().windowTitle())
         self.info_label = self.add_label("Ready...", side=Side.left)
         self._setup_ui()
 

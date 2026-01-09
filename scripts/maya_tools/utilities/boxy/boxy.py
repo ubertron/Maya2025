@@ -19,7 +19,7 @@ from tests.validators import boxy_validator
 
 DEBUG_MODE = False
 DEFAULT_SIZE: float = 100.0
-LOGGER = get_logger(__name__, level=logging.INFO)
+LOGGER = get_logger(__name__, level=logging.DEBUG)
 
 
 @dataclass
@@ -109,6 +109,7 @@ class Boxy:
 
     def _evaluate_for_single_selection(self, inherit_rotations: bool):
         """Set up boxy attributes for a single node."""
+        LOGGER.debug(f">>> {self.selected_transforms[0]}")
         self.rotation_y = node_utils.get_rotation(self.selected_transforms[0]).y
         position = get_translation(self.selected_transforms[0])
         # work out the size compensating for rotation

@@ -8,8 +8,7 @@ from core.core_enums import CustomType, Axis
 from widgets.form_widget import FormWidget
 from widgets.generic_widget import GenericWidget
 from maya_tools import node_utils
-from maya_tools.utilities.architools import arch_utils
-from maya_tools.utilities.architools.architools import TOOL_NAME
+from maya_tools.utilities.architools import arch_utils, TOOL_NAME
 from maya_tools.utilities.boxy import boxy
 
 
@@ -64,7 +63,8 @@ class ArchWidget(GenericWidget):
                 arch_utils.convert_node_to_boxy(node=node, delete=True)
             node = self.convert_boxy()
             self.info = f"{self.title} created: {node}"
-            new_objects.append(node)
+            if node:
+                new_objects.append(node)
         except AssertionError as e:
             self.info = str(e)
 

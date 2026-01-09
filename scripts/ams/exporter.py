@@ -24,7 +24,8 @@ from widgets.group_box import GroupBox
 TOOL_NAME = "Exporter"
 UI_SCRIPT = "from ams import exporter; exporter.Exporter().restore()"
 VERSIONS = [
-    VersionInfo(name=TOOL_NAME, version="0.0.1", codename="streethawk", info="initial version")
+    VersionInfo(name=TOOL_NAME, version="0.0.1", codename="streethawk", info="initial version"),
+    VersionInfo(name=TOOL_NAME, version="0.0.2", codename="airwolf", info="added info about maya source file")
 ]
 
 
@@ -49,6 +50,7 @@ class Exporter(GenericWidget):
         self.form.add_label(label="UUID")
         self.form.add_label(label="Source directory")
         self.form.add_label(label="Current version")
+        self.form.add_label(label="Scene version")
         self.form.add_label(label="Export path")
         self.form.add_label(label="Target path")
         self.add_stretch()
@@ -131,6 +133,12 @@ class Exporter(GenericWidget):
         return self.scene_path.parent.relative_to(ams_paths.PROJECT_ROOT) if self.scene_path else None
 
     @property
+    def scene_version(self) -> Path | None:
+        """Get the scene version from the most recently saved metadata."""
+        path = self.metadata.get("scene_version")
+        return Path(path) if path else None
+
+    @property
     def target_path(self) -> Path | None:
         path = self.metadata.get("target_path")
         return Path(path) if path else None
@@ -172,6 +180,7 @@ class Exporter(GenericWidget):
         self.form.set_value(label="UUID", value=self.uuid if self.uuid else "?")
         self.form.set_value(label="Source directory", value=self.source_dir)
         self.form.set_value(label="Export path", value=self.export_path if self.export_path else "?")
+        self.form.set_value(label="Scene version", value=self.scene_version.name if self.scene_version else "?")
         self.form.set_value(label="Target path", value=self.target_path)
         self.form.set_value(label="Current version", value=self.current_version if self.current_version else "None")
         self._validate()

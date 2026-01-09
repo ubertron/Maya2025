@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 import logging
-
 import math
+
 from maya import cmds
 
-from core.core_enums import Side, DataType, CustomType
+from core import color_classes
+from core.core_enums import CustomType, DataType, Side
 from core.logging_utils import get_logger
 from core.point_classes import Point3
 from maya_tools import attribute_utils, curve_utils, material_utils, node_utils
@@ -14,13 +15,12 @@ from maya_tools.utilities.architools import CURVE_COLOR
 from maya_tools.utilities.architools.arch_creator import ArchCreator
 from maya_tools.utilities.architools.data.door_data import DoorData
 
-LOGGER = get_logger(name=__name__, level=logging.INFO)
+LOGGER = get_logger(name=__name__, level=logging.DEBUG)
 
 
 class DoorCreator(ArchCreator):
-    def __init__(self, frame: float = 10.0, skirt: float = 2.0, door_depth: float = 5.0,
-                 hinge_side: Side = Side.left, opening_side: Side = Side.front,
-                 auto_texture: bool = False):
+    def __init__(self, frame: float, skirt: float, door_depth: float, hinge_side: Side, opening_side: Side,
+                 auto_texture: bool):
         super().__init__(custom_type=CustomType.door, auto_texture=auto_texture)
 
         # initialize bespoke properties
@@ -31,9 +31,6 @@ class DoorCreator(ArchCreator):
         self.door_depth = door_depth
         self.hinge_side = hinge_side
         self.opening_side = opening_side
-
-    def __repr__(self):
-        return self.door_depth
 
     def initialize_arch_data(self):
         """Initialize the data from selected boxy."""
@@ -58,6 +55,7 @@ class DoorCreator(ArchCreator):
             LOGGER.debug(x)
         curves = [curve_utils.create_curve_from_points(
             points=self.data.doorway_profile_points, close=False, name=f"{self.custom_type.name}_curve0", color=CURVE_COLOR)]
+        print(self.data.doorway_profile_points)
         node_utils.set_pivot(nodes=curves[0], value=self.data.doorway_profile_positions[0])
 
         for i in range(1, 4):
@@ -91,7 +89,8 @@ class DoorCreator(ArchCreator):
             node=door_frame, attr="opening_side", data_type=DataType.string, lock=True,
             default_value=self.opening_side.name)
 
-        # 5) texture
+        # 5) texture/wireframe color
+        geometry_utils.set_wireframe_color(node=window, color=color_classes.DEEP_GREEN)
         if self.auto_texture:
             material_utils.auto_texture(transform=door_frame)
 

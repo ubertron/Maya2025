@@ -15,9 +15,10 @@ geometry, loft = cmds.loft(*curves, degree=1, polygon=1, name=self.custom_type.n
 
 # 4) add the attributes
 attribute_utils.add_attribute(
-    node=geometry, attr="custom_type", data_type=DataType.string, lock=True, default_value=self.custom_type.name))
+    node=geometry, attr="custom_type", data_type=DataType.string, lock=True, default_value=self.custom_type.name)
 
-# 5) texture
+# 5) texture/wireframe color
+geometry_utils.set_wireframe_color(node=window, color=color_classes.DEEP_GREEN)
 if auto_texture:
     material_utils.auto_texture(transform=geometry)
 
@@ -45,6 +46,7 @@ from core.logging_utils import get_logger
 from core.point_classes import Point3
 from maya_tools import node_utils
 from maya_tools.utilities.architools.data.arch_data import ArchData
+from maya_tools.utilities.architools import arch_utils
 from maya_tools.utilities.boxy import boxy
 
 LOGGER = get_logger(name=__name__, level=logging.INFO)
@@ -58,11 +60,11 @@ class ArchCreator(ABC):
         self.auto_texture = auto_texture
         self.data = None
         self.boxy_node = None
-        self._get_boxy_data()
+        self._get_boxy_node()
 
-    def _get_boxy_data(self):
+    def _get_boxy_node(self):
         """Get the boxy data."""
-        selection = [x for x in node_utils.get_selected_transforms(full_path=True) if node_utils.is_boxy(x)]
+        selection = arch_utils.get_custom_type(custom_type=CustomType.boxy, selected=True)
         assert len(selection) == 1, "Select a boxy item"
         self.boxy_node = boxy.Boxy().create(pivot=Side.bottom, inherit_rotations=True)[0]
         LOGGER.debug(f"Size: {self.size}")
@@ -94,10 +96,16 @@ class ArchCreator(ABC):
 
     @abstractmethod
     def initialize_arch_data(self):
-        """Generate ArchData."""
+        """Generate ArchData.
+
+        - Override to set up self.data with ArchData
+        """
         pass
 
     @abstractmethod
     def create(self):
-        """Creates the asset from the ArchData values."""
+        """Creates the asset from the ArchData values.
+
+        - Override for creation function
+        """
         pass

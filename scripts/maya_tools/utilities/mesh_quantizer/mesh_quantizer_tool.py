@@ -18,11 +18,13 @@ with contextlib.suppress(ImportError):
 
 TOOL_NAME = "Mesh Quantizer"
 VERSIONS = (
-    VersionInfo(name=TOOL_NAME, version="0.0.4", codename="predator", info="Initial version"),
+    VersionInfo(name=TOOL_NAME, version="0.0.1", codename="predator", info="Initial version"),
+    VersionInfo(name=TOOL_NAME, version="0.0.2", codename="terminator", info="Amount saved to settings"),
 )
 
 class MeshQuantizerTool(GenericWidget):
     minimum_quantize_amount = 0.001
+    amount_key = "amount"
 
     def __init__(self):
         super().__init__(title=VERSIONS[-1].title)
@@ -36,7 +38,7 @@ class MeshQuantizerTool(GenericWidget):
             icon_path=image_path("format.png"), tool_tip="Format Vertices", clicked=self.format_button_clicked)
         button_bar.add_stretch()
         self.add_stretch()
-        self.default = self.settings.value("default", 1.0)
+        self.default = self.settings.value(self.amount_key, 1.0)
         row = self.add_widget(ButtonBar())
         label = row.add_label("Amount:")
         label.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
@@ -50,6 +52,12 @@ class MeshQuantizerTool(GenericWidget):
         self.input_widget.setMinimum(0.0)
         self.input_widget.setMaximum(1000.0)
         self.input_widget.setSingleStep(0.1)
+        self.input_widget.valueChanged.connect(lambda: self.settings.setValue(self.amount_key, self.amount))
+
+    @property
+    def amount(self) -> float:
+        """Quantize amount."""
+        return self.input_widget.value()
 
     @property
     def increment(self) -> float:
@@ -63,7 +71,8 @@ class MeshQuantizerTool(GenericWidget):
     def info(self, value: str):
         self.info_label.setText(value)
 
-    def format_button_clicked(self):
+    @staticmethod
+    def format_button_clicked():
         """Event for format button."""
         print("format_button_clicked")
         selected_geometry = node_utils.get_selected_geometry()
@@ -75,9 +84,6 @@ class MeshQuantizerTool(GenericWidget):
         else:
             display_utils.info_message("No geometry selected")
 
-    def input_widget_changed(self, arg):
-        print(arg)
-
     def jiggle_button_clicked(self):
         """Event for jiggle button."""
         selected_geometry = node_utils.get_selected_geometry()
@@ -88,8 +94,11 @@ class MeshQuantizerTool(GenericWidget):
             display_utils.info_message("No geometry selected")
 
     def quantize_button_clicked(self):
-        """Event for quantize button."""
-        selected_geometry = node_utils.get_selected_geometry()
+        """Event for quantize button.
+
+        Don't want to quantize custom_type nodes (i.e. procedural)
+        """
+        selected_geometry = [x for x in node_utils.get_selected_geometry() if not node_utils.is_custom_type_node(x)]
         count = 0
         if len(selected_geometry) > 0:
             for x in selected_geometry:
@@ -100,7 +109,7 @@ class MeshQuantizerTool(GenericWidget):
                 count += len(changed)
             self.info = f"{count} vertices quantized"
         else:
-            display_utils.info_message("No geometry selected")
+            display_utils.info_message("No valid geometry selected")
 
 
 if __name__ == "__main__":

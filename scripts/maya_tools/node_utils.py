@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import pyperclip
 
 from maya import cmds
@@ -13,7 +14,7 @@ from maya_tools import attribute_utils
 from maya_tools.display_utils import warning_message, in_view_message
 from maya_tools.maya_enums import ObjectType, MayaAttributes
 
-LOGGER = get_logger(__name__)
+LOGGER = get_logger(name=__name__, level=logging.DEBUG)
 TRANSFORMATION_ATTRS = MayaAttributes.transformation_attribute_names()
 
 
@@ -455,7 +456,7 @@ def get_points_from_selection() -> list[Point3]:
     for x in cmds.ls(selection=True, flatten=True):
         object_type = cmds.objectType(x)
         if object_type == ObjectType.mesh.name:
-            node = x.split(".")[0]
+            node = get_transform_from_component(x)
             index = int(x.split("[")[1].split("]")[0])
             if ".vtx" in x:
                 points.append(get_vertex_position(node=node, vertex_id=index))
@@ -467,9 +468,9 @@ def get_points_from_selection() -> list[Point3]:
                 vertices = get_vertices_from_edge(node=node, edge_id=index)
                 for vertex in vertices:
                     points.append(get_vertex_position(node=node, vertex_id=vertex))
-        if object_type == ObjectType.nurbsCurve:
+        if object_type == ObjectType.nurbsCurve.name:
             if ".cv" in x:
-                node = x.split(".")[0]
+                node = get_transform_from_component(x)
                 index = int(x.split("[")[1].split("]")[0])
                 points.append(get_cv_position(node=node, cv_id=index))
         elif is_locator(node=x):
@@ -521,11 +522,12 @@ def get_selected_transforms(full_path: bool = False, first_only: bool = False) -
     transforms = []
     selection = cmds.ls(selection=True, flatten=True, long=full_path)
     for x in selection:
-        if cmds.objectType(x) == "transform":
+        if cmds.objectType(x) == ObjectType.transform.name:
             transforms.append(x)
-        elif cmds.objectType(x) in ("mesh", "curve"):
-            transforms.append(x.split(".")[0])
-    transforms = sorted(list(set(transforms)), key=lambda x: x.lower())
+        elif cmds.objectType(x) in (ObjectType.mesh.name, ObjectType.nurbsCurve.name):
+            # x is either shape node or transform node if objectType is mesh/curve
+            transforms.append(get_transform_from_component(component=x))
+    transforms = sorted(list(set(transforms)), key=lambda y: y.lower())
     return transforms[0] if (first_only and len(transforms)) else transforms
 
 
@@ -559,6 +561,17 @@ def get_top_node(node):
     assert cmds.objExists(node), f'Node not found: {node}'
     parent = cmds.listRelatives(node, parent=True, fullPath=True)
     return node if parent is None else get_top_node(parent[0])
+
+
+def get_transform_from_component(component: str) -> str:
+    """Get the transform of a component."""
+    geometry_types = (ObjectType.mesh.name, ObjectType.nurbsCurve.name)
+    assert cmds.objectType(component) in geometry_types, f'Not a component: {component}'
+    parent = cmds.listRelatives(component, parent=True)[0]
+    if cmds.objectType(parent) == ObjectType.transform.name:
+        return parent
+    else:
+        return cmds.listRelatives(parent, parent=True)[0]
 
 
 def get_transform_from_shape(shape: str, full_path: bool = False) -> str or False:
@@ -605,6 +618,17 @@ def get_type_from_transform(transform: str):
 
 def is_boxy(node: str) -> bool:
     return is_custom_type(node=node, custom_type=CustomType.boxy)
+
+
+def is_custom_type(node: str, custom_type: CustomType) -> bool:
+    """Is node a custom type."""
+    return cmds.attributeQuery("custom_type", node=node, exists=True) and \
+        cmds.getAttr(f"{node}.custom_type") == custom_type.name
+
+
+def is_custom_type_node(node: str) -> bool:
+    """Is node a custom type node."""
+    return attribute_utils.has_attribute(node=node, attr="custom_type")
 
 
 def is_geometry(node: str) -> bool:
@@ -658,12 +682,6 @@ def is_nurbs_curve(node: str) -> bool:
     """
     shape = get_shape_from_transform(node=node)
     return cmds.objectType(shape) == ObjectType.nurbsCurve.name if shape else False
-
-
-def is_custom_type(node: str, custom_type: CustomType) -> bool:
-    """Is node a custom type."""
-    return cmds.attributeQuery("custom_type", node=node, exists=True) and \
-        cmds.getAttr(f"{node}.custom_type") == custom_type.name
 
 
 def match_pivot_to_last(transforms: Optional[Union[str, list[str]]] = None):

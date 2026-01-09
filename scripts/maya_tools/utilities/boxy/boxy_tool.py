@@ -24,8 +24,9 @@ with contextlib.suppress(ImportError):
 TOOL_NAME = "Boxy Tool"
 VERSIONS = Versions(
     versions=[
-        VersionInfo(name=TOOL_NAME, version="1.0", codename="cobra", info="first release"),
+        VersionInfo(name=TOOL_NAME, version="1.0.0", codename="cobra", info="first release"),
         VersionInfo(name=TOOL_NAME, version="1.0.1", codename="banshee", info="size field added"),
+        VersionInfo(name=TOOL_NAME, version="1.0.2", codename="newt", info="issue fixed for nodes with children"),
     ]
 )
 

@@ -1,22 +1,26 @@
 from __future__ import annotations
 
+import logging
+
 import math
+import maya.api.OpenMaya as om
 import pyperclip
 
-import maya.api.OpenMaya as om
 from dataclasses import dataclass
 from maya import cmds
 from typing import Optional, Sequence, Union
 
+from core import logging_utils, math_utils
 from core.color_classes import RGBColor
 from core.core_enums import ComponentType, Axis
 from core.point_classes import Point3, Point3Pair, NEGATIVE_Y_AXIS, ZERO3
-from core import math_utils
 from core.math_utils import dot_product, normalize_vector, degrees_to_radians, get_midpoint_from_point_list
 from maya_tools.node_utils import get_shape_from_transform
 from maya_tools.scene_utils import message_script
 from maya_tools import display_utils, node_utils
 from maya_tools.maya_enums import ObjectType
+
+LOGGER = logging_utils.get_logger(name=__name__, level=logging.DEBUG)
 
 
 def combine(transforms: list[str] | None = None, name: str = '', position: Optional[Point3] = None,
@@ -32,7 +36,9 @@ def combine(transforms: list[str] | None = None, name: str = '', position: Optio
         parent = parent if parent else cmds.listRelatives(mesh_transforms[-1], parent=True)
         result = cmds.polyUnite(mesh_transforms, name=name, constructionHistory=history)[0]
         node_utils.set_pivot(result, value=position, reset=True)
-        cmds.parent(result, parent)
+        if parent:
+            cmds.parent(result, parent)
+        return result
     else:
         cmds.warning('Supply mesh nodes')
 
@@ -320,7 +326,7 @@ def get_selected_components(node: str = '', component_type: ComponentType = Comp
     node_utils.set_component_mode(component_type=component_type)
     selection = cmds.ls(sl=True, flatten=True)
     state.restore()
-    component_prefix = f'{node}.{component_label[component_type]}['
+    component_prefix = f'{component_label[component_type]}['
     component_ids = [int(x.split(component_prefix)[1].split(']')[0]) for x in selection]
     return component_ids
 

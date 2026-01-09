@@ -4,7 +4,7 @@ from __future__ import annotations
 import contextlib
 import logging
 
-from core import math_utils
+from core import color_classes, math_utils
 from core.core_enums import Axis, DataType, CustomType
 from core.logging_utils import get_logger
 from core.point_classes import Point3, Y_AXIS
@@ -81,7 +81,8 @@ class StaircaseCreator(ArchCreator):
         attribute_utils.add_attribute(
             node=geometry, attr="target_rise", data_type=DataType.float, lock=True, default_value=self.target_rise)
 
-        # 5) texture
+        # 5) texture/wireframe color
+        geometry_utils.set_wireframe_color(node=window, color=color_classes.DEEP_GREEN)
         if self.auto_texture:
             material_utils.auto_texture(transform=geometry)
 

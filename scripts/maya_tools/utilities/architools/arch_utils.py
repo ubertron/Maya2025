@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+import logging
+
 from maya import cmds
 
 from core import color_classes
 from core.core_enums import CustomType, Side
+from core.logging_utils import get_logger
 from core.point_classes import Point3
 from maya_tools import node_utils
-from maya_tools.utilities.architools.staircase_creator import LOGGER
 from maya_tools.utilities.boxy import boxy
+
+
+LOGGER = get_logger(name=__name__, level=logging.INFO)
 
 
 def convert_node_to_boxy(node: str, delete: bool = False) -> any:

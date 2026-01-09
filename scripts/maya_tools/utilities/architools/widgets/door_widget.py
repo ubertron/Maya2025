@@ -1,11 +1,16 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import QDoubleSpinBox
-from maya import cmds
+import logging
 
-from core.core_enums import CustomType
+from maya import cmds
+from PySide6.QtWidgets import QDoubleSpinBox
+
+from core.core_enums import CustomType, Side
+from core.logging_utils import get_logger
 from maya_tools.utilities.architools import door_creator
 from maya_tools.utilities.architools.widgets.arch_widget import ArchWidget
+
+LOGGER = get_logger(__name__, level=logging.DEBUG)
 
 
 class DoorWidget(ArchWidget):
@@ -46,6 +51,14 @@ class DoorWidget(ArchWidget):
         return self.door_frame_input.value()
 
     @property
+    def hinge_side(self) -> Side:
+        return (Side.left, Side.right)[self.hinge_combo_box.currentIndex()]
+
+    @property
+    def opening_side(self) -> Side:
+        return (Side.front, Side.back)[self.opening_combo_box.currentIndex()]
+
+    @property
     def skirt_thickness(self) -> float:
         return self.parent_widget.skirt_thickness_input.value()
 
@@ -55,6 +68,8 @@ class DoorWidget(ArchWidget):
                 skirt=self.skirt_thickness,
                 frame=self.frame_size,
                 door_depth=self.door_depth,
+                hinge_side=self.hinge_side,
+                opening_side=self.opening_side,
                 auto_texture=self.parent_widget.auto_texture)
             return creator.create()
         except ValueError as e:
