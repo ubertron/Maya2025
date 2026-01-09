@@ -82,7 +82,7 @@ class StaircaseCreator(ArchCreator):
             node=geometry, attr="target_rise", data_type=DataType.float, lock=True, default_value=self.target_rise)
 
         # 5) texture/wireframe color
-        geometry_utils.set_wireframe_color(node=window, color=color_classes.DEEP_GREEN)
+        geometry_utils.set_wireframe_color(node=geometry, color=color_classes.DEEP_GREEN)
         if self.auto_texture:
             material_utils.auto_texture(transform=geometry)
 

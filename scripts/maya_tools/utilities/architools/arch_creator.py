@@ -18,7 +18,7 @@ attribute_utils.add_attribute(
     node=geometry, attr="custom_type", data_type=DataType.string, lock=True, default_value=self.custom_type.name)
 
 # 5) texture/wireframe color
-geometry_utils.set_wireframe_color(node=window, color=color_classes.DEEP_GREEN)
+geometry_utils.set_wireframe_color(node=geometry, color=color_classes.DEEP_GREEN)
 if auto_texture:
     material_utils.auto_texture(transform=geometry)
 

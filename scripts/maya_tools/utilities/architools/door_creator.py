@@ -10,7 +10,7 @@ from core import color_classes
 from core.core_enums import CustomType, DataType, Side
 from core.logging_utils import get_logger
 from core.point_classes import Point3
-from maya_tools import attribute_utils, curve_utils, material_utils, node_utils
+from maya_tools import attribute_utils, curve_utils, geometry_utils, material_utils, node_utils
 from maya_tools.utilities.architools import CURVE_COLOR
 from maya_tools.utilities.architools.arch_creator import ArchCreator
 from maya_tools.utilities.architools.data.door_data import DoorData
@@ -67,40 +67,40 @@ class DoorCreator(ArchCreator):
 
         # 3) create the geometry
         cmds.nurbsToPolygonsPref(polyType=1, format=3)
-        door_frame, loft = cmds.loft(*curves, degree=1, polygon=1, name="door_frame")
+        geometry, loft = cmds.loft(*curves, degree=1, polygon=1, name="door_frame")
 
         # 4) add the attributes
         attribute_utils.add_attribute(
-            node=door_frame, attr="custom_type", data_type=DataType.string, lock=True,
+            node=geometry, attr="custom_type", data_type=DataType.string, lock=True,
             default_value=self.custom_type.name)
         attribute_utils.add_compound_attribute(
-            node=door_frame, parent_attr="size", data_type=DataType.float3, attrs=["x", "y", "z"],
+            node=geometry, parent_attr="size", data_type=DataType.float3, attrs=["x", "y", "z"],
             lock=True, default_values=self.data.size.values)
         attribute_utils.add_attribute(
-            node=door_frame, attr="frame", data_type=DataType.float, lock=True, default_value=self.frame)
+            node=geometry, attr="frame", data_type=DataType.float, lock=True, default_value=self.frame)
         attribute_utils.add_attribute(
-            node=door_frame, attr="skirt", data_type=DataType.float, lock=True, default_value=self.skirt)
+            node=geometry, attr="skirt", data_type=DataType.float, lock=True, default_value=self.skirt)
         attribute_utils.add_attribute(
-            node=door_frame, attr="door_depth", data_type=DataType.float, lock=True, default_value=self.door_depth)
+            node=geometry, attr="door_depth", data_type=DataType.float, lock=True, default_value=self.door_depth)
         attribute_utils.add_attribute(
-            node=door_frame, attr="hinge_side", data_type=DataType.string, lock=True,
+            node=geometry, attr="hinge_side", data_type=DataType.string, lock=True,
             default_value=self.hinge_side.name)
         attribute_utils.add_attribute(
-            node=door_frame, attr="opening_side", data_type=DataType.string, lock=True,
+            node=geometry, attr="opening_side", data_type=DataType.string, lock=True,
             default_value=self.opening_side.name)
 
         # 5) texture/wireframe color
-        geometry_utils.set_wireframe_color(node=window, color=color_classes.DEEP_GREEN)
+        geometry_utils.set_wireframe_color(node=geometry, color=color_classes.DEEP_GREEN)
         if self.auto_texture:
-            material_utils.auto_texture(transform=door_frame)
+            material_utils.auto_texture(transform=geometry)
 
         # 6) cleanup
-        cmds.polySoftEdge(door_frame, angle=0)
-        node_utils.pivot_to_base(node=door_frame)
-        cmds.delete(door_frame, constructionHistory=True)
+        cmds.polySoftEdge(geometry, angle=0)
+        node_utils.pivot_to_base(node=geometry)
+        cmds.delete(geometry, constructionHistory=True)
         cmds.delete(curves, self.boxy_node)
-        node_utils.set_translation(door_frame, value=self.data.translation)
-        node_utils.set_rotation(door_frame, value=Point3(0, self.data.y_rotation, 0))
+        node_utils.set_translation(geometry, value=self.data.translation)
+        node_utils.set_rotation(geometry, value=Point3(0, self.data.y_rotation, 0))
         cmds.select(clear=True)
-        cmds.select(door_frame)
-        return door_frame
+        cmds.select(geometry)
+        return geometry

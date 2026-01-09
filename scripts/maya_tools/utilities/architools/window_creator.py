@@ -72,39 +72,39 @@ class WindowCreator(ArchCreator):
         window_frame, loft = cmds.loft(*curves, degree=1, polygon=1, name="window_frame")
         window_sill, poly_cube_node = cmds.polyCube(width=self.data.sill_size.x, height=self.data.sill_size.y, depth=self.data.sill_size.z, name="window_sill")
         cmds.setAttr(f"{poly_cube_node}.heightBaseline", -1)
-        window = geometry_utils.combine(transforms=[window_frame, window_sill], name=self.custom_type.name)
+        geometry = geometry_utils.combine(transforms=[window_frame, window_sill], name=self.custom_type.name)
 
         # 4) add the attributes
         attribute_utils.add_attribute(
-            node=window, attr="custom_type", data_type=DataType.string, lock=True,
+            node=geometry, attr="custom_type", data_type=DataType.string, lock=True,
             default_value=self.custom_type.name)
         attribute_utils.add_compound_attribute(
-            node=window, parent_attr="size", data_type=DataType.float3, attrs=["x", "y", "z"],
+            node=geometry, parent_attr="size", data_type=DataType.float3, attrs=["x", "y", "z"],
             lock=True, default_values=self.data.size.values)
         attribute_utils.add_attribute(
-            node=window, attr="frame", data_type=DataType.float, lock=True, default_value=self.frame)
+            node=geometry, attr="frame", data_type=DataType.float, lock=True, default_value=self.frame)
         attribute_utils.add_attribute(
-            node=window, attr="skirt", data_type=DataType.float, lock=True, default_value=self.skirt)
+            node=geometry, attr="skirt", data_type=DataType.float, lock=True, default_value=self.skirt)
         attribute_utils.add_attribute(
-            node=window, attr="sill_thickness", data_type=DataType.float, lock=True, default_value=self.sill_thickness)
+            node=geometry, attr="sill_thickness", data_type=DataType.float, lock=True, default_value=self.sill_thickness)
         attribute_utils.add_attribute(
-            node=window, attr="sill_depth", data_type=DataType.float, lock=True, default_value=self.sill_depth)
+            node=geometry, attr="sill_depth", data_type=DataType.float, lock=True, default_value=self.sill_depth)
 
         # 5) texture/wireframe color
-        geometry_utils.set_wireframe_color(node=window, color=color_classes.DEEP_GREEN)
+        geometry_utils.set_wireframe_color(node=geometry, color=color_classes.DEEP_GREEN)
         if self.auto_texture:
-            material_utils.auto_texture(transform=window)
+            material_utils.auto_texture(transform=geometry)
 
         # 6) cleanup
-        cmds.polySoftEdge(window, angle=0)
-        node_utils.pivot_to_base(node=window)
-        cmds.delete(window, constructionHistory=True)
+        cmds.polySoftEdge(geometry, angle=0)
+        node_utils.pivot_to_base(node=geometry)
+        cmds.delete(geometry, constructionHistory=True)
         cmds.delete(curves, self.boxy_node)
-        node_utils.set_translation(window, value=self.data.translation)
-        node_utils.set_rotation(window, value=Point3(0, self.data.y_rotation, 0))
+        node_utils.set_translation(geometry, value=self.data.translation)
+        node_utils.set_rotation(geometry, value=Point3(0, self.data.y_rotation, 0))
         cmds.select(clear=True)
-        cmds.select(window)
-        return window
+        cmds.select(geometry)
+        return geometry
 
 
 if __name__ == "__main__":
