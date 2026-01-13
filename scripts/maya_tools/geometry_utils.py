@@ -23,6 +23,38 @@ from maya_tools.maya_enums import ObjectType
 LOGGER = logging_utils.get_logger(name=__name__, level=logging.DEBUG)
 
 
+@dataclass
+class Component:
+    transform: str
+    idx: int
+    component_type: ComponentType
+
+
+@dataclass
+class CvComponent(Component):
+    component_type: ComponentType = ComponentType.cv
+
+
+@dataclass
+class EdgeComponent(Component):
+    component_type: ComponentType = ComponentType.edge
+
+
+@dataclass
+class FaceComponent(Component):
+    component_type: ComponentType = ComponentType.face
+
+
+@dataclass
+class UvComponent(Component):
+    component_type: ComponentType = ComponentType.uv
+
+
+@dataclass
+class VertexComponent(Component):
+    component_type: ComponentType = ComponentType.vertex
+
+
 def combine(transforms: list[str] | None = None, name: str = '', position: Optional[Point3] = None,
             parent: Optional[str] = None, history: bool = False) -> str or None:
     """Combine geometry nodes."""

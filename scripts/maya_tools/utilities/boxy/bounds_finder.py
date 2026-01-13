@@ -1,4 +1,5 @@
 """This utility looks for cuboid geometry by searching a mesh for a matching face."""
+from __future__ import annotations
 
 from importlib import reload
 
@@ -8,71 +9,79 @@ from pathlib import Path
 from core.point_classes import Point3Pair
 from core.core_enums import SurfaceDirection
 from maya_tools import node_utils
+from maya_tools.geometry_utils import FaceComponent
 from tests.validators import quadrilateral_validator
 from tests.validators import cuboid_validator
 
 
-class BoundsFinder:
+class FaceFinder:
 
-    def __init__(self, mode: SurfaceDirection = SurfaceDirection.concave):
+    def __init__(self, mode: SurfaceDirection = SurfaceDirection.concave, select: bool = False,
+                 component: FaceComponent | None = None):
         """
-        Initialize BoundsFinder.
+        Initialize FaceFinder.
 
         Args:
             mode: SurfaceDirection enum. Default is SurfaceDirection.concave.
                   - SurfaceDirection.concave: finds face in the direction of the normal
                   - SurfaceDirection.convex: finds face in the opposite direction of the normal
+            select: If True, selects the found faces. If False, restores the original selection.
+            component: Optional FaceComponent specifying the face to use. If None, uses the current selection.
         """
         self.opposite_face = None
+        self.valid_candidate_count = 0
         self.mode = mode
+        self.select = select
 
         if not isinstance(mode, SurfaceDirection):
             cmds.warning(f"Invalid mode '{mode}'. Using SurfaceDirection.concave.")
             self.mode = SurfaceDirection.concave
 
-        # Store original selection to restore later
-        original_selection = cmds.ls(sl=True, flatten=True, long=True)
+        # Store original selection state to restore later
+        state = node_utils.State()
 
-        selection = cmds.ls(sl=True, flatten=True, long=True)
-        if len(selection) == 1 and ".f[" in selection[0]:
-            self.transform = selection[0].split(".f")[0]
-            self.idx = int(selection[0].split("[")[1].split("]")[0])
+        # Use provided component or fall back to selection
+        if component is not None:
+            if cmds.objExists(component.transform):
+                self.transform = component.transform
+                self.idx = component.idx
+            else:
+                cmds.warning(f"Transform '{component.transform}' does not exist.")
+                state.restore()
+                return
+        else:
+            selection = cmds.ls(sl=True, flatten=True, long=True)
+            face_selection = [s for s in selection if ".f[" in s]
+            if len(face_selection) == 1:
+                self.transform = face_selection[0].split(".f")[0]
+                self.idx = int(face_selection[0].split("[")[1].split("]")[0])
+            elif len(face_selection) > 1:
+                raise ValueError("More than one face found.")
+            else:
+                raise ValueError("No valid face is selected.")
 
-            is_valid, message = quadrilateral_validator.validate_quadrilateral(self.transform, self.idx)
-            if is_valid:
-                result = self._process()
-                print(f"Mode: {self.mode.name}")
-                print(f"Found opposite face: {result}")
-                if result:
-                    print(f"Opposite face index: {self.opposite_face}")
+        is_valid, message = quadrilateral_validator.validate_quadrilateral(self.transform, self.idx)
+        if is_valid:
+            result = self._process()
+            print(f"Mode: {self.mode.name}")
+            print(f"Found opposite face: {result}")
+            if result:
+                print(f"Opposite face index: {self.opposite_face}")
+                if self.select:
                     # Select both faces and highlight the transform
-                    mesh_shape = quadrilateral_validator.get_mesh_shape(self.transform)
-                    face1 = f"{mesh_shape}.f[{self.idx}]"
-                    face2 = f"{mesh_shape}.f[{self.opposite_face}]"
+                    face1 = f"{self.transform}.f[{self.idx}]"
+                    face2 = f"{self.transform}.f[{self.opposite_face}]"
                     cmds.select([face1, face2], replace=True)
                     cmds.hilite(self.transform)
                 else:
-                    print("No matching face found.")
-                    # Restore original selection if no match found
-                    if original_selection:
-                        cmds.select(original_selection, replace=True)
-                    else:
-                        cmds.select(clear=True)
+                    state.restore()
             else:
-                cmds.warning(f"Not quad face: {message}")
-                # Restore original selection on validation failure
-                if original_selection:
-                    cmds.select(original_selection, replace=True)
-                else:
-                    cmds.select(clear=True)
+                print("No matching face found.")
+                state.restore()
         else:
-            cmds.warning("Select a single quad face.")
-            # Restore original selection on invalid selection
-            if original_selection:
-                cmds.select(original_selection, replace=True)
-            else:
-                cmds.select(clear=True)
-        
+            cmds.warning(f"Not quad face: {message}")
+            state.restore()
+
     def _process(self) -> bool:
         """
         Look for the opposite face that forms a cuboid with the selected face.
@@ -155,34 +164,54 @@ class BoundsFinder:
                 print(f"  FAIL: {message}")
 
         # If we found valid candidates, select the closest one
+        self.valid_candidate_count = len(valid_candidates)
         if valid_candidates:
             # Sort by distance and pick the closest
             valid_candidates.sort(key=lambda x: x[1])
             self.opposite_face, closest_distance, validation_msg = valid_candidates[0]
 
-            print(f"\n{'='*80}")
+            print(f"\n{'=' * 80}")
             print(f"Found {len(valid_candidates)} valid candidate(s)")
             print(f"Selected closest face: {self.opposite_face} at distance {closest_distance:.4f}")
             print(f"Cuboid validation: {validation_msg}")
-            print(f"{'='*80}")
+            print(f"{'=' * 80}")
             return True
 
         return False
 
-        
+
+def get_opposite_face(component: FaceComponent | None = None,
+                      surface_direction: SurfaceDirection = SurfaceDirection.convex,
+                      select: bool = False) -> FaceComponent | None:
+    """
+    Get the opposite face to a supplied face.
+
+    Args:
+        component: Optional FaceComponent specifying the face to use. If None, uses the current selection.
+        surface_direction: SurfaceDirection enum for search direction.
+        select: If True, selects the found faces. If False, restores the original selection.
+
+    Returns:
+        FaceComponent of the opposite face if found, None otherwise.
+
+    Raises:
+        ValueError: If select=True, component=None, and selection is invalid
+                    (no face selected or multiple faces selected).
+    """
+    finder = FaceFinder(mode=surface_direction, select=select, component=component)
+    if finder.opposite_face is not None:
+        return FaceComponent(transform=finder.transform, idx=finder.opposite_face)
+    return None
 
 
 if __name__ == "__main__":
     # Example usage - concave mode (default)
-    #cmds.select("floor.f[4]")
-    #cmds.hilite("floor")
-    #finder = BoundsFinder()  # Uses SurfaceDirection.concave by default
+    # cmds.select("floor.f[4]")
+    # cmds.hilite("floor")
+    # finder = FaceFinder()  # Uses SurfaceDirection.concave by default
 
     # Example usage - convex mode
-    #cmds.select("polySurface1.f[1]")
-    #cmds.hilite("polySurface1")
+    # cmds.select("polySurface1.f[1]")
+    # cmds.hilite("polySurface1")
     test_scene = Path("bounds_finder_test_scene.ma")
-    finder = BoundsFinder(mode=SurfaceDirection.convex)
-
-
-    
+    _finder = FaceFinder(mode=SurfaceDirection.convex)

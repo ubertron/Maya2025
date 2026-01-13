@@ -141,73 +141,6 @@ def save_scene(force: bool = False):
         return False
 
 
-class State:
-    """Query and restore selection/component mode"""
-
-    def __init__(self):
-        self.component_mode = get_component_mode()
-        self.selection = cmds.ls(sl=True)
-
-        if self.object_mode:
-            self.object_selection = cmds.ls(sl=True)
-            self.component_selection = []
-        else:
-            self.component_selection = cmds.ls(sl=True)
-            set_component_mode(ComponentType.object)
-            self.object_selection = cmds.ls(sl=True)
-            set_component_mode(self.component_mode)
-            cmds.hilite(self.object_selection)
-
-    def restore(self):
-        """
-        Reset the Maya scene to the last state
-        """
-        if self.object_selection:
-            cmds.select(self.object_selection, noExpand=True)
-            set_component_mode(self.component_mode)
-        else:
-            set_component_mode(ComponentType.object)
-            cmds.select(clear=True)
-
-        if not self.object_mode:
-            cmds.select(self.component_selection)
-
-    @property
-    def object_mode(self):
-        return self.component_mode is ComponentType.object
-
-    def remove_objects(self, objects: list):
-        """
-        Remove objects from current selection
-        Sometimes necessary as cmds.objExists check causes an exception
-        @param objects:
-        """
-        for item in list(objects):
-            if item in self.object_selection:
-                self.object_selection.remove(item)
-
-
-def set_component_mode(component_type: ComponentType):
-    """
-    Set the current Maya component mode
-    @param component_type: ComponentType
-    """
-    if component_type == ComponentType.object:
-        cmds.selectMode(object=True)
-    else:
-        cmds.selectMode(component=True)
-        if component_type == ComponentType.vertex:
-            cmds.selectType(vertex=True)
-        elif component_type == ComponentType.edge:
-            cmds.selectType(edge=True)
-        elif component_type == ComponentType.face:
-            cmds.selectType(facet=True)
-        elif component_type == ComponentType.uv:
-            cmds.selectType(polymeshUV=True)
-        else:
-            cmds.warning('Unknown component type')
-
-
 def create_group_node(name: str, overwrite: bool = False):
     """
     Create an empty group node DAG object
@@ -221,15 +154,6 @@ def create_group_node(name: str, overwrite: bool = False):
     group_node = cmds.group(name=name, empty=True)
 
     return group_node
-
-
-def query_unsaved_changes() -> bool:
-    """
-    Returns True if there are unsaved changes in the current scene
-    @return: bool
-    """
-    from maya import cmds
-    return cmds.file(query=True, modified=True)
 
 
 def get_top_level_transforms() -> List:
