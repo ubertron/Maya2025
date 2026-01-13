@@ -244,6 +244,11 @@ class SoftwarePlatform(Enum):
     Unreal = auto()
 
 
+class SurfaceDirection(Enum):
+    concave = auto()
+    convex = auto()
+
+
 @unique
 class Unit(Enum):
     millimeter = "mm"

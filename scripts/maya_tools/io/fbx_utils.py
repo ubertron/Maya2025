@@ -5,13 +5,14 @@ from pathlib import Path
 from maya import cmds, mel
 from typing import Union
 
+from core import logging_utils
 from maya_tools.maya_enums import FBXProperty
 from maya_tools.maya_environment_utils import MAYA_APP_DIR
 
 FBX_PLUG_IN: str = 'fbxmaya.mll'
 FBX_PLUG_IN_PATH: Path = Path(cmds.pluginInfo(FBX_PLUG_IN, query=True, path=True))
 FBX_EXPORT_PRESETS: list[Path] = [x for x in MAYA_APP_DIR.joinpath('FBX').rglob('*.fbxexportpreset')]
-
+LOGGER = logging_utils.get_logger(__name__, level=logging.DEBUG)
 
 def export_fbx(export_path: Path, selected: bool = True, replace: bool = True):
     """
@@ -24,6 +25,7 @@ def export_fbx(export_path: Path, selected: bool = True, replace: bool = True):
     if replace and export_path.exists():
         os.remove(export_path.as_posix())
 
+    export_path.parent.mkdir(parents=True, exist_ok=True)
     command = f'FBXExport -f "{export_path.as_posix()}"{" -s" if selected else ""};'
     logging.info(command)
     mel.eval(command)

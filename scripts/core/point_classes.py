@@ -46,6 +46,10 @@ class Point3:
         return math.sqrt(sum(self.values[i] ** 2 for i in range(3)))
 
     @property
+    def normalized(self) -> 'Point3':
+        return Point3(self.x / self.magnitude, self.y / self.magnitude, self.z / self.magnitude)
+
+    @property
     def values(self) -> tuple[float]:
         return self.x, self.y, self.z
 
@@ -120,8 +124,20 @@ class Point3Pair:
         return Point3(self.center.x, self.minimum.y, self.center.z)
 
     @property
+    def center(self) -> Point3:
+        return Point3(*[(self.a.values[i] + self.b.values[i]) / 2 for i in range(3)])
+
+    @property
     def compact_repr(self) -> str:
         return f'[{self.a.compact_repr}], [{self.b.compact_repr}]'
+
+    @property
+    def cross_product(self) -> Point3:
+        return Point3(
+            self.a.y * self.b.z - self.a.z * self.b.y,
+            self.a.z * self.b.x - self.a.x * self.b.z,
+            self.a.x * self.b.y - self.a.y * self.b.x
+        )
 
     @property
     def delta(self) -> Point3:
@@ -141,10 +157,6 @@ class Point3Pair:
     @property
     def maximum(self) -> Point3:
         return Point3(*[max(self.a.values[i], self.b.values[i]) for i in range(3)])
-
-    @property
-    def center(self) -> Point3:
-        return Point3(*[(self.a.values[i] + self.b.values[i]) / 2 for i in range(3)])
 
     @property
     def min_max_vector(self) -> Point3:
@@ -176,7 +188,7 @@ class Point3Pair:
         """
         return Point3(*[self.a.values[i] + value * self.delta.values[i] for i in range(3)])
 
-    def vertices_within_bounds(self, vertices: list[Point3]):
+    def vertices_within_bounds(self, vertices: list[Point3]) -> bool:
         """Returns true if vertices are within bounds."""
         for v in vertices:
             for axis_index in range(3):

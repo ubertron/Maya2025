@@ -13,7 +13,7 @@ from core.core_enums import AssetType, Side
 from core.core_paths import image_path
 from core import date_time_utils, file_utils
 from core.version_info import VersionInfo
-from maya_tools import node_utils, scene_utils
+from maya_tools import material_utils, node_utils, scene_utils
 from maya_tools.io import fbx_utils, fbx_presets
 from widgets.button_bar import ButtonBar
 from widgets.form_widget import FormWidget
@@ -25,7 +25,8 @@ TOOL_NAME = "Exporter"
 UI_SCRIPT = "from ams import exporter; exporter.Exporter().restore()"
 VERSIONS = [
     VersionInfo(name=TOOL_NAME, version="0.0.1", codename="streethawk", info="initial version"),
-    VersionInfo(name=TOOL_NAME, version="0.0.2", codename="airwolf", info="added info about maya source file")
+    VersionInfo(name=TOOL_NAME, version="0.0.2", codename="airwolf", info="added info about maya source file"),
+    VersionInfo(name=TOOL_NAME, version="0.0.3", codename="blue thunder", info="texture transfer")
 ]
 
 
@@ -159,7 +160,9 @@ class Exporter(GenericWidget):
             cmds.select(geometry_root_nodes)
             export_path = self.export_path_abs
             fbx_utils.export_fbx(export_path=self.export_path_abs, selected=True)
+            self.target_path_abs.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(export_path, self.target_path_abs)
+            self.transfer_textures()
             self.update_form()
             self.info = f"{self.asset_name} exported successfully -> {self.current_version}"
             self.update_metadata()
@@ -169,6 +172,13 @@ class Exporter(GenericWidget):
     def metadata_button_clicked(self):
         if self.metadata_path.exists():
             file_utils.open_in_text_edit(path=self.metadata_path)
+
+    @staticmethod
+    def transfer_textures():
+        """Collect the textures and send to the textures directory."""
+        ams_paths.TEXTURES.mkdir(parents=True, exist_ok=True)
+        for texture in material_utils.collect_textures():
+            shutil.copy(texture, ams_paths.TEXTURES / texture.name)
 
     def update_form(self):
         """Update the form with export details."""

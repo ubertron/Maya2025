@@ -51,6 +51,7 @@
     /Materials
     /Props
     /Scenes -- Unity exclusive
+    /Textures
     /Vehicles
     /UI -- Unity exclusive
 """
@@ -73,6 +74,8 @@ TOOLS = UNITY / "Tools"
 ASSETS = GAME / "Assets"
 PACKAGES = GAME / "Packages"
 PROJECT_SETTINGS = GAME / "ProjectSettings"
+TEXTURES = ASSETS / "Textures"
+ENVIRONMENTS = ASSETS / "Environments"
 
 # Source art paths
 SOURCE_ART = PROJECT_ROOT / "SourceArt"
