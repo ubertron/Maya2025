@@ -59,6 +59,7 @@ def get_logger(name: str | None = None, level=logging.INFO,
     """Create a logger."""
     logger = logging.getLogger(name if name else __name__)
     logger.setLevel(level)
+    logger.propagate = False
     for existing_handler in logger.handlers[:]:
         logger.removeHandler(existing_handler)
     if type(handlers) in (FileHandler, StreamHandler):
@@ -73,6 +74,7 @@ def get_logger_basic(name: str | None = None, level=logging.INFO) -> logging.Log
     """Create a basic logger."""
     logger = logging.getLogger(name if name else __name__)
     logger.setLevel(level)
+    logger.propagate = False
     return logger
 
 

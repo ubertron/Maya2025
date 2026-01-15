@@ -50,7 +50,7 @@
                 "script": "from maya_tools import helpers\nhelpers.get_dimensions(format_results=True, clipboard=True)"
             },
             "Boxy Tool": {
-                "icon": "boxy.png",
+                "icon": "boxy_logo.png",
                 "language": "python",
                 "tool_tip": "Boxy Box",
                 "script": "from maya_tools.utilities.boxy import boxy_tool, UI_SCRIPT\nboxy_tool.BoxyTool().show_workspace_control(ui_script=UI_SCRIPT)"

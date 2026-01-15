@@ -27,6 +27,7 @@ VERSIONS = Versions(
         VersionInfo(name=TOOL_NAME, version="1.0.0", codename="cobra", info="first release"),
         VersionInfo(name=TOOL_NAME, version="1.0.1", codename="banshee", info="size field added"),
         VersionInfo(name=TOOL_NAME, version="1.0.2", codename="newt", info="issue fixed for nodes with children"),
+        VersionInfo(name=TOOL_NAME, version="1.0.3", codename="panther wip", info="button functions added"),
     ]
 )
 
@@ -42,6 +43,12 @@ class BoxyTool(GenericWidget):
         self.settings = QSettings(DEVELOPER, TOOL_NAME)
         self.logo = self.add_widget(ImageLabel(image_path("boxy_logo.png")))
         left_alignment = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        button_bar: ButtonBar = self.add_widget(ButtonBar(button_size=32))
+        button_bar.add_icon_button(icon_path=image_path("boxy.png"), tool_tip="Generate boxy", clicked=self.create_button_clicked)
+        button_bar.add_icon_button(icon_path=image_path("boxy_to_cube.png"), tool_tip="Convert boxy to cube", clicked=self.poly_cube_button_clicked)
+        button_bar.add_icon_button(icon_path=image_path("boxy_face_concave.png"), tool_tip="Concave boxy from face", clicked=self.concave_face_button_clicked)
+        button_bar.add_icon_button(icon_path=image_path("boxy_face_convex.png"), tool_tip="Convex boxy from face", clicked=self.convex_face_button_clicked)
+        button_bar.add_icon_button(icon_path=image_path("help.png"), tool_tip="Help", clicked=self.help_button_clicked)
         grid: GridWidget = self.add_group_box(GridWidget(title="Boxy Parameters", spacing=8))
         grid.add_label(text="Pivot Position", row=0, column=0, alignment=left_alignment)
         self.pivot_combo_box: QComboBox = grid.add_combo_box(items=["bottom", "center", "top"], default_index=1, row=0, column=1)
@@ -53,8 +60,6 @@ class BoxyTool(GenericWidget):
         self.size_field: QDoubleSpinBox = grid.add_widget(widget=QDoubleSpinBox(), row=3, column=1)
         grid.add_label(text="Inherit Rotation", row=4, column=0, alignment=left_alignment)
         self.rotation_check_box = grid.add_widget(widget=QCheckBox(), row=4, column=1)
-        self.create_button = self.add_button(
-            text="Create", tool_tip="Create boxy object", clicked=self.create_button_clicked)
         self.info_label = self.add_label(text="Ready...", side=Side.left)
         default_color = self.settings.value(self.color_key, color_classes.DEEP_GREEN.values)
         self.wireframe_color = RGBColor(*default_color)
@@ -118,6 +123,14 @@ class BoxyTool(GenericWidget):
         if color.isValid():
             self.wireframe_color = RGBColor(color.red(), color.green(), color.blue())
 
+    def concave_face_button_clicked(self):
+        """Event for concave face button."""
+        self.info = "Concave face button clicked."
+
+    def convex_face_button_clicked(self):
+        """Event for convex face button."""
+        self.info = "Convex face button clicked."
+
     def create_button_clicked(self):
         """Event for create button."""
         selection = cmds.ls(selection=True)
@@ -134,9 +147,17 @@ class BoxyTool(GenericWidget):
                 self.info = f"Boxy objects created: {', '.join(boxy_items)}"
             cmds.select(boxy_items)
 
+    def help_button_clicked(self):
+        """Event for help button."""
+        self.info = "Help button clicked."
+
     def pivot_combo_box_index_changed(self, arg):
         """Event for pivot combo box."""
         self.settings.setValue(self.pivot_index, arg)
+
+    def poly_cube_button_clicked(self):
+        """Event for poly cube."""
+        self.info = "Poly cube clicked."
 
     def size_field_value_changed(self, arg):
         """Event for size field."""
