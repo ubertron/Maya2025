@@ -1,9 +1,7 @@
 from maya import cmds
 
-from core.point_classes import Point3
-from maya_tools import node_utils, geometry_utils
-from maya_tools.undo_utils import UndoStack
-
+from maya_tools import node_utils
+from maya_tools.geometry import geometry_utils
 
 DEFAULT_SIZE: float = 10.0
 

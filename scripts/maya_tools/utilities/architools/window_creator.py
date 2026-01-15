@@ -7,10 +7,11 @@ import math
 from maya import cmds
 
 from core import color_classes
-from core.core_enums import CustomType, DataType, Side
+from core.core_enums import CustomType, DataType
 from core.logging_utils import get_logger
 from core.point_classes import Point3
-from maya_tools import attribute_utils, curve_utils, geometry_utils, material_utils, node_utils
+from maya_tools import attribute_utils, material_utils, node_utils
+from maya_tools.geometry import geometry_utils, curve_utils
 from maya_tools.utilities.architools import CURVE_COLOR
 from maya_tools.utilities.architools.arch_creator import ArchCreator
 from maya_tools.utilities.architools.data.window_data import WindowData

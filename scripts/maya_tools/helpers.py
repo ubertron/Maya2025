@@ -4,12 +4,12 @@ import pyperclip
 
 from maya import cmds
 
-from core.point_classes import Point3, Point3Pair, ZERO3
+from core.point_classes import Point3, Point3Pair
 from core.color_classes import RGBColor
 from core.core_enums import Axis
 from maya_tools import display_utils, node_utils
-from maya_tools.geometry_utils import get_selected_vertices, get_vertex_position
-from maya_tools.node_utils import set_translation, is_locator, get_bounds
+from maya_tools.geometry.geometry_utils import get_selected_vertices, get_vertex_position
+from maya_tools.node_utils import is_locator, get_min_max_points
 from maya_tools.display_utils import in_view_message
 from maya_tools.undo_utils import UndoStack
 
@@ -137,7 +137,7 @@ def get_midpoint_from_transform(transform: str | None = None, format_results: bo
         cmds.warning(f'Pass one valid transform: {transform} [get_midpoint]')
         return None
     else:
-        midpoint = get_bounds(node=transform).center
+        midpoint = get_min_max_points(node=transform).center
         if format_results:
             in_view_message(f'{transform} midpoint: {midpoint.compact_repr}', persist_time=5000)
         if clipboard:

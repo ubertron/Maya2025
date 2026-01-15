@@ -6,8 +6,8 @@ import random
 from maya import cmds
 import maya.api.OpenMaya as om
 
-from maya_tools import node_utils, maya_enums, geometry_utils
-from maya_tools.maya_enums import ObjectType
+from maya_tools import node_utils
+from maya_tools.geometry import geometry_utils
 
 
 def create_test_mesh(name: str = "test_mesh", size: float = 10.0,

@@ -168,11 +168,11 @@ def get_all_root_transforms() -> list[str]:
 
 def get_base_center(node: str) -> Point3:
     """Works out size respecting rotations."""
-    return get_bounds(node=node, inherit_rotations=True).base_center
+    return get_min_max_points(node=node, inherit_rotations=True).base_center
 
 
-def get_bounds(node: Optional[str] = None, format_results: bool = False,
-               clipboard: bool = False, inherit_rotations: bool = False) -> Point3Pair or None:
+def get_min_max_points(node: Optional[str] = None, format_results: bool = False,
+                       clipboard: bool = False, inherit_rotations: bool = False) -> Point3Pair or None:
     """
     Get the minimum and maximum points of the bounds of a transform
     :param inherit_rotations: reset rotation to zero prior to bounds calculation
@@ -284,7 +284,7 @@ def get_dimensions(node: Optional[str] = None, format_results: bool = False,
         cmds.warning(f'Pass one valid transform: {node} [get_dimensions]')
         return None
     else:
-        dimensions = get_bounds(node=node).delta
+        dimensions = get_min_max_points(node=node).delta
 
         if format_results:
             in_view_message(f'{node} dimensions: {dimensions.compact_repr}', persist_time=5000)
@@ -451,7 +451,7 @@ def get_object_type(node: str) -> str | None:
 
 def get_points_from_selection() -> list[Point3]:
     """Returns a list of points from locators and vertices in selection."""
-    from maya_tools.geometry_utils import get_vertex_position, get_vertices_from_edge, get_vertices_from_face
+    from maya_tools.geometry.geometry_utils import get_vertex_position, get_vertices_from_edge, get_vertices_from_face
     points = []
     for x in cmds.ls(selection=True, flatten=True):
         object_type = cmds.objectType(x)
@@ -549,7 +549,7 @@ def get_shape_from_transform(node, full_path=False) -> str or None:
 
 def get_size(node: str, inherit_rotations: bool = True) -> Point3:
     """Works out size."""
-    return get_bounds(node=node, inherit_rotations=inherit_rotations).size
+    return get_min_max_points(node=node, inherit_rotations=inherit_rotations).size
 
 
 def get_top_node(node):

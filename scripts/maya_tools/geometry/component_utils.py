@@ -1,21 +1,176 @@
-import math
+from __future__ import annotations
 
-from random import uniform
-from maya import cmds
 from dataclasses import dataclass
-from typing import Sequence, Union, Optional
+from random import uniform
+from typing import Optional
 
-from core.math_utils import get_closest_position_on_line_to_point, get_average_normal_from_points, get_midpoint_from_point_list, \
-    vector_to_euler_angles, project_point_onto_plane
-from core.point_classes import Point3, Point3Pair, X_AXIS, Y_AXIS, Z_AXIS
+from maya import cmds
+
+from core import math_utils
 from core.core_enums import Axis, Position, ComponentType
-from maya_tools.geometry_utils import get_vertex_position, set_vertex_position, get_vertex_positions,\
-    get_component_list, detach_faces
-from maya_tools.node_utils import set_translation, set_rotation, get_selected_transforms, get_bounds
+from core.point_classes import Point3, Point3Pair
+from maya_tools.geometry.geometry_utils import get_vertex_position, set_vertex_position, get_component_list, \
+    detach_faces
+from maya_tools.node_utils import get_selected_transforms, get_min_max_points, get_transform_from_shape, is_locator
 from maya_tools.undo_utils import UndoStack
 
+COMPONENT_LABEL: dict = {
+    ComponentType.cv: 'cv',
+    ComponentType.edge: 'e',
+    ComponentType.face: 'f',
+    ComponentType.uv: 'map',
+    ComponentType.vertex: 'vtx'
+}
 
-COMPONENT_LABEL: dict = {ComponentType.edge: 'e', ComponentType.face: 'f', ComponentType.vertex: 'vtx'}
+LABEL_TO_TYPE: dict = {v: k for k, v in COMPONENT_LABEL.items()}
+
+COMPONENT_CLASS: dict = {}  # Populated after dataclass definitions
+
+
+@dataclass
+class Component:
+    transform: str
+    idx: int
+    component_type: ComponentType
+
+
+@dataclass
+class CvComponent(Component):
+    component_type: ComponentType = ComponentType.cv
+
+
+@dataclass
+class EdgeComponent(Component):
+    component_type: ComponentType = ComponentType.edge
+
+
+@dataclass
+class FaceComponent(Component):
+    component_type: ComponentType = ComponentType.face
+
+
+@dataclass
+class ObjectComponent(Component):
+    idx: int = -1
+    component_type: ComponentType = ComponentType.object
+
+
+@dataclass
+class UvComponent(Component):
+    component_type: ComponentType = ComponentType.uv
+
+
+@dataclass
+class VertexComponent(Component):
+    component_type: ComponentType = ComponentType.vertex
+
+    def __repr__(self) -> str:
+        return (
+            f"VertexComponent(transform={self.transform}, component_type={self.component_type}"
+            f"idx={self.idx}, position={self.position})"
+        )
+
+    @property
+    def position(self) -> Point3:
+        return get_vertex_position(node=self.transform, vertex_id=self.idx)
+
+
+@dataclass
+class LocatorComponent(Component):
+    idx: int = -1
+    component_type: ComponentType = ComponentType.locator
+
+
+# Populate COMPONENT_CLASS after all dataclasses are defined
+COMPONENT_CLASS.update({
+    ComponentType.cv: CvComponent,
+    ComponentType.edge: EdgeComponent,
+    ComponentType.face: FaceComponent,
+    ComponentType.locator: LocatorComponent,
+    ComponentType.object: ObjectComponent,
+    ComponentType.uv: UvComponent,
+    ComponentType.vertex: VertexComponent
+})
+
+
+def components_from_selection(selection: list[str] | None = None) -> list[Component]:
+    """
+    Convert a Maya selection list to component objects.
+
+    Args:
+        selection: List of component/transform strings (can include ranges like 'mesh.vtx[0:5]').
+                   If None, uses current selection.
+
+    Returns:
+        List of Component objects, or empty list if no valid selection.
+
+    Raises:
+        ValueError: If mixed component types are detected.
+    """
+    if selection is None:
+        selection = cmds.ls(selection=True, flatten=True, long=True)
+    else:
+        # Flatten any range notation (e.g., 'mesh.vtx[0:5]' -> individual components)
+        selection = cmds.ls(selection, flatten=True, long=True)
+
+    if not selection:
+        return []
+
+    components = []
+    expected_type = None
+
+    for item in selection:
+        # Check if item is a transform (no '.' means no component suffix)
+        if '.' not in item:
+            # Check if it's a transform or shape node
+            obj_type = cmds.objectType(item)
+            if obj_type == 'transform':
+                transform = item
+                idx = -1
+                # Check if transform is a locator
+                if is_locator(transform):
+                    component_type = ComponentType.locator
+                else:
+                    component_type = ComponentType.object
+            elif obj_type in ('mesh', 'nurbsCurve'):
+                # Shape node - get parent transform
+                component_type = ComponentType.object
+                transform = cmds.listRelatives(item, parent=True)[0]
+                idx = -1
+            else:
+                return []
+        else:
+            # Parse component: "node.label[index]"
+            if '[' not in item:
+                return []
+
+            node, remainder = item.split('.', 1)
+            label = remainder.split('[')[0]
+
+            if label not in LABEL_TO_TYPE:
+                return []
+
+            # Check if node is a shape node (e.g., 'pCubeShape5.e[2]')
+            # This happens when selecting components on objects with children
+            obj_type = cmds.objectType(node)
+            if obj_type in ('mesh', 'nurbsCurve'):
+                transform = get_transform_from_shape(node)
+            else:
+                transform = node
+
+            component_type = LABEL_TO_TYPE[label]
+            idx = int(remainder.split('[')[1].split(']')[0])
+
+        # Validate single type
+        if expected_type is None:
+            expected_type = component_type
+        elif component_type != expected_type:
+            raise ValueError(f"Mixed component types detected: expected {expected_type.name}, got {component_type.name}")
+
+        component_class = COMPONENT_CLASS[component_type]
+        components.append(component_class(transform=transform, idx=idx))
+
+    return components
 
 
 def create_test_mesh():
@@ -62,7 +217,7 @@ def get_selected_transform_and_vertices(warn: bool = False):
             if 'vtx' not in x or _transform != transform:
                 if warn:
                     cmds.warning(warning_message)
-                return
+                return None
 
             indices.append(int(x.split('vtx[')[1].split(']')[0]))
 
@@ -70,7 +225,7 @@ def get_selected_transform_and_vertices(warn: bool = False):
     else:
         if warn:
             cmds.warning(warning_message)
-        return
+        return None
 
 
 def get_selected_transform_and_faces():
@@ -99,7 +254,7 @@ def get_selected_transform_and_components(component_type: ComponentType) -> tupl
 
             if component_label not in x or _transform != transform:
                 cmds.warning(warning_message)
-                return
+                return None
 
             indices.append(int(x.split(f'{component_label}[')[1].split(']')[0]))
 
@@ -133,7 +288,7 @@ def align_selected_vertices(axis: int = 0, even_distribution: bool = False):
             for i in range(1, spaces):
                 vertex_position = Point3(*vertex_positions[indices[i]])
                 line = Point3Pair(start, end)
-                new_position = get_closest_position_on_line_to_point(vertex_position, line)
+                new_position = math_utils.get_closest_position_on_line_to_point(vertex_position, line)
                 set_vertex_position(transform, indices[i], new_position)
 
 
@@ -148,7 +303,7 @@ def planarize_vertices(transform: str, vertices: list[int], axis: Optional[Axis]
     """
     vertex_positions = [get_vertex_position(node=transform, vertex_id=vertex) for vertex in vertices]
     component_list = get_component_list(transform=transform, indices=vertices, component_type=ComponentType.vertex)
-    bounds: Point3Pair = get_bounds(node=component_list)
+    bounds: Point3Pair = get_min_max_points(node=component_list)
 
     if axis:
         if position is Position.minimum:
@@ -160,12 +315,12 @@ def planarize_vertices(transform: str, vertices: list[int], axis: Optional[Axis]
 
         move_along_axis(component_list=component_list, axis=axis, value=value)
     else:
-        axis: Point3 = get_average_normal_from_points(vertex_positions)
+        axis: Point3 = math_utils.get_average_normal_from_points(vertex_positions)
         midpoint: Point3 = bounds.center
 
         with UndoStack('setVertices'):
             for i in range(len(vertices)):
-                destination: Point3 = project_point_onto_plane(plane_position=midpoint, unit_normal_vector=axis,
+                destination: Point3 = math_utils.project_point_onto_plane(plane_position=midpoint, unit_normal_vector=axis,
                                                                point=vertex_positions[i])
                 set_vertex_position(transform=transform, vert_id=vertices[i], position=destination)
 
@@ -208,6 +363,7 @@ def detach_selected_faces() -> str or None:
 
     if result:
         return detach_faces(*result)
+    return None
 
 
 if __name__ == '__main__':

@@ -11,7 +11,8 @@ from core.point_classes import Point3, Y_AXIS
 
 with contextlib.suppress(ImportError):
     from maya import cmds
-    from maya_tools import node_utils, attribute_utils, geometry_utils, material_utils, curve_utils
+    from maya_tools import node_utils, attribute_utils, material_utils
+    from maya_tools.geometry import geometry_utils, curve_utils
     from maya_tools.utilities.architools import CURVE_COLOR
     from maya_tools.utilities.architools.arch_creator import ArchCreator
     from maya_tools.utilities.architools.data.staircase_data import StaircaseData

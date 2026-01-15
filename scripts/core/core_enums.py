@@ -53,6 +53,7 @@ class ComponentType(Enum):
     edge = 'edge'
     element = 'element'
     face = 'face'
+    locator = 'locator'
     object = 'object'
     uv = 'uv'
     vertex = 'vertex'

@@ -1,0 +1,808 @@
+"""Utility for finding and calculating axis-aligned bounds from cuboid geometry."""
+from __future__ import annotations
+
+import math
+from itertools import combinations
+
+from dataclasses import dataclass
+from maya import cmds
+
+from core.point_classes import Point3, Point3Pair, X_AXIS, Y_AXIS, Z_AXIS
+from core.core_enums import ComponentType
+from core.math_utils import (
+    normalize_vector, dot_product, cross_product, angle_between_two_vectors,
+    radians_to_degrees, get_bounds_from_points, rotate_point_about_y
+)
+from maya_tools import node_utils
+from maya_tools.geometry.component_utils import (
+    Component, EdgeComponent, FaceComponent, LocatorComponent, ObjectComponent, VertexComponent,
+    components_from_selection
+)
+
+
+@dataclass
+class Bounds:
+    """Dataclass to represent a bounding box in space."""
+    size: Point3
+    translation: Point3
+    rotation: Point3
+
+
+class CuboidFinder:
+    """
+    Finds and calculates axis-aligned bounds from cuboid geometry.
+
+    Accepts various inputs: mesh transform, quad faces, edges, or vertices.
+    Can infer a complete cuboid from partial input (e.g., 5 vertices) if the
+    provided components define a valid cuboid.
+
+    Calculates:
+    - size: axis-aligned dimensions
+    - center: world-space center position
+    - rotation: Euler XYZ rotation to align with world axes
+    """
+
+    TOLERANCE = 0.0001  # Tolerance for vertex position matching
+    DECIMAL_PLACES = 4  # Decimal places to round results to
+
+    def __init__(self,
+                 transform: str | None = None,
+                 faces: list[FaceComponent] | None = None,
+                 edges: list[EdgeComponent] | None = None,
+                 vertices: list[VertexComponent] | None = None,
+                 locators: list[LocatorComponent] | None = None):
+        """
+        Initialize BoundsFinder.
+
+        Args:
+            transform: Mesh transform node name (must have exactly 8 vertices).
+            faces: List of FaceComponents (1-6 faces).
+            edges: List of EdgeComponents (3-12 edges).
+            vertices: List of VertexComponents (5-8 vertices).
+            locators: List of LocatorComponents (5-8 locators).
+
+        If no arguments provided, uses the current Maya selection.
+        Partial inputs are accepted if they can uniquely define a cuboid.
+        """
+        self.size: Point3 | None = None
+        self.center: Point3 | None = None
+        self.rotation: Point3 | None = None
+        self.is_valid: bool = False
+        self.transform: str | None = None
+        self.vertices: list[Point3] = []  # The 8 cuboid vertices
+
+        # Store original selection state
+        state = node_utils.State()
+
+        # Determine input type and extract vertex positions
+        input_positions = self._get_vertices_from_input(transform, faces, edges, vertices, locators)
+
+        if input_positions is None or len(input_positions) < 5:
+            state.restore()
+            return
+
+        # Try to infer complete cuboid from partial input
+        cuboid_vertices = self._infer_cuboid_vertices(input_positions)
+        if cuboid_vertices is None:
+            state.restore()
+            return
+
+        self.vertices = cuboid_vertices
+
+        # Validate cuboid and calculate bounds
+        if self._validate_and_calculate(cuboid_vertices):
+            self.is_valid = True
+
+        state.restore()
+
+    def _get_vertices_from_input(self,
+                                  transform: str | None,
+                                  faces: list[FaceComponent] | None,
+                                  edges: list[EdgeComponent] | None,
+                                  vertices: list[VertexComponent] | None,
+                                  locators: list[LocatorComponent] | None) -> list[Point3] | None:
+        """
+        Extract 8 vertex positions from the provided input.
+
+        Returns:
+            List of 8 Point3 vertex positions, or None if invalid input.
+        """
+        # Priority: explicit arguments > selection
+        if transform is not None:
+            return self._vertices_from_transform(transform)
+        elif faces is not None:
+            return self._vertices_from_faces(faces)
+        elif edges is not None:
+            return self._vertices_from_edges(edges)
+        elif vertices is not None:
+            return self._vertices_from_vertices(vertices)
+        elif locators is not None:
+            return self._vertices_from_locators(locators)
+        else:
+            # Fall back to selection
+            return self._vertices_from_selection()
+
+    def _vertices_from_transform(self, transform: str) -> list[Point3] | None:
+        """Get vertices from a mesh transform."""
+        if not cmds.objExists(transform):
+            cmds.warning(f"Transform '{transform}' does not exist.")
+            return None
+
+        self.transform = transform
+        vertex_count = cmds.polyEvaluate(transform, vertex=True)
+
+        if vertex_count != 8:
+            cmds.warning(f"Transform must have exactly 8 vertices, got {vertex_count}.")
+            return None
+
+        return [Point3(*cmds.pointPosition(f'{transform}.vtx[{i}]', world=True))
+                for i in range(8)]
+
+    def _vertices_from_faces(self, faces: list[FaceComponent]) -> list[Point3] | None:
+        """Get vertices from face components."""
+        if len(faces) < 1 or len(faces) > 6:
+            cmds.warning(f"Expected 1-6 faces, got {len(faces)}.")
+            return None
+
+        self.transform = faces[0].transform
+        vertex_indices = set()
+
+        for face in faces:
+            face_verts = cmds.polyListComponentConversion(
+                f'{face.transform}.f[{face.idx}]', fromFace=True, toVertex=True)
+            indices = cmds.ls(face_verts, flatten=True)
+            for idx in indices:
+                vertex_indices.add(int(idx.split('[')[1].split(']')[0]))
+
+        return [Point3(*cmds.pointPosition(f'{self.transform}.vtx[{i}]', world=True))
+                for i in sorted(vertex_indices)]
+
+    def _vertices_from_edges(self, edges: list[EdgeComponent]) -> list[Point3] | None:
+        """Get vertices from edge components."""
+        if len(edges) < 3 or len(edges) > 12:
+            cmds.warning(f"Expected 3-12 edges, got {len(edges)}.")
+            return None
+
+        self.transform = edges[0].transform
+        vertex_indices = set()
+
+        for edge in edges:
+            edge_verts = cmds.polyListComponentConversion(
+                f'{edge.transform}.e[{edge.idx}]', fromEdge=True, toVertex=True)
+            indices = cmds.ls(edge_verts, flatten=True)
+            for idx in indices:
+                vertex_indices.add(int(idx.split('[')[1].split(']')[0]))
+
+        return [Point3(*cmds.pointPosition(f'{self.transform}.vtx[{i}]', world=True))
+                for i in sorted(vertex_indices)]
+
+    def _vertices_from_vertices(self, vertices: list[VertexComponent]) -> list[Point3] | None:
+        """Get vertices from vertex components."""
+        if len(vertices) < 5 or len(vertices) > 8:
+            cmds.warning(f"Expected 5-8 vertices, got {len(vertices)}.")
+            return None
+
+        self.transform = vertices[0].transform
+        return [Point3(*cmds.pointPosition(f'{v.transform}.vtx[{v.idx}]', world=True))
+                for v in vertices]
+
+    def _vertices_from_locators(self, locators: list[LocatorComponent]) -> list[Point3] | None:
+        """Get vertex positions from locator world positions."""
+        if len(locators) < 5 or len(locators) > 8:
+            cmds.warning(f"Expected 5-8 locators, got {len(locators)}.")
+            return None
+
+        return [Point3(*cmds.xform(loc.transform, query=True, worldSpace=True, translation=True))
+                for loc in locators]
+
+    def _vertices_from_selection(self) -> list[Point3] | None:
+        """Get vertices from current Maya selection."""
+        selection = cmds.ls(sl=True, flatten=True, long=True)
+
+        if not selection:
+            raise ValueError("No valid selection.")
+
+        # Check for transform selection
+        transforms = cmds.ls(selection, transforms=True)
+        if transforms:
+            return self._vertices_from_transform(transforms[0])
+
+        # Check for face selection
+        face_selection = [s for s in selection if '.f[' in s]
+        if face_selection:
+            faces = []
+            for f in face_selection:
+                transform = f.split('.f[')[0]
+                idx = int(f.split('[')[1].split(']')[0])
+                faces.append(FaceComponent(transform=transform, idx=idx))
+            return self._vertices_from_faces(faces)
+
+        # Check for edge selection
+        edge_selection = [s for s in selection if '.e[' in s]
+        if edge_selection:
+            edges = []
+            for e in edge_selection:
+                transform = e.split('.e[')[0]
+                idx = int(e.split('[')[1].split(']')[0])
+                edges.append(EdgeComponent(transform=transform, idx=idx))
+            return self._vertices_from_edges(edges)
+
+        # Check for vertex selection
+        vertex_selection = [s for s in selection if '.vtx[' in s]
+        if vertex_selection:
+            vertices = []
+            for v in vertex_selection:
+                transform = v.split('.vtx[')[0]
+                idx = int(v.split('[')[1].split(']')[0])
+                vertices.append(VertexComponent(transform=transform, idx=idx))
+            return self._vertices_from_vertices(vertices)
+
+        raise ValueError("No valid geometry selection found.")
+
+    def _infer_cuboid_vertices(self, input_positions: list[Point3]) -> list[Point3] | None:
+        """
+        Infer the complete 8 vertices of a cuboid from partial input.
+
+        The algorithm:
+        1. Find a corner vertex with 3 orthogonal edge directions
+        2. Generate all 8 cuboid vertices from the corner and edge vectors
+        3. Validate that all input positions match generated vertices
+
+        Args:
+            input_positions: List of 5-8 vertex positions.
+
+        Returns:
+            List of 8 Point3 cuboid vertices, or None if invalid.
+        """
+        # Try each vertex as a potential corner
+        for corner_idx, corner in enumerate(input_positions):
+            # Find candidate vertices sorted by distance
+            other_verts = [v for i, v in enumerate(input_positions) if i != corner_idx]
+            distances = [(Point3Pair(corner, v).length, v) for v in other_verts]
+            distances.sort(key=lambda x: x[0])
+
+            # Need at least 3 other vertices to define edges
+            if len(distances) < 3:
+                continue
+
+            # Try combinations of 3 from the closest candidates
+            # Use up to 6 closest to handle cases where face diagonals are shorter than edges
+            num_candidates = min(6, len(distances))
+            candidate_verts = [d[1] for d in distances[:num_candidates]]
+
+            for edge_verts in combinations(candidate_verts, 3):
+                edge_vectors = [Point3Pair(corner, v).delta for v in edge_verts]
+
+                # Check if these form orthogonal edges (dot products ≈ 0)
+                if not self._are_orthogonal(edge_vectors):
+                    continue
+
+                # Generate all 8 cuboid vertices from corner and edges
+                generated = self._generate_cuboid_vertices(corner, edge_vectors)
+
+                # Validate all input positions match generated vertices
+                if self._all_inputs_match(input_positions, generated):
+                    return generated
+
+        cmds.warning("Could not infer valid cuboid from input vertices.")
+        return None
+
+    def _are_orthogonal(self, vectors: list[Point3], tolerance: float = 0.01) -> bool:
+        """Check if 3 vectors are mutually orthogonal."""
+        if len(vectors) != 3:
+            return False
+
+        for i in range(3):
+            for j in range(i + 1, 3):
+                dp = abs(dot_product(vectors[i], vectors[j], normalize=True))
+                if dp > tolerance:
+                    return False
+        return True
+
+    def _generate_cuboid_vertices(self, corner: Point3, edges: list[Point3]) -> list[Point3]:
+        """
+        Generate all 8 vertices of a cuboid from one corner and 3 edge vectors.
+
+        Args:
+            corner: The corner vertex position.
+            edges: List of 3 edge vectors from the corner.
+
+        Returns:
+            List of 8 Point3 vertex positions.
+        """
+        e1, e2, e3 = edges
+        vertices = [
+            corner,                                                      # 000
+            Point3(corner.x + e1.x, corner.y + e1.y, corner.z + e1.z),  # 100
+            Point3(corner.x + e2.x, corner.y + e2.y, corner.z + e2.z),  # 010
+            Point3(corner.x + e3.x, corner.y + e3.y, corner.z + e3.z),  # 001
+            Point3(corner.x + e1.x + e2.x, corner.y + e1.y + e2.y, corner.z + e1.z + e2.z),  # 110
+            Point3(corner.x + e1.x + e3.x, corner.y + e1.y + e3.y, corner.z + e1.z + e3.z),  # 101
+            Point3(corner.x + e2.x + e3.x, corner.y + e2.y + e3.y, corner.z + e2.z + e3.z),  # 011
+            Point3(corner.x + e1.x + e2.x + e3.x, corner.y + e1.y + e2.y + e3.y, corner.z + e1.z + e2.z + e3.z),  # 111
+        ]
+        return vertices
+
+    def _all_inputs_match(self, inputs: list[Point3], generated: list[Point3]) -> bool:
+        """Check if all input positions match generated vertices with 1:1 correspondence."""
+        # For 8 inputs, verify bidirectional matching (each input matches exactly one generated)
+        if len(inputs) == 8:
+            matched_generated = set()
+            for inp in inputs:
+                found_match = False
+                for idx, gen in enumerate(generated):
+                    if idx not in matched_generated and self._positions_match(inp, gen):
+                        matched_generated.add(idx)
+                        found_match = True
+                        break
+                if not found_match:
+                    return False
+            # All 8 generated vertices should be matched
+            return len(matched_generated) == 8
+
+        # For partial inputs (5-7), just verify each input matches some generated vertex
+        for inp in inputs:
+            matched = False
+            for gen in generated:
+                if self._positions_match(inp, gen):
+                    matched = True
+                    break
+            if not matched:
+                return False
+        return True
+
+    def _positions_match(self, a: Point3, b: Point3) -> bool:
+        """Check if two positions are within tolerance."""
+        return Point3Pair(a, b).length < self.TOLERANCE
+
+    def _validate_cuboid_vertices(self, vertices: list[Point3]) -> bool:
+        """Validate that 8 vertices form a valid cuboid."""
+        if len(vertices) != 8:
+            return False
+
+        # Check that we can find orthogonal edges from any vertex
+        v0 = vertices[0]
+        distances = [(Point3Pair(v0, v).length, v) for v in vertices[1:]]
+        distances.sort(key=lambda x: x[0])
+
+        edge_verts = [d[1] for d in distances[:3]]
+        edge_vectors = [Point3Pair(v0, v).delta for v in edge_verts]
+
+        return self._are_orthogonal(edge_vectors)
+
+    def _validate_and_calculate(self, vertex_positions: list[Point3]) -> bool:
+        """
+        Validate the vertices form a cuboid and calculate bounds.
+
+        Args:
+            vertex_positions: List of 8 Point3 positions.
+
+        Returns:
+            True if valid cuboid and calculations succeeded.
+        """
+        # Calculate center (average of all vertices, rounded)
+        center_x = sum(v.x for v in vertex_positions) / 8
+        center_y = sum(v.y for v in vertex_positions) / 8
+        center_z = sum(v.z for v in vertex_positions) / 8
+        self.center = Point3(
+            round(center_x, self.DECIMAL_PLACES),
+            round(center_y, self.DECIMAL_PLACES),
+            round(center_z, self.DECIMAL_PLACES)
+        )
+
+        # Try all 8 corners and pick the one with simplest rotation
+        best_result = None
+        best_rotation_complexity = float('inf')
+
+        for corner in vertex_positions:
+            edge_data = self._get_edge_vectors_from_corner(vertex_positions, corner)
+            if not edge_data:
+                continue
+
+            axis_assignment = self._assign_edges_to_axes(edge_data)
+            if not axis_assignment:
+                continue
+
+            rotation = self._calculate_xyz_rotation(axis_assignment)
+
+            # Calculate rotation complexity (sum of absolute angles)
+            complexity = abs(rotation.x) + abs(rotation.y) + abs(rotation.z)
+
+            if complexity < best_rotation_complexity:
+                best_rotation_complexity = complexity
+                best_result = (axis_assignment, rotation)
+
+        if not best_result:
+            return False
+
+        axis_assignment, rotation = best_result
+
+        # Calculate size from edge lengths (rounded)
+        self.size = Point3(
+            round(axis_assignment['x']['length'], self.DECIMAL_PLACES),
+            round(axis_assignment['y']['length'], self.DECIMAL_PLACES),
+            round(axis_assignment['z']['length'], self.DECIMAL_PLACES)
+        )
+
+        # Store rotation (rounded)
+        self.rotation = Point3(
+            round(rotation.x, self.DECIMAL_PLACES),
+            round(rotation.y, self.DECIMAL_PLACES),
+            round(rotation.z, self.DECIMAL_PLACES)
+        )
+
+        # If vertices are axis-aligned and transform has a 90-degree rotation, use transform's rotation
+        if self.transform and self._is_axis_aligned_rotation(self.rotation):
+            transform_rotation = self._get_transform_rotation()
+            if transform_rotation and self._is_90_degree_rotation(transform_rotation):
+                self.size = self._rotate_size_for_transform(self.size, transform_rotation)
+                self.rotation = transform_rotation
+
+        return True
+
+    def _rotate_size_for_transform(self, size: Point3, rotation: Point3) -> Point3:
+        """
+        Adjust size dimensions to match the transform's local coordinate system.
+
+        For 90-degree rotations, this swaps dimensions appropriately.
+        """
+        # Normalize rotation angles to 0, 90, 180, 270
+        def normalize_90(angle: float) -> int:
+            return round(angle / 90) % 4 * 90
+
+        rx = normalize_90(rotation.x)
+        ry = normalize_90(rotation.y)
+        rz = normalize_90(rotation.z)
+
+        # Start with world-aligned size
+        sx, sy, sz = size.x, size.y, size.z
+
+        # Apply Y rotation (swaps X and Z)
+        if ry in (90, 270, -90, -270):
+            sx, sz = sz, sx
+
+        # Apply X rotation (swaps Y and Z)
+        if rx in (90, 270, -90, -270):
+            sy, sz = sz, sy
+
+        # Apply Z rotation (swaps X and Y)
+        if rz in (90, 270, -90, -270):
+            sx, sy = sy, sx
+
+        return Point3(sx, sy, sz)
+
+    def _is_axis_aligned_rotation(self, rotation: Point3) -> bool:
+        """Check if rotation is effectively zero (axis-aligned vertices)."""
+        tolerance = 0.01
+        return (abs(rotation.x) < tolerance and
+                abs(rotation.y) < tolerance and
+                abs(rotation.z) < tolerance)
+
+    def _is_90_degree_rotation(self, rotation: Point3) -> bool:
+        """Check if rotation values are multiples of 90 degrees."""
+        def is_90_multiple(angle: float) -> bool:
+            # Normalize to 0-360 range and check if close to 0, 90, 180, or 270
+            normalized = abs(angle) % 360
+            return any(abs(normalized - mult) < 0.01 for mult in [0, 90, 180, 270])
+
+        return (is_90_multiple(rotation.x) and
+                is_90_multiple(rotation.y) and
+                is_90_multiple(rotation.z))
+
+    def _get_transform_rotation(self) -> Point3 | None:
+        """Get the rotation values from the transform node."""
+        if not self.transform or not cmds.objExists(self.transform):
+            return None
+
+        try:
+            rot = cmds.getAttr(f'{self.transform}.rotate')[0]
+            return Point3(
+                round(rot[0], self.DECIMAL_PLACES),
+                round(rot[1], self.DECIMAL_PLACES),
+                round(rot[2], self.DECIMAL_PLACES)
+            )
+        except (ValueError, RuntimeError):
+            return None
+
+    def _get_edge_directions(self, vertex_positions: list[Point3]) -> list[Point3] | None:
+        """
+        Find the 3 principal edge directions of the cuboid.
+
+        For a cuboid, each vertex connects to exactly 3 other vertices via edges.
+        We find one vertex and its 3 neighbors to determine the edge directions.
+
+        Returns:
+            List of 3 normalized edge direction vectors, or None if invalid.
+        """
+        # Find edges by checking distances - cuboid edges are the 3 shortest unique distances from any vertex
+        v0 = vertex_positions[0]
+        distances = []
+
+        for i, v in enumerate(vertex_positions[1:], 1):
+            dist = Point3Pair(v0, v).length
+            distances.append((dist, i, v))
+
+        # Sort by distance
+        distances.sort(key=lambda x: x[0])
+
+        # The 3 shortest distances should be the edges (not face diagonals or space diagonal)
+        # For a valid cuboid, first 3 are edges, next 3 are face diagonals, last is space diagonal
+        if len(distances) < 3:
+            return None
+
+        edge_vectors = []
+        for dist, idx, v in distances[:3]:
+            direction = Point3Pair(v0, v).delta
+            edge_vectors.append(normalize_vector(direction))
+
+        return edge_vectors
+
+    def _get_edge_vectors_with_lengths(self, vertex_positions: list[Point3]) -> list[dict] | None:
+        """
+        Find the 3 principal edge vectors with their lengths.
+
+        Returns:
+            List of dicts with 'vector' (normalized), 'length', and 'raw' (unnormalized) keys,
+            or None if invalid.
+        """
+        v0 = vertex_positions[0]
+        distances = []
+
+        for i, v in enumerate(vertex_positions[1:], 1):
+            pair = Point3Pair(v0, v)
+            distances.append((pair.length, i, v, pair.delta))
+
+        distances.sort(key=lambda x: x[0])
+
+        if len(distances) < 3:
+            return None
+
+        edge_data = []
+        for dist, idx, v, delta in distances[:3]:
+            edge_data.append({
+                'vector': normalize_vector(delta),
+                'length': dist,
+                'raw': delta
+            })
+
+        return edge_data
+
+    def _get_edge_vectors_from_corner(self, vertex_positions: list[Point3], corner: Point3) -> list[dict] | None:
+        """
+        Find the 3 principal edge vectors from a specific corner vertex.
+
+        Args:
+            vertex_positions: List of 8 Point3 vertex positions.
+            corner: The corner vertex to use as reference.
+
+        Returns:
+            List of dicts with 'vector' (normalized), 'length', and 'raw' keys,
+            or None if invalid.
+        """
+        distances = []
+
+        for v in vertex_positions:
+            # Use tolerance-based comparison for Point3
+            if self._positions_match(v, corner):
+                continue
+            pair = Point3Pair(corner, v)
+            distances.append((pair.length, v, pair.delta))
+
+        distances.sort(key=lambda x: x[0])
+
+        if len(distances) < 3:
+            return None
+
+        # Try combinations to find 3 orthogonal edges (handles case where face diagonal < longest edge)
+        num_candidates = min(6, len(distances))
+        for combo in combinations(range(num_candidates), 3):
+            edges = [distances[i] for i in combo]
+            vectors = [Point3Pair(corner, e[1]).delta for e in edges]
+
+            if self._are_orthogonal(vectors):
+                edge_data = []
+                for dist, v, delta in edges:
+                    edge_data.append({
+                        'vector': normalize_vector(delta),
+                        'length': dist,
+                        'raw': delta
+                    })
+                return edge_data
+
+        return None
+
+    def _assign_edges_to_axes(self, edge_data: list[dict]) -> dict | None:
+        """
+        Assign each edge to the world axis it's most aligned with.
+
+        Args:
+            edge_data: List of edge dicts from _get_edge_vectors_with_lengths.
+
+        Returns:
+            Dict with 'x', 'y', 'z' keys, each containing the assigned edge data,
+            or None if assignment fails.
+        """
+        world_axes = [
+            ('x', X_AXIS),
+            ('y', Y_AXIS),
+            ('z', Z_AXIS)
+        ]
+
+        assignment = {}
+        used_edges = set()
+
+        # For each world axis, find the edge most aligned with it
+        for axis_name, axis_vector in world_axes:
+            best_edge_idx = None
+            best_alignment = -1
+
+            for i, edge in enumerate(edge_data):
+                if i in used_edges:
+                    continue
+
+                # Use absolute dot product (edge could point in either direction)
+                alignment = abs(dot_product(edge['vector'], axis_vector))
+
+                if alignment > best_alignment:
+                    best_alignment = alignment
+                    best_edge_idx = i
+
+            if best_edge_idx is None:
+                return None
+
+            used_edges.add(best_edge_idx)
+            edge = edge_data[best_edge_idx]
+
+            # Ensure vector points in positive axis direction
+            dp = dot_product(edge['vector'], axis_vector)
+            if dp < 0:
+                vector = Point3(-edge['vector'].x, -edge['vector'].y, -edge['vector'].z)
+            else:
+                vector = edge['vector']
+
+            assignment[axis_name] = {
+                'vector': vector,
+                'length': edge['length']
+            }
+
+        return assignment
+
+    def _calculate_xyz_rotation(self, axis_assignment: dict) -> Point3:
+        """
+        Calculate Euler XYZ rotation from axis assignment.
+
+        The edge vectors form the columns of the rotation matrix R.
+        Maya uses XYZ rotation order meaning R = Rz * Ry * Rx.
+
+        Args:
+            axis_assignment: Dict with 'x', 'y', 'z' axis assignments.
+
+        Returns:
+            Point3 with X, Y, Z rotation in degrees.
+        """
+        edge_x = axis_assignment['x']['vector']
+        edge_y = axis_assignment['y']['vector']
+        edge_z = axis_assignment['z']['vector']
+
+        # Euler XYZ decomposition for R = Rz * Ry * Rx
+        # edge_x, edge_y, edge_z are columns of R
+        # R[2][0] = -sin(y) = edge_x.z
+        # R[2][1] = cos(y)*sin(x) = edge_y.z
+        # R[2][2] = cos(y)*cos(x) = edge_z.z
+        # R[1][0] = sin(z)*cos(y) = edge_x.y
+        # R[0][0] = cos(z)*cos(y) = edge_x.x
+
+        # Y rotation: sin(y) = -edge_x.z
+        sin_y = max(-1, min(1, -edge_x.z))
+        y_rotation = math.asin(sin_y)
+        cos_y = math.cos(y_rotation)
+
+        if abs(cos_y) > 0.001:
+            # X rotation: atan2(edge_y.z, edge_z.z)
+            x_rotation = math.atan2(edge_y.z, edge_z.z)
+
+            # Z rotation: atan2(edge_x.y, edge_x.x)
+            z_rotation = math.atan2(edge_x.y, edge_x.x)
+        else:
+            # Gimbal lock: Y is ±90°, X and Z are coupled
+            x_rotation = math.atan2(-edge_y.x, edge_y.y)
+            z_rotation = 0.0
+
+        return Point3(
+            radians_to_degrees(x_rotation),
+            radians_to_degrees(y_rotation),
+            radians_to_degrees(z_rotation)
+        )
+
+    def _calculate_y_rotation(self, edge_directions: list[Point3]) -> float:
+        """
+        Calculate the Y-axis rotation needed to align the cuboid with world axes.
+
+        We find the edge direction that is most horizontal (smallest Y component)
+        and calculate the angle to align it with either X or Z axis.
+
+        Args:
+            edge_directions: List of 3 normalized edge vectors.
+
+        Returns:
+            Y rotation in degrees.
+        """
+        # Find the most horizontal edge (smallest absolute Y component)
+        horizontal_edges = [(abs(e.y), e) for e in edge_directions]
+        horizontal_edges.sort(key=lambda x: x[0])
+
+        # Get the most horizontal edge
+        _, horizontal_edge = horizontal_edges[0]
+
+        # Project to XZ plane
+        xz_edge = Point3(horizontal_edge.x, 0, horizontal_edge.z)
+        if xz_edge.magnitude < 0.001:
+            # Edge is vertical, no Y rotation needed
+            return 0.0
+
+        xz_edge = normalize_vector(xz_edge)
+
+        # Calculate angle to Z axis (or X axis, depending on which is closer)
+        angle_to_z = angle_between_two_vectors(xz_edge, Z_AXIS, ref_axis=Y_AXIS)
+        angle_to_x = angle_between_two_vectors(xz_edge, X_AXIS, ref_axis=Y_AXIS)
+
+        # Use the smaller rotation
+        if abs(angle_to_z) < abs(angle_to_x):
+            return radians_to_degrees(angle_to_z)
+        else:
+            return radians_to_degrees(angle_to_x)
+
+
+def get_cuboid(
+        geometry: str | list[Component] | list[str] | None = None
+) -> Bounds | None:
+    """Get the bounds of the input geometry.
+
+    Args:
+        geometry: A transform name, list of Component objects, list of strings
+                  (locator names or component ranges like 'mesh.vtx[0:5]'), or None to use selection.
+
+    Returns:
+        Bounds | None if invalid.
+    """
+    # If nothing passed, get components from current selection
+    if geometry is None:
+        geometry = components_from_selection()
+        if not geometry:
+            return None
+
+    transform = None
+    faces = None
+    edges = None
+    vertices = None
+    locators = None
+
+    if isinstance(geometry, str):
+        transform = geometry
+    elif isinstance(geometry, list) and geometry:
+        # Check if list contains strings - convert via components_from_selection
+        if isinstance(geometry[0], str):
+            geometry = components_from_selection(geometry)
+            if not geometry:
+                return None
+
+        # Use component_type property to determine type
+        component_type = geometry[0].component_type
+        if component_type == ComponentType.face:
+            faces = geometry
+        elif component_type == ComponentType.edge:
+            edges = geometry
+        elif component_type == ComponentType.vertex:
+            vertices = geometry
+        elif component_type == ComponentType.object:
+            # For object components, use the transform name
+            transform = geometry[0].transform
+        elif component_type == ComponentType.locator:
+            locators = geometry
+
+    finder = CuboidFinder(transform=transform, faces=faces, edges=edges, vertices=vertices, locators=locators)
+
+    if not finder.is_valid:
+        return None
+
+    return Bounds(size=finder.size, translation=finder.center, rotation=finder.rotation)

@@ -8,7 +8,8 @@ from core.version_info import VersionInfo
 from core.core_paths import image_path
 from core import logging_utils
 from legacy.shelf_manager import ShelfManager
-from maya_tools import display_utils, geometry_utils, mirror_utils, node_utils, layer_utils, scene_utils
+from maya_tools import display_utils, mirror_utils, node_utils, layer_utils, scene_utils
+from maya_tools.geometry import geometry_utils
 
 TOOL_TITLE = 'Robotools'
 VERSIONS = (
@@ -116,7 +117,6 @@ class RobotoolsShelf(ShelfManager):
 
     @staticmethod
     def get_dimensions():
-        from maya_tools import helpers
         maya_tools.node_utils.get_dimensions(format_results=True, clipboard=True)
 
     @staticmethod

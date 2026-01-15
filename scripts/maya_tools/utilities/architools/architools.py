@@ -96,7 +96,7 @@ class Architools(GenericWidget):
         """
         for x in boxy.Boxy().create(
                 pivot=Side.bottom, inherit_rotations=True, default_size=self.default_size):
-            bounds: Point3Pair = node_utils.get_bounds(node=x, inherit_rotations=True)
+            bounds: Point3Pair = node_utils.get_min_max_points(node=x, inherit_rotations=True)
             dot_x = abs(Point3Pair(bounds.min_max_vector, X_AXIS).dot_product)
             dot_z = abs(Point3Pair(bounds.min_max_vector, Z_AXIS).dot_product)
             if dot_z > dot_x:

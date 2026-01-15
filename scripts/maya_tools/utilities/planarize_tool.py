@@ -1,17 +1,14 @@
 from widgets.generic_widget import GenericWidget
 from widgets.radio_button_widget import RadioButtonWidget
-from core.core_enums import Alignment, Axis, ComponentType, Position
+from core.core_enums import Axis, ComponentType, Position
 from core.environment_utils import is_using_maya_python
-from core.point_classes import Point3Pair
 
 if is_using_maya_python():
     from maya import cmds
 
-    from maya_tools.component_utils import planarize_vertices, planarize_selected_vertices, \
-        get_selected_transform_and_vertices
-    from maya_tools.node_utils import get_component_mode, get_selected_transforms, get_bounds
-    from maya_tools.geometry_utils import get_component_list, get_component_indices
-    from maya_tools.helpers import get_midpoint_from_transform
+    from maya_tools.geometry.component_utils import planarize_vertices
+    from maya_tools.node_utils import get_component_mode, get_selected_transforms
+    from maya_tools.geometry.geometry_utils import get_component_indices
 
 
 class PlanarizeTool(GenericWidget):

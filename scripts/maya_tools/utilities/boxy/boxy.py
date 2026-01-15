@@ -12,7 +12,8 @@ from core.color_classes import RGBColor
 from core.core_enums import ComponentType, CustomType, DataType, Side, Axis
 from core.logging_utils import get_logger
 from core.point_classes import Point3, ZERO3, Point3Pair
-from maya_tools import attribute_utils, geometry_utils, node_utils
+from maya_tools import attribute_utils, node_utils
+from maya_tools.geometry import geometry_utils
 from maya_tools.maya_enums import ObjectType
 from maya_tools.node_utils import get_translation
 from tests.validators import boxy_validator
@@ -124,7 +125,7 @@ class Boxy:
                 point=position_pre_rotation, y_rotation=-y_offset, pivot=position)
         else:
             # get the bounds from the transform
-            bounds = node_utils.get_bounds(node=self.selected_transforms[0], inherit_rotations=inherit_rotations)
+            bounds = node_utils.get_min_max_points(node=self.selected_transforms[0], inherit_rotations=inherit_rotations)
             self.size = bounds.size
             self.position = {
                 Side.bottom: bounds.base_center,
@@ -374,7 +375,7 @@ def rebuild(node: str, pivot: Side | None = None, color: RGBColor | None = None)
         return False
     pivot = pivot if pivot else get_pivot(node=node)
     rotation = node_utils.get_rotation(node=node)
-    bounds: Point3Pair = node_utils.get_bounds(node=node, inherit_rotations=True)
+    bounds: Point3Pair = node_utils.get_min_max_points(node=node, inherit_rotations=True)
     position = get_position_from_bounds(bounds=bounds, pivot=pivot)
     cmds.delete(node)
     boxy_data = BoxyData(

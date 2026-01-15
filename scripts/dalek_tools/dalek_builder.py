@@ -1,4 +1,3 @@
-import pyperclip
 from dataclasses import dataclass
 
 from core.math_utils import interpolate_linear, get_midpoint_from_point_list, vector_to_euler_angles, get_normal_vector, \
@@ -9,12 +8,11 @@ from core.core_enums import ComponentType, Axis
 
 if is_using_maya_python():
     from maya import cmds, mel
-    from maya_tools.curve_utils import get_cvs, set_cv, create_ellipse, create_polygon_loft_from_curves, \
-        create_linear_spline, create_circle
-    from maya_tools.geometry_utils import merge_vertices, set_edge_softness, get_open_edges, create_hemispheroid, \
-        create_platonic_sphere, precision_to_threshold, delete_down_facing_faces, select_faces, get_faces_by_axis, \
-        get_component_list, get_component_indices, get_vertices_from_face, delete_faces, get_edges_from_face, \
-        select_edges, filter_face_list_by_face_normal, slice_faces, get_face_above, \
+    from maya_tools.geometry.curve_utils import get_cvs, set_cv, create_ellipse, create_polygon_loft_from_curves, \
+        create_linear_spline
+    from maya_tools.geometry.geometry_utils import merge_vertices, set_edge_softness, get_open_edges, create_hemispheroid, \
+        create_platonic_sphere, delete_down_facing_faces, select_faces, get_faces_by_axis, \
+        get_component_list, get_component_indices, get_vertices_from_face, delete_faces, filter_face_list_by_face_normal, slice_faces, get_face_above, \
         group_geometry_shells, get_midpoint_from_faces, get_selected_faces, reverse_face_normals, fix_cap, \
         get_faces_by_plane, get_perimeter_edges_from_faces, combine
     from maya_tools.helpers import create_locator

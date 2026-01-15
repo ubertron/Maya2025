@@ -4,7 +4,9 @@
 from importlib import reload
 
 from core.point_classes import Point3, Point3Pair
-from maya_tools import geometry_utils; reload(geometry_utils)
+from maya_tools.geometry import geometry_utils
+
+reload(geometry_utils)
 
 
 class OrbPlacer:

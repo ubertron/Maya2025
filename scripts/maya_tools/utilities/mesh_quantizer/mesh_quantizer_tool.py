@@ -2,7 +2,7 @@
 import contextlib
 import sys
 
-from PySide6.QtWidgets import QDoubleSpinBox, QSizePolicy
+from PySide6.QtWidgets import QSizePolicy
 from PySide6.QtCore import QSettings
 
 from core import DEVELOPER
@@ -10,10 +10,10 @@ from core.version_info import VersionInfo
 from core.core_paths import image_path
 from widgets.button_bar import ButtonBar
 from widgets.generic_widget import GenericWidget
-from widgets.vector_input_widget import VectorInputWidget
 
 with contextlib.suppress(ImportError):
-    from maya_tools import display_utils, geometry_utils, node_utils
+    from maya_tools import display_utils, node_utils
+    from maya_tools.geometry import geometry_utils
     from maya_tools.utilities.mesh_quantizer import mesh_quantizer
 
 TOOL_NAME = "Mesh Quantizer"

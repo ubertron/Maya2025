@@ -1,15 +1,13 @@
 """This utility looks for cuboid geometry by searching a mesh for a matching face."""
 from __future__ import annotations
 
-from importlib import reload
-
 from maya import cmds
 from pathlib import Path
 
 from core.point_classes import Point3Pair
 from core.core_enums import SurfaceDirection
 from maya_tools import node_utils
-from maya_tools.geometry_utils import FaceComponent
+from maya_tools.geometry.component_utils import FaceComponent
 from tests.validators import quadrilateral_validator
 from tests.validators import cuboid_validator
 

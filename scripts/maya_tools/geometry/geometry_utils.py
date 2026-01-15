@@ -4,55 +4,20 @@ import logging
 
 import math
 import maya.api.OpenMaya as om
-import pyperclip
 
 from dataclasses import dataclass
 from maya import cmds
 from typing import Optional, Sequence, Union
 
-from core import logging_utils, math_utils
+from core import logging_utils
 from core.color_classes import RGBColor
 from core.core_enums import ComponentType, Axis
 from core.point_classes import Point3, Point3Pair, NEGATIVE_Y_AXIS, ZERO3
 from core.math_utils import dot_product, normalize_vector, degrees_to_radians, get_midpoint_from_point_list
-from maya_tools.node_utils import get_shape_from_transform
-from maya_tools.scene_utils import message_script
 from maya_tools import display_utils, node_utils
 from maya_tools.maya_enums import ObjectType
 
 LOGGER = logging_utils.get_logger(name=__name__, level=logging.DEBUG)
-
-
-@dataclass
-class Component:
-    transform: str
-    idx: int
-    component_type: ComponentType
-
-
-@dataclass
-class CvComponent(Component):
-    component_type: ComponentType = ComponentType.cv
-
-
-@dataclass
-class EdgeComponent(Component):
-    component_type: ComponentType = ComponentType.edge
-
-
-@dataclass
-class FaceComponent(Component):
-    component_type: ComponentType = ComponentType.face
-
-
-@dataclass
-class UvComponent(Component):
-    component_type: ComponentType = ComponentType.uv
-
-
-@dataclass
-class VertexComponent(Component):
-    component_type: ComponentType = ComponentType.vertex
 
 
 def combine(transforms: list[str] | None = None, name: str = '', position: Optional[Point3] = None,
@@ -191,7 +156,7 @@ def find_geometry_by_vertices(vertex_list: list[Point3]) -> list[str]:
     # get a list of geometry and their bounding boxes
     geometry = node_utils.get_geometry()
     # discount items that the vertex list don't fit within
-    bounds_dict = {x: node_utils.get_bounds(node=x) for x in node_utils.get_geometry()}
+    bounds_dict = {x: node_utils.get_min_max_points(node=x) for x in node_utils.get_geometry()}
     # iterate to find matches within a tolerance
     for key, value in bounds_dict.items():
         print(f'{key}: {value}')
