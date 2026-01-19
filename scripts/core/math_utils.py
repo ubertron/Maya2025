@@ -387,6 +387,33 @@ def rotate_point_about_y(point: Point3, y_rotation: float, pivot: Point3 = None)
     return Point3(final_x, final_y, final_z)
 
 
+def apply_euler_xyz_rotation(point: Point3, rotation: Point3, pivot: Point3 = None) -> Point3:
+    """
+    Apply Euler XYZ rotation to a point.
+
+    Args:
+        point: The point to rotate.
+        rotation: Euler XYZ rotation angles in degrees.
+        pivot: Optional pivot point (defaults to origin).
+
+    Returns:
+        The rotated point.
+    """
+    if pivot is None:
+        pivot = ZERO3
+
+    # Translate to origin
+    p = Point3(point.x - pivot.x, point.y - pivot.y, point.z - pivot.z)
+
+    # Apply rotations in XYZ order (Rx first, then Ry, then Rz)
+    p = rotate_point(p, X_AXIS, math.radians(rotation.x))
+    p = rotate_point(p, Y_AXIS, math.radians(rotation.y))
+    p = rotate_point(p, Z_AXIS, math.radians(rotation.z))
+
+    # Translate back
+    return Point3(p.x + pivot.x, p.y + pivot.y, p.z + pivot.z)
+
+
 def rotation_matrix(axis: Point3, theta: float) -> np.array:
     """
     Return the rotation matrix associated with counterclockwise rotation about

@@ -4,28 +4,20 @@ from __future__ import annotations
 import math
 from itertools import combinations
 
-from dataclasses import dataclass
 from maya import cmds
 
 from core.point_classes import Point3, Point3Pair, X_AXIS, Y_AXIS, Z_AXIS
 from core.core_enums import ComponentType
 from core.math_utils import (
-    normalize_vector, dot_product, cross_product, angle_between_two_vectors,
-    radians_to_degrees, get_bounds_from_points, rotate_point_about_y
+    normalize_vector, dot_product, angle_between_two_vectors,
+    radians_to_degrees
 )
 from maya_tools import node_utils
+from maya_tools.geometry.bounds import Bounds
 from maya_tools.geometry.component_utils import (
-    Component, EdgeComponent, FaceComponent, LocatorComponent, ObjectComponent, VertexComponent,
+    Component, EdgeComponent, FaceComponent, LocatorComponent, VertexComponent,
     components_from_selection
 )
-
-
-@dataclass
-class Bounds:
-    """Dataclass to represent a bounding box in space."""
-    size: Point3
-    translation: Point3
-    rotation: Point3
 
 
 class CuboidFinder:
@@ -805,4 +797,113 @@ def get_cuboid(
     if not finder.is_valid:
         return None
 
-    return Bounds(size=finder.size, translation=finder.center, rotation=finder.rotation)
+    return Bounds(size=finder.size, position=finder.center, rotation=finder.rotation)
+
+
+def get_bounds(
+        geometry: str | list[Component] | list[str] | None = None
+) -> Bounds | None:
+    """Get the axis-aligned bounding box of the input geometry.
+
+    Unlike get_cuboid which fits a rotated box, this returns a world-axis-aligned
+    bounding box with rotation always (0, 0, 0).
+
+    Args:
+        geometry: A transform name, list of transform names, list of Component objects,
+                  list of strings (component ranges like 'mesh.vtx[0:5]'), or None to use selection.
+
+    Returns:
+        Bounds with axis-aligned size, center position, and zero rotation. None if invalid.
+    """
+    if geometry is None:
+        geometry = components_from_selection()
+        if not geometry:
+            return None
+
+    positions: list[Point3] = []
+
+    # Case 1: Single transform string
+    if isinstance(geometry, str):
+        return get_bounds_from_bounding_box(geometry=geometry)
+
+    # Case 2: List input
+    if isinstance(geometry, list) and geometry:
+        # Check if list contains strings
+        if isinstance(geometry[0], str):
+            # Could be transform names or component strings
+            # Try as transforms first
+            if cmds.objExists(geometry[0]) and cmds.ls(geometry[0], transforms=True):
+                return get_bounds_from_bounding_box(geometry=geometry)
+            # Otherwise convert to components
+            geometry = components_from_selection(geometry)
+            if not geometry:
+                return None
+
+        # Now we have Component objects
+        component_type = geometry[0].component_type
+
+        if component_type == ComponentType.object:
+            # List of ObjectComponents - use exactWorldBoundingBox on transforms
+            transforms = [c.transform for c in geometry]
+            return get_bounds_from_bounding_box(geometry=transforms)
+
+        elif component_type == ComponentType.locator:
+            # Get locator world positions
+            for loc in geometry:
+                pos = cmds.xform(loc.transform, query=True, worldSpace=True, translation=True)
+                positions.append(Point3(*pos))
+
+        elif component_type == ComponentType.vertex:
+            # Get vertex positions directly
+            for v in geometry:
+                pos = cmds.pointPosition(f'{v.transform}.vtx[{v.idx}]', world=True)
+                positions.append(Point3(*pos))
+
+        elif component_type == ComponentType.edge:
+            # Convert edges to vertices
+            for edge in geometry:
+                edge_verts = cmds.polyListComponentConversion(
+                    f'{edge.transform}.e[{edge.idx}]', fromEdge=True, toVertex=True)
+                for vtx in cmds.ls(edge_verts, flatten=True):
+                    pos = cmds.pointPosition(vtx, world=True)
+                    positions.append(Point3(*pos))
+
+        elif component_type == ComponentType.face:
+            # Convert faces to vertices
+            for face in geometry:
+                face_verts = cmds.polyListComponentConversion(
+                    f'{face.transform}.f[{face.idx}]', fromFace=True, toVertex=True)
+                for vtx in cmds.ls(face_verts, flatten=True):
+                    pos = cmds.pointPosition(vtx, world=True)
+                    positions.append(Point3(*pos))
+
+    if not positions:
+        return None
+
+    # Calculate min/max from positions
+    min_x = min(p.x for p in positions)
+    min_y = min(p.y for p in positions)
+    min_z = min(p.z for p in positions)
+    max_x = max(p.x for p in positions)
+    max_y = max(p.y for p in positions)
+    max_z = max(p.z for p in positions)
+
+    size = Point3(max_x - min_x, max_y - min_y, max_z - min_z)
+    position = Point3((min_x + max_x) / 2, (min_y + max_y) / 2, (min_z + max_z) / 2)
+
+    return Bounds(size=size, position=position, rotation=Point3(0.0, 0.0, 0.0))
+
+
+def get_bounds_from_bounding_box(geometry: str | list[str]) -> Bounds:
+    """Get axis-aligned Bounds from geometry using Maya's exactWorldBoundingBox.
+
+    Args:
+        geometry: A transform name or list of transform names.
+
+    Returns:
+        Bounds with axis-aligned size, center position, and zero rotation.
+    """
+    min_x, min_y, min_z, max_x, max_y, max_z = cmds.exactWorldBoundingBox(geometry)
+    size = Point3(max_x - min_x, max_y - min_y, max_z - min_z)
+    position = Point3((min_x + max_x) / 2, (min_y + max_y) / 2, (min_z + max_z) / 2)
+    return Bounds(size=size, position=position, rotation=Point3(0.0, 0.0, 0.0))

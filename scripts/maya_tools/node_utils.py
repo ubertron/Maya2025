@@ -192,16 +192,16 @@ def get_min_max_points(node: Optional[str] = None, format_results: bool = False,
         pivot_to_center(transform=node, reset=False)
         set_rotation(nodes=node, value=ZERO3)
     bounding_box = cmds.exactWorldBoundingBox(node)
-    bounds = Point3Pair(Point3(*bounding_box[:3]), Point3(*bounding_box[3:]))
+    min_max_points = Point3Pair(Point3(*bounding_box[:3]), Point3(*bounding_box[3:]))
     if inherit_rotations:
         # reset the rotation and pivot
         set_rotation(nodes=node, value=rotation)
         set_pivot(nodes=node, value=pivot_position, reset=False)
     if format_results:
-        in_view_message(f'{node} bounds: {bounds.compact_repr}', persist_time=5000)
+        in_view_message(f'{node} bounds: {min_max_points.compact_repr}', persist_time=5000)
     if clipboard:
-        pyperclip.copy(str(bounds.values))
-    return bounds
+        pyperclip.copy(str(min_max_points.values))
+    return min_max_points
 
 
 def get_bounds_from_selection(selection_list: list | None = None) -> list[str]:

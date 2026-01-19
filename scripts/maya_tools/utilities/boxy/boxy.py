@@ -13,7 +13,9 @@ from core.core_enums import ComponentType, CustomType, DataType, Side, Axis
 from core.logging_utils import get_logger
 from core.point_classes import Point3, ZERO3, Point3Pair
 from maya_tools import attribute_utils, node_utils
-from maya_tools.geometry import geometry_utils
+from maya_tools.geometry import bounds_utils
+from maya_tools.geometry.bounds import Bounds
+from maya_tools.geometry import geometry_utils, component_utils
 from maya_tools.maya_enums import ObjectType
 from maya_tools.node_utils import get_translation
 from tests.validators import boxy_validator
@@ -25,9 +27,7 @@ LOGGER = get_logger(__name__, level=logging.DEBUG)
 
 @dataclass
 class BoxyData:
-    position: Point3
-    rotation: Point3
-    size: Point3
+    bounds: Bounds
     pivot: Side
     color: RGBColor
     name: str
@@ -35,13 +35,28 @@ class BoxyData:
     @property
     def dictionary(self) -> dict:
         return {
-            "position": self.position.values,
+            "position": self.bounds.position.values,
+            "pivot position": self.pivot_position.values,
             "rotation": self.rotation.values,
             "size": self.size.values,
             "pivot": self.pivot.name,
             "color": self.color.values,
             "name": self.name,
         }
+
+    @property
+    def center(self) -> Point3:
+        """Center of the Boxy node."""
+        return self.bounds.position
+
+    @property
+    def pivot_position(self) -> Point3:
+        """Position of pivot, based on pivot side."""
+        return {
+            Side.bottom: self.bounds.base_center,
+            Side.center: self.bounds.position,
+            Side.top: self.bounds.top_center,
+        }[self.pivot]
 
 
 class ElementType(Enum):
@@ -57,7 +72,6 @@ class ElementType(Enum):
 class Boxy:
     """Create a boxy
 
-    Y-sensitive bounds based box that defines a space
     Use to define base centered bounding boxes and as a placeholder for objects
     """
 
@@ -65,7 +79,7 @@ class Boxy:
         self.box = None
         self.size = Point3(*[DEFAULT_SIZE for _ in range(3)])
         self.position = ZERO3
-        self.rotation_y = 0.0
+        self.rotation = ZERO3
         self.pivot = Side.center
         self.color = color
         self.original_selection = cmds.ls(selection=True, flatten=True)
@@ -81,20 +95,21 @@ class Boxy:
             f"Transforms: {', '.join(self.selected_transforms)}\n"
             f"Selection: {', '.join(self.selection)}\n"
             f"Position: {self.position}\n"
-            f"Rotation: {self.rotation_y}\n"
+            f"Rotation: {self.rotation}\n"
             f"Size: {self.size}\n"
         )
 
     def _build(self, inherit_rotations: bool = True):
         """Build boxy box."""
-        y_rotation = self.rotation_y if inherit_rotations else 0.0
+        if inherit_rotations:
+            bounds = bounds_utils.get_bounds(geometry=self.component_selection)
+        else:
+            bounds = Bounds(size=self.size, position=self.position, rotation=self.rotation)
         boxy_data = BoxyData(
-            position=self.position,
-            rotation=Point3(0.0, y_rotation, 0.0),
-            size=self.size,
+            bounds=bounds,
             pivot=self.pivot,
             color=self.color,
-            name="boxy",
+            name="boxy"
         )
         return build(boxy_data=boxy_data)
 
@@ -125,7 +140,8 @@ class Boxy:
                 point=position_pre_rotation, y_rotation=-y_offset, pivot=position)
         else:
             # get the bounds from the transform
-            bounds = node_utils.get_min_max_points(node=self.selected_transforms[0], inherit_rotations=inherit_rotations)
+            bounds = node_utils.get_min_max_points(node=self.selected_transforms[0],
+                                                   inherit_rotations=inherit_rotations)
             self.size = bounds.size
             self.position = {
                 Side.bottom: bounds.base_center,
@@ -156,7 +172,12 @@ class Boxy:
         """
         if ElementType.mesh in self.element_types or ElementType.curve in self.element_types:
             return False
-        return next((True for x in (ElementType.vertex, ElementType.cv, ElementType.locator) if x in self.element_types), False)
+        return next(
+            (True for x in (ElementType.vertex, ElementType.cv, ElementType.locator) if x in self.element_types), False)
+
+    @property
+    def component_selection(self) -> list[Component]:
+        return component_utils.components_from_selection(selection=self.original_selection)
 
     @property
     def two_locators_only(self) -> bool:
@@ -244,12 +265,12 @@ def build(boxy_data: BoxyData) -> str:
     height_base_line = -1 if boxy_data.pivot is Side.bottom else 1 if boxy_data.pivot is Side.top else 0
     box, poly_cube_node = cmds.polyCube(
         name=boxy_data.name,
-        width=boxy_data.size.x, height=boxy_data.size.y, depth=boxy_data.size.z,
+        width=boxy_data.bounds.size.x, height=boxy_data.bounds.size.y, depth=boxy_data.bounds.size.z,
         heightBaseline=height_base_line, constructionHistory=True)
     shape = node_utils.get_shape_from_transform(node=box)
     cmds.toggle(box, selectHandle=True)
-    node_utils.set_translation(nodes=box, value=boxy_data.position, absolute=True)
-    node_utils.set_rotation(nodes=box, value=boxy_data.rotation, absolute=True)
+    node_utils.set_translation(nodes=box, value=boxy_data.pivot_position, absolute=True)
+    node_utils.set_rotation(nodes=box, value=boxy_data.bounds.rotation, absolute=True)
     geometry_utils.set_wireframe_color(node=box, color=boxy_data.color, shading=False)
 
     # add attributes
@@ -272,14 +293,14 @@ def build(boxy_data: BoxyData) -> str:
         parent_attr="size",
         data_type=DataType.float3,
         attrs=["size_x", "size_y", "size_z"],
-        default_values=boxy_data.size.values,
+        default_values=boxy_data.bounds.size.values,
         channel_box=True,
         lock=False)
     attribute_utils.add_attribute(
         node=box,
         attr="magnitude",
         data_type=DataType.float,
-        default_value=Point3(*boxy_data.size.values).magnitude,
+        default_value=Point3(*boxy_data.bounds.size.values).magnitude,
         lock=False)
     attribute_utils.add_color_attribute(
         node=box,
@@ -332,11 +353,9 @@ def edit_boxy_orientation(node: str, rotation: float, axis: Axis) -> str | False
 def get_boxy_data(node: str) -> BoxyData:
     """Get BoxyData from a boxy node."""
     return BoxyData(
-        position=node_utils.get_translation(node=node),
-        rotation=node_utils.get_rotation(node=node),
-        size=node_utils.get_size(node=node, inherit_rotations=True),
+        bounds=bounds_utils.get_bounds(geometry=node),
         pivot=get_pivot(node=node),
-        color=RGBColor(*cmds.getAttr(f"{node}.color")[0]),
+        color=RGBColor(*cmds.getAttr(f"{node}.wireframe_color   ")[0]),
         name=node
     )
 
@@ -373,15 +392,11 @@ def rebuild(node: str, pivot: Side | None = None, color: RGBColor | None = None)
         print("Invalid boxy object")
         print("\n".join(issues))
         return False
-    pivot = pivot if pivot else get_pivot(node=node)
-    rotation = node_utils.get_rotation(node=node)
-    bounds: Point3Pair = node_utils.get_min_max_points(node=node, inherit_rotations=True)
-    position = get_position_from_bounds(bounds=bounds, pivot=pivot)
+    pivot: Side = pivot if pivot else get_pivot(node=node)
+    bounds: Bounds = bounds_utils.get_cuboid(geometry=node)
     cmds.delete(node)
     boxy_data = BoxyData(
-        position=position,
-        rotation=rotation,
-        size=bounds.size,
+        bounds=bounds,
         pivot=pivot,
         color=color if color else color_classes.DEEP_GREEN,
         name=node

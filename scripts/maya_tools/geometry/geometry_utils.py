@@ -16,6 +16,7 @@ from core.point_classes import Point3, Point3Pair, NEGATIVE_Y_AXIS, ZERO3
 from core.math_utils import dot_product, normalize_vector, degrees_to_radians, get_midpoint_from_point_list
 from maya_tools import display_utils, node_utils
 from maya_tools.maya_enums import ObjectType
+from maya_tools.node_utils import set_translation
 
 LOGGER = logging_utils.get_logger(name=__name__, level=logging.DEBUG)
 
@@ -40,19 +41,29 @@ def combine(transforms: list[str] | None = None, name: str = '', position: Optio
         cmds.warning('Supply mesh nodes')
 
 
-def create_cube(name: Optional[str] = None, size: float = 1, divisions: int = 1, baseline: float = 0) -> str:
+def create_cube(name: Optional[str] = None, size: float | Point3 = 1, position: Point3 = Point3(0, 0, 0),
+                divisions: int = 1, baseline: float = 0) -> str:
     """
     Mirrors geometry along an axis
     :param name: str
     :param size: int
+    :param position:
     :param divisions: int
     :param baseline: float
     """
+    if type(size) is Point3:
+        width = size.x
+        height = size.y
+        depth= size.z
+    else:
+        width = size
+        height = size
+        depth = size
     cube, _ = cmds.polyCube(
         name=name if name else 'cube',
-        width=size, height=size, depth=size, heightBaseline=baseline,
+        width=width, height=height, depth=depth, heightBaseline=baseline,
         sx=divisions, sy=divisions, sz=divisions)
-
+    node_utils.set_translation(nodes=cube, value=position)
     return cube
 
 
