@@ -38,15 +38,27 @@ class Component:
 class CvComponent(Component):
     component_type: ComponentType = ComponentType.cv
 
+    @property
+    def name(self) -> str:
+        return f"{self.transform}.cv[{self.idx}]"
+
 
 @dataclass
 class EdgeComponent(Component):
     component_type: ComponentType = ComponentType.edge
 
+    @property
+    def name(self) -> str:
+        return f"{self.transform}.e[{self.idx}]"
+
 
 @dataclass
 class FaceComponent(Component):
     component_type: ComponentType = ComponentType.face
+
+    @property
+    def name(self) -> str:
+        return f"{self.transform}.f[{self.idx}]"
 
 
 @dataclass
@@ -54,10 +66,18 @@ class ObjectComponent(Component):
     idx: int = -1
     component_type: ComponentType = ComponentType.object
 
+    @property
+    def name(self) -> str:
+        return self.transform
+
 
 @dataclass
 class UvComponent(Component):
     component_type: ComponentType = ComponentType.uv
+
+    @property
+    def name(self) -> str:
+        return f"{self.transform}.uv[{self.idx}]"
 
 
 @dataclass
@@ -71,6 +91,10 @@ class VertexComponent(Component):
         )
 
     @property
+    def name(self) -> str:
+        return f"{self.transform}.vtx[{self.idx}]"
+
+    @property
     def position(self) -> Point3:
         return get_vertex_position(node=self.transform, vertex_id=self.idx)
 
@@ -79,6 +103,10 @@ class VertexComponent(Component):
 class LocatorComponent(Component):
     idx: int = -1
     component_type: ComponentType = ComponentType.locator
+
+    @property
+    def name(self) -> str:
+        return self.transform
 
 
 # Populate COMPONENT_CLASS after all dataclasses are defined
@@ -302,7 +330,7 @@ def planarize_vertices(transform: str, vertices: list[int], axis: Optional[Axis]
     :param axis:
     """
     vertex_positions = [get_vertex_position(node=transform, vertex_id=vertex) for vertex in vertices]
-    component_list = get_component_list(transform=transform, indices=vertices, component_type=ComponentType.vertex)
+    component_list = get_component_list(node=transform, indices=vertices, component_type=ComponentType.vertex)
     bounds: Point3Pair = get_min_max_points(node=component_list)
 
     if axis:

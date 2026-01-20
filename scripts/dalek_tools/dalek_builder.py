@@ -600,7 +600,7 @@ class DalekBuilder:
         # Fix edges on some faces
         smooth_faces = get_faces_by_plane(transform=self.gun_arm, axis=Axis.z, value=0.0875, threshold=0.001)
         edges_to_fix = get_perimeter_edges_from_faces(transform=self.gun_arm, faces=smooth_faces)
-        set_edge_softness(get_component_list(transform=self.gun_arm, indices=edges_to_fix, component_type=ComponentType.edge), angle=20)
+        set_edge_softness(get_component_list(node=self.gun_arm, indices=edges_to_fix, component_type=ComponentType.edge), angle=20)
 
         cmds.parent(self.gun_arm, self.weapon0)
 
@@ -648,7 +648,7 @@ class DalekBuilder:
                                           value=(self.dimensions.sucker_arm_length + self.dimensions.rim) * 0.5,
                                           threshold=0.001)
         edges_to_fix = get_perimeter_edges_from_faces(transform=self.sucker_arm, faces=smooth_faces)
-        set_edge_softness(get_component_list(transform=self.sucker_arm, indices=edges_to_fix,
+        set_edge_softness(get_component_list(node=self.sucker_arm, indices=edges_to_fix,
                                              component_type=ComponentType.edge), angle=5)
 
         cmds.parent(self.sucker_arm, self.weapon1)
@@ -692,7 +692,7 @@ class DalekBuilder:
                                                     subdivisionsAxis=12, name='energy_dispenser_0')[0]
         delete_down_facing_faces(transform=self.energy_dispenser_0)
         top_face = get_faces_by_axis(transform=self.energy_dispenser_0, axis=Y_AXIS)
-        face_component_list = get_component_list(transform=self.energy_dispenser_0, indices=top_face, component_type=ComponentType.face)
+        face_component_list = get_component_list(node=self.energy_dispenser_0, indices=top_face, component_type=ComponentType.face)
         top_edges = cmds.polyListComponentConversion(face_component_list, fromFace=True, toEdge=True)
         cmds.polyBevel(top_edges, offset=0.005)
         top_face = get_faces_by_axis(transform=self.energy_dispenser_0, axis=Y_AXIS)
