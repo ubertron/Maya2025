@@ -509,7 +509,7 @@ def get_selected_geometry() -> list[str]:
     Get selected geometry transforms
     :return:
     """
-    return [x for x in get_selected_transforms() if is_object_type(node=x, object_type=ObjectType.mesh)]
+    return [x for x in get_selected_transforms(full_path=True) if is_object_type(node=x, object_type=ObjectType.mesh)]
 
 
 def get_selected_joints() -> list[str]:

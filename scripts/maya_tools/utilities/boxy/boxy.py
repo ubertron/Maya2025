@@ -331,6 +331,49 @@ def build(boxy_data: BoxyData) -> str:
     return box
 
 
+def convert_boxy_to_poly_cube(node: str) -> str:
+    """Convert a boxy node to a poly-cube."""
+    result = rebuild(node=node)
+    if result:
+        boxy_data: BoxyData = get_boxy_data(node=result)
+        baseline = {
+            Side.bottom: -1,
+            Side.center: 0,
+            Side.top: 1,
+        }[boxy_data.pivot]
+        cube = geometry_utils.create_cube(size=boxy_data.bounds.size, position=boxy_data.pivot_position, baseline=baseline)
+        node_utils.set_rotation(nodes=cube, value=boxy_data.bounds.rotation)
+        cmds.delete(node)
+        return cube
+    else:
+        cmds.warning(f"Invalid boxy node: {node}.")
+        return node
+
+
+def convert_poly_cube_to_boxy(node: str, color: RGBColor = color_classes.DEEP_GREEN) -> str:
+    """Convert a poly-cube to a boxy node."""
+    shape = node_utils.get_shape_from_transform(node=node)
+    poly_cube_node = cmds.listConnections(f"{shape}.inMesh")[0]
+    baseline = cmds.getAttr(f"{poly_cube_node}.heightBaseline")
+    if baseline in (-1.0, 0.0, 1.0):
+        pivot = {
+            -1.0: Side.bottom,
+            0.0: Side.center,
+            1.0: Side.top,
+        }[baseline]
+        bounds: Bounds = bounds_utils.get_bounds(geometry=node, inherit_rotations=True)
+        boxy_data = BoxyData(
+            bounds=bounds,
+            pivot=pivot,
+            color=color,
+            name="boxy"
+        )
+        boxy_node = build(boxy_data=boxy_data)
+        cmds.delete(node)
+        return boxy_node
+    return node
+
+
 def edit_boxy_orientation(node: str, rotation: float, axis: Axis) -> str | False:
     """Rotate the pivot by 90° about an axis."""
     result, issues = boxy_validator.test_selected_boxy(node=node, test_poly_cube=False)
@@ -366,7 +409,7 @@ def edit_boxy_orientation(node: str, rotation: float, axis: Axis) -> str | False
 def get_boxy_data(node: str) -> BoxyData:
     """Get BoxyData from a boxy node."""
     return BoxyData(
-        bounds=bounds_utils.get_bounds(geometry=node),
+        bounds=bounds_utils.get_bounds(geometry=node, inherit_rotations=True),
         pivot=get_pivot(node=node),
         color=RGBColor(*cmds.getAttr(f"{node}.wireframe_color   ")[0]),
         name=node
@@ -396,6 +439,18 @@ def get_position_from_bounds(bounds: Point3Pair, pivot: Side) -> Point3:
 def get_selected_boxy_nodes() -> list[str]:
     """Get a list of all boxy nodes selected."""
     return [x for x in node_utils.get_selected_transforms(full_path=True) if node_utils.is_boxy(x)]
+
+
+def get_selected_poly_cubes() -> list[str]:
+    """Get a list of all poly cube nodes selected."""
+    mesh_nodes = [x for x in node_utils.get_selected_geometry() if not node_utils.is_custom_type_node(x)]
+    poly_cubes = []
+    for x in mesh_nodes:
+        shape = node_utils.get_shape_from_transform(x)
+        result = cmds.listConnections(f"{shape}.inMesh")
+        if result and cmds.objectType(result[0]) == "polyCube":
+            poly_cubes.append(x)
+    return poly_cubes
 
 
 def rebuild(node: str, pivot: Side | None = None, color: RGBColor | None = None) -> str | BoxyException:

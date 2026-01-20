@@ -10,7 +10,7 @@ from core.color_classes import RGBColor
 from core.core_enums import Side
 from core.core_paths import image_path
 from core.version_info import VersionInfo, Versions
-from maya_tools import maya_widget_utils
+from maya_tools import maya_widget_utils, node_utils
 from maya_tools.utilities.boxy import UI_SCRIPT
 from widgets.button_bar import ButtonBar
 from widgets.clickable_label import ClickableLabel
@@ -46,7 +46,7 @@ class BoxyTool(GenericWidget):
         left_alignment = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         button_bar: ButtonBar = self.add_widget(ButtonBar(button_size=32))
         button_bar.add_icon_button(icon_path=image_path("boxy.png"), tool_tip="Generate boxy", clicked=self.create_button_clicked)
-        button_bar.add_icon_button(icon_path=image_path("boxy_to_cube.png"), tool_tip="Convert boxy to cube", clicked=self.boxy_to_cube_button_clicked)
+        button_bar.add_icon_button(icon_path=image_path("boxy_to_cube.png"), tool_tip="Toggle Boxy/Poly-Cube", clicked=self.boxy_cube_toggle_clicked)
         button_bar.add_icon_button(icon_path=image_path("boxy_face_concave.png"), tool_tip="Concave boxy from face", clicked=self.concave_face_button_clicked)
         button_bar.add_icon_button(icon_path=image_path("boxy_face_convex.png"), tool_tip="Convex boxy from face", clicked=self.convex_face_button_clicked)
         button_bar.add_icon_button(icon_path=image_path("help.png"), tool_tip="Help", clicked=self.help_button_clicked)
@@ -159,21 +159,18 @@ class BoxyTool(GenericWidget):
         """Event for pivot combo box."""
         self.settings.setValue(self.pivot_index, arg)
 
-    def boxy_to_cube_button_clicked(self):
-        """Event for boxy to cube."""
-        self.info = "Boxy to cube button clicked."
-        # for x in boxy.get_selected_boxy_nodes():
-        #     result = boxy.rebuild(node=x)
-        #     if type(result) is str:
-        #         boxy_data = boxy.get_boxy_data(x)
-        #         baseline = {
-        #             Side.top: 1,
-        #             Side.center: 0,
-        #             Side.bottom: -1,
-        #         }[boxy_data.pivot]
-        #         geometry_utils.create_cube(
-        #             size=boxy_data.bounds.size, position=boxy_data.bounds.position, baseline=baseline)
-
+    def boxy_cube_toggle_clicked(self):
+        """Event for boxy cube toggle button."""
+        self.info = "Boxy cube toggle clicked."
+        selection_list = []
+        boxy_nodes = boxy.get_selected_boxy_nodes()
+        poly_cubes = boxy.get_selected_poly_cubes()
+        for boxy_node in boxy_nodes:
+            selection_list.append(boxy.convert_boxy_to_poly_cube(node=boxy_node))
+        for poly_cube in poly_cubes:
+            selection_list.append(boxy.convert_poly_cube_to_boxy(node=poly_cube))
+        if selection_list:
+            cmds.select(selection_list)
 
     def size_field_value_changed(self, arg):
         """Event for size field."""
