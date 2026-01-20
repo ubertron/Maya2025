@@ -21,7 +21,7 @@ from maya_tools.geometry.component_utils import (
     components_from_selection
 )
 
-LOGGER = logging_utils.get_logger(name=__name__, level=logging.DEBUG)
+LOGGER = logging_utils.get_logger(name=__name__, level=logging.INFO)
 
 
 class CuboidFinder:

@@ -15,7 +15,6 @@ from core.core_enums import ComponentType, Axis
 from core.point_classes import Point3, Point3Pair, NEGATIVE_Y_AXIS, ZERO3
 from core.math_utils import dot_product, normalize_vector, degrees_to_radians, get_midpoint_from_point_list
 from maya_tools import display_utils, node_utils
-from maya_tools.geometry import component_utils
 from maya_tools.maya_enums import ObjectType
 from maya_tools.node_utils import set_translation
 
@@ -327,18 +326,20 @@ def get_selected_faces(node: str = '') -> list[int] or None:
 
 def get_selected_vertex_positions(node: str = '', convert: bool = False) -> list[Point3]:
     """Get a list of the vertex positions of the currently selected components."""
-    LOGGER.debug(f"geometry_utils.get_selected_vertex_positions() -> {node}")
+    from maya_tools.geometry import component_utils
+
     node = node if node else node_utils.get_selected_transforms(full_path=True, first_only=True)
-    LOGGER.debug(f"Calculated node: {node}")
     component_mode =  node_utils.get_component_mode()
+
     if component_mode in (ComponentType.face, ComponentType.edge) and convert:
         indices = [x.idx for x in component_utils.components_from_selection()]
-        LOGGER.debug(f"selected indices: {indices}")
         vertices = get_vertices_from_faces(node=node, faces=indices)
     else:
         node_utils.set_component_mode(component_type=ComponentType.vertex)
         vertices = [x.idx for x in component_utils.components_from_selection()]
+
     vertex_positions = get_vertex_positions_cmds(node=node)
+
     return [vertex_positions[i] for i in vertices]
 
 

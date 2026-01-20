@@ -17,6 +17,7 @@ from maya_tools.geometry.bounds import Bounds
 from maya_tools.geometry import geometry_utils, component_utils, bounds_utils
 from maya_tools.maya_enums import ObjectType
 from maya_tools.node_utils import get_translation
+from maya_tools.utilities.boxy import BoxyException
 from tests.validators import boxy_validator
 
 DEBUG_MODE = False
@@ -100,9 +101,10 @@ class Boxy:
 
     def _build(self, inherit_rotations: bool = True):
         """Build boxy box."""
-        if inherit_rotations:
+        component_selection = self.component_selection
+        if inherit_rotations and component_selection:
             # Look for a cuboid
-            bounds = bounds_utils.get_cuboid(geometry=self.component_selection)
+            bounds = bounds_utils.get_cuboid(geometry=component_selection)
             # If no cuboid, get the bounds using the rotation
             if not bounds:
                 bounds = bounds_utils.get_bounds(geometry=self.component_selection, inherit_rotations=True)
@@ -192,15 +194,19 @@ class Boxy:
         return list(self.element_type_dict.keys())
 
     def create(self, pivot: Side = Side.center, inherit_rotations: bool = True,
-               default_size: float = 10.0) -> list[str]:
+               default_size: float = 10.0) -> tuple[list[str], list[BoxyException]]:
         """Evaluate selection."""
         assert pivot in (Side.center, Side.top, Side.bottom), f"Invalid pivot position: {pivot.name}"
+        exceptions = []
         self.pivot = pivot
         self.size = Point3(default_size, default_size, default_size)
         if ElementType.boxy in self.element_type_dict:
             for boxy_item in self.element_type_dict[ElementType.boxy]:
-                rebuild(node=boxy_item, pivot=pivot, color=self.color)
-                self.selection.remove(boxy_item)
+                result = rebuild(node=boxy_item, pivot=pivot, color=self.color)
+                if isinstance(result, BoxyException):
+                    exceptions.append(result)
+                else:
+                    self.selection.remove(boxy_item)
         if len(self.selected_transforms) > 1:
             self._evaluate_for_multiple_selection()
         elif len(self.selected_transforms) == 1:
@@ -212,7 +218,7 @@ class Boxy:
         if not (num_boxy_items and num_boxy_items == len(self.all_selected_transforms)):
             boxy_items.append(self._build(inherit_rotations=inherit_rotations))
 
-        return boxy_items
+        return boxy_items, exceptions
 
     @staticmethod
     def append_dict_list(_dict, key, value) -> None:
@@ -335,7 +341,11 @@ def edit_boxy_orientation(node: str, rotation: float, axis: Axis) -> str | False
     if rotation % 90 != 0:
         print(f"Invalid rotation: {rotation}")
         return False
-    node = rebuild(node=node)
+    result = rebuild(node=node)
+    if type(result) is BoxyException:
+        raise result
+    else:
+        node = result
     boxy_data = get_boxy_data(node=node)
     new_size = {
         Axis.x: Point3(boxy_data.size.x, boxy_data.size.z, boxy_data.size.y),
@@ -388,13 +398,13 @@ def get_selected_boxy_nodes() -> list[str]:
     return [x for x in node_utils.get_selected_transforms(full_path=True) if node_utils.is_boxy(x)]
 
 
-def rebuild(node: str, pivot: Side | None = None, color: RGBColor | None = None) -> any:
+def rebuild(node: str, pivot: Side | None = None, color: RGBColor | None = None) -> str | BoxyException:
     """Rebuild a boxy node."""
     result, issues = boxy_validator.test_selected_boxy(node=node, test_poly_cube=False)
     if result is False:
-        print("Invalid boxy object")
-        print("\n".join(issues))
-        return False
+        msg = "Invalid boxy object\n" + "\n".join(issues)
+        LOGGER.info(msg)
+        return BoxyException(message=f"Invalid boxy object [{node}]")
     pivot: Side = pivot if pivot else get_pivot(node=node)
     bounds: Bounds = bounds_utils.get_cuboid(geometry=node)
     cmds.delete(node)
