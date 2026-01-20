@@ -959,14 +959,29 @@ def set_pivot(nodes: Union[str, list[str]], value: Point3, reset: bool = False):
         reset_pivot(nodes)
 
 
-def set_rotation(nodes: Union[str, list[str]], value: Point3, absolute: bool = True):
+def set_rotation(nodes: Union[str, list[str]], value: Point3, absolute: bool = True, preserve_values: bool = True):
     """
-    Set the rotation of passed nodes
-    :param nodes:
-    :param value:
-    :param absolute:
+    Set the rotation of passed nodes.
+
+    Args:
+        nodes: Node name or list of node names.
+        value: Rotation as Point3 (x, y, z) in degrees.
+        absolute: If True, set world space rotation. If False, set relative.
+        preserve_values: If True, use setAttr to preserve exact rotation values
+            (e.g., 280° stays 280°). If False, use xform which may normalize
+            values to -180° to 180° range.
     """
-    cmds.xform(nodes, worldSpace=absolute, rotation=value.values)
+    if isinstance(nodes, str):
+        nodes = [nodes]
+
+    if preserve_values and absolute:
+        # Use setAttr directly to preserve exact rotation values without normalization
+        for node in nodes:
+            cmds.setAttr(f"{node}.rotateX", value.x)
+            cmds.setAttr(f"{node}.rotateY", value.y)
+            cmds.setAttr(f"{node}.rotateZ", value.z)
+    else:
+        cmds.xform(nodes, worldSpace=absolute, rotation=value.values)
 
 
 def set_translation(nodes: str | list[str], value: Point3, absolute: bool = True):

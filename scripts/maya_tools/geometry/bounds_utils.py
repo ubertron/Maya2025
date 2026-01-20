@@ -410,9 +410,8 @@ class CuboidFinder:
         LOGGER.debug(f"  max: ({max_x}, {max_y}, {max_z})")
         LOGGER.debug(f"  center: {self.center}")
 
-        # Try all 8 corners and pick the one with simplest rotation
-        best_result = None
-        best_rotation_complexity = float('inf')
+        # Collect all valid rotation results from corners
+        valid_results = []
 
         for corner in vertex_positions:
             edge_data = self._get_edge_vectors_from_corner(vertex_positions, corner)
@@ -424,16 +423,31 @@ class CuboidFinder:
                 continue
 
             rotation = self._calculate_xyz_rotation(axis_assignment)
+            valid_results.append((axis_assignment, rotation))
 
-            # Calculate rotation complexity (sum of absolute angles)
-            complexity = abs(rotation.x) + abs(rotation.y) + abs(rotation.z)
-
-            if complexity < best_rotation_complexity:
-                best_rotation_complexity = complexity
-                best_result = (axis_assignment, rotation)
-
-        if not best_result:
+        if not valid_results:
             return False
+
+        # Get the transform's rotation if available
+        transform_rotation = self._get_transform_rotation() if self.transform else None
+
+        # First, check if any calculated rotation matches the transform's rotation
+        best_result = None
+        if transform_rotation:
+            for axis_assignment, rotation in valid_results:
+                if self._rotations_match(rotation, transform_rotation):
+                    best_result = (axis_assignment, transform_rotation)
+                    LOGGER.debug(f"Using transform rotation: {transform_rotation}")
+                    break
+
+        # If no match with transform rotation, pick the simplest rotation
+        if not best_result:
+            best_rotation_complexity = float('inf')
+            for axis_assignment, rotation in valid_results:
+                complexity = abs(rotation.x) + abs(rotation.y) + abs(rotation.z)
+                if complexity < best_rotation_complexity:
+                    best_rotation_complexity = complexity
+                    best_result = (axis_assignment, rotation)
 
         axis_assignment, rotation = best_result
 
@@ -450,13 +464,6 @@ class CuboidFinder:
             round(rotation.y, self.DECIMAL_PLACES),
             round(rotation.z, self.DECIMAL_PLACES)
         )
-
-        # If vertices are axis-aligned and transform has a 90-degree rotation, use transform's rotation
-        if self.transform and self._is_axis_aligned_rotation(self.rotation):
-            transform_rotation = self._get_transform_rotation()
-            if transform_rotation and self._is_90_degree_rotation(transform_rotation):
-                self.size = self._rotate_size_for_transform(self.size, transform_rotation)
-                self.rotation = transform_rotation
 
         return True
 
@@ -508,6 +515,41 @@ class CuboidFinder:
         return (is_90_multiple(rotation.x) and
                 is_90_multiple(rotation.y) and
                 is_90_multiple(rotation.z))
+
+    def _rotations_match(self, rotation_a: Point3, rotation_b: Point3, tolerance: float = 1.0) -> bool:
+        """Check if two rotations represent the same cuboid orientation.
+
+        For cuboids, rotations that differ by 90° multiples on any axis are equivalent
+        because a cuboid has 90° rotational symmetry.
+
+        Args:
+            rotation_a: First rotation in degrees.
+            rotation_b: Second rotation in degrees.
+            tolerance: Angle tolerance in degrees.
+
+        Returns:
+            True if rotations are equivalent within tolerance (accounting for 90° symmetry).
+        """
+        def normalize_angle(angle: float) -> float:
+            """Normalize angle to -180 to 180 range."""
+            while angle > 180:
+                angle -= 360
+            while angle < -180:
+                angle += 360
+            return angle
+
+        def angles_match_with_90_symmetry(a: float, b: float) -> bool:
+            """Check if angles match, accounting for 90° cuboid symmetry."""
+            diff = normalize_angle(a - b)
+            # Check if difference is close to 0, ±90, ±180, ±270
+            for offset in [0, 90, -90, 180, -180, 270, -270]:
+                if abs(diff - offset) < tolerance:
+                    return True
+            return False
+
+        return (angles_match_with_90_symmetry(rotation_a.x, rotation_b.x) and
+                angles_match_with_90_symmetry(rotation_a.y, rotation_b.y) and
+                angles_match_with_90_symmetry(rotation_a.z, rotation_b.z))
 
     def _get_transform_rotation(self) -> Point3 | None:
         """Get the rotation values from the transform node."""
