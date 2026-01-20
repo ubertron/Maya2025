@@ -361,7 +361,10 @@ def convert_poly_cube_to_boxy(node: str, color: RGBColor = color_classes.DEEP_GR
             0.0: Side.center,
             1.0: Side.top,
         }[baseline]
-        bounds: Bounds = bounds_utils.get_bounds(geometry=node, inherit_rotations=True)
+        # Try CuboidFinder first (handles rotated faces), fall back to BoundsFinder
+        bounds: Bounds = bounds_utils.get_cuboid(geometry=node)
+        if not bounds:
+            bounds = bounds_utils.get_bounds(geometry=node, inherit_rotations=True)
         boxy_data = BoxyData(
             bounds=bounds,
             pivot=pivot,

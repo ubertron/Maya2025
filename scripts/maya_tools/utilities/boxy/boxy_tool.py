@@ -183,7 +183,7 @@ def launch():
         tool_module="maya_tools.utilities.boxy.boxy_tool",
         tool_class="BoxyTool",
         use_workspace_control=True,
-        ui_script=UI_SCRIPT,
+        ui_script="from maya_tools.utilities.boxy import boxy_tool; boxy_tool.BoxyTool().restore()",
     )
 
 if __name__ == "__main__":
