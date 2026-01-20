@@ -55,7 +55,8 @@ def calculate_size_with_y_offset(points: Point3Pair, y_offset: float) -> Point3:
     return calculate_bounds_with_y_offset(points=points, y_offset=y_offset).size
 
 
-def get_bounds_from_points(points: list[Point3], y_offset: float = 0.0, pivot: Point3 | None = None) -> Point3Pair:
+def get_minimum_maximum_from_points(points: list[Point3], y_offset: float = 0.0,
+                                    pivot: Point3 | None = None) -> Point3Pair:
     """Get the bounds of a set of points.
     :param pivot:
     :param points: Point3
@@ -64,7 +65,6 @@ def get_bounds_from_points(points: list[Point3], y_offset: float = 0.0, pivot: P
     minimum_point = Point3(*[min(point.values[i] for point in points) for i in range(3)])
     maximum_point = Point3(*[max(point.values[i] for point in points) for i in range(3)])
     if y_offset:
-        # center = Point3Pair(minimum_point, maximum_point).center
         rotated = []
         for x in points:
             rotated.append(rotate_point_about_y(point=x, y_rotation=y_offset, pivot=pivot))
@@ -83,7 +83,6 @@ def get_midpoint_from_point_list(points: Sequence[Point3]) -> Point3:
     x = sum(item.x for item in points) / len(points)
     y = sum(item.y for item in points) / len(points)
     z = sum(item.z for item in points) / len(points)
-
     return Point3(x, y, z)
 
 

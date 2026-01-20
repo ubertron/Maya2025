@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from core.math_utils import apply_euler_xyz_rotation
-from core.point_classes import Point3
+from core.point_classes import Point3, Point3Pair
 
 
 @dataclass

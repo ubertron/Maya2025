@@ -39,7 +39,7 @@ class State:
     def __repr__(self) -> str:
         return f'Component mode: {self.component_mode.name}\nSelection: {str(self.object_selection)}'
 
-    def restore(self):
+    def restore(self, verbose: bool = False) -> None:
         """
         Set the selection and component mode as stored on init
         """
@@ -52,6 +52,9 @@ class State:
 
         if self.is_component_mode:
             cmds.select(self.component_selection)
+
+        if verbose:
+            print(f"State restored: {self.component_mode.name}\nSelection: {str(self.object_selection)}")
 
     @property
     def is_object_mode(self) -> bool:
@@ -212,7 +215,7 @@ def get_bounds_from_selection(selection_list: list | None = None) -> list[str]:
         selection.remove(locator)
     locator_points = [get_translation(x) for x in locators]
     if locator_points:
-        locator_bounds = math_utils.get_bounds_from_points(points=locator_points)
+        locator_bounds = math_utils.get_minimum_maximum_from_points(points=locator_points)
     else:
         locator_bounds = None
     bounding_box = cmds.exactWorldBoundingBox(selection) if selection else None

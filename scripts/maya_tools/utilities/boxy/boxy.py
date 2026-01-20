@@ -13,9 +13,8 @@ from core.core_enums import ComponentType, CustomType, DataType, Side, Axis
 from core.logging_utils import get_logger
 from core.point_classes import Point3, ZERO3, Point3Pair
 from maya_tools import attribute_utils, node_utils
-from maya_tools.geometry import bounds_utils
 from maya_tools.geometry.bounds import Bounds
-from maya_tools.geometry import geometry_utils, component_utils
+from maya_tools.geometry import geometry_utils, component_utils, bounds_utils
 from maya_tools.maya_enums import ObjectType
 from maya_tools.node_utils import get_translation
 from tests.validators import boxy_validator
@@ -102,7 +101,11 @@ class Boxy:
     def _build(self, inherit_rotations: bool = True):
         """Build boxy box."""
         if inherit_rotations:
-            bounds = bounds_utils.get_bounds(geometry=self.component_selection)
+            # Look for a cuboid
+            bounds = bounds_utils.get_cuboid(geometry=self.component_selection)
+            # If no cuboid, get the bounds using the rotation
+            if not bounds:
+                bounds = bounds_utils.get_bounds(geometry=self.component_selection, inherit_rotations=True)
         else:
             bounds = Bounds(size=self.size, position=self.position, rotation=self.rotation)
         boxy_data = BoxyData(
@@ -133,7 +136,7 @@ class Boxy:
             # get the bounds of locators/verts/cvs
             points = node_utils.get_points_from_selection()
             y_offset = -self.rotation_y if inherit_rotations else 0.0
-            bounds = math_utils.get_bounds_from_points(points=points, y_offset=y_offset, pivot=position)
+            bounds = math_utils.get_minimum_maximum_from_points(points=points, y_offset=y_offset, pivot=position)
             self.size = bounds.size
             position_pre_rotation = get_position_from_bounds(bounds=bounds, pivot=self.pivot)
             self.position = math_utils.rotate_point_about_y(
@@ -176,8 +179,8 @@ class Boxy:
             (True for x in (ElementType.vertex, ElementType.cv, ElementType.locator) if x in self.element_types), False)
 
     @property
-    def component_selection(self) -> list[Component]:
-        return component_utils.components_from_selection(selection=self.original_selection)
+    def component_selection(self) -> list[component_utils.Component]:
+        return component_utils.components_from_selection(selection=self.selection)
 
     @property
     def two_locators_only(self) -> bool:

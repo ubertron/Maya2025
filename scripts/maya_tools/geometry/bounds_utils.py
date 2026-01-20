@@ -1,23 +1,27 @@
 """Utility for finding and calculating axis-aligned bounds from cuboid geometry."""
 from __future__ import annotations
 
-import math
+import logging
 from itertools import combinations
 
+import math
 from maya import cmds
 
-from core.point_classes import Point3, Point3Pair, X_AXIS, Y_AXIS, Z_AXIS
+from core import logging_utils, math_utils
 from core.core_enums import ComponentType
 from core.math_utils import (
     normalize_vector, dot_product, angle_between_two_vectors,
     radians_to_degrees
 )
+from core.point_classes import Point3, Point3Pair, X_AXIS, Y_AXIS, Z_AXIS, ZERO3
 from maya_tools import node_utils
 from maya_tools.geometry.bounds import Bounds
 from maya_tools.geometry.component_utils import (
     Component, EdgeComponent, FaceComponent, LocatorComponent, VertexComponent,
     components_from_selection
 )
+
+LOGGER = logging_utils.get_logger(name=__name__, level=logging.DEBUG)
 
 
 class CuboidFinder:
@@ -146,13 +150,19 @@ class CuboidFinder:
             for idx in indices:
                 vertex_indices.add(int(idx.split('[')[1].split(']')[0]))
 
-        return [Point3(*cmds.pointPosition(f'{self.transform}.vtx[{i}]', world=True))
+        result = [Point3(*cmds.pointPosition(f'{self.transform}.vtx[{i}]', world=True))
                 for i in sorted(vertex_indices)]
+        LOGGER.debug(f"CuboidFinder._vertices_from_faces:")
+        LOGGER.debug(f"  faces: {[(f.transform, f.idx) for f in faces]}")
+        LOGGER.debug(f"  vertex_indices: {sorted(vertex_indices)}")
+        LOGGER.debug(f"  vertex positions: {result}")
+        return result
 
     def _vertices_from_edges(self, edges: list[EdgeComponent]) -> list[Point3] | None:
         """Get vertices from edge components."""
         if len(edges) < 3 or len(edges) > 12:
             cmds.warning(f"Expected 3-12 edges, got {len(edges)}.")
+            LOGGER.debug(f"CuboidFinder._vertices_from_edges: FAILED - Expected 3-12 edges, got {len(edges)}")
             return None
 
         self.transform = edges[0].transform
@@ -165,8 +175,13 @@ class CuboidFinder:
             for idx in indices:
                 vertex_indices.add(int(idx.split('[')[1].split(']')[0]))
 
-        return [Point3(*cmds.pointPosition(f'{self.transform}.vtx[{i}]', world=True))
+        result = [Point3(*cmds.pointPosition(f'{self.transform}.vtx[{i}]', world=True))
                 for i in sorted(vertex_indices)]
+        LOGGER.debug(f"CuboidFinder._vertices_from_edges:")
+        LOGGER.debug(f"  edges: {[(e.transform, e.idx) for e in edges]}")
+        LOGGER.debug(f"  vertex_indices: {sorted(vertex_indices)}")
+        LOGGER.debug(f"  vertex positions: {result}")
+        return result
 
     def _vertices_from_vertices(self, vertices: list[VertexComponent]) -> list[Point3] | None:
         """Get vertices from vertex components."""
@@ -274,9 +289,13 @@ class CuboidFinder:
 
                 # Validate all input positions match generated vertices
                 if self._all_inputs_match(input_positions, generated):
+                    LOGGER.debug(f"DEBUG CuboidFinder._infer_cuboid_vertices: SUCCESS")
+                    LOGGER.debug(f"  input_positions: {input_positions}")
+                    LOGGER.debug(f"  generated (inferred 8 vertices): {generated}")
                     return generated
 
         cmds.warning("Could not infer valid cuboid from input vertices.")
+        LOGGER.debug(f"DEBUG CuboidFinder._infer_cuboid_vertices: FAILED to infer cuboid")
         return None
 
     def _are_orthogonal(self, vectors: list[Point3], tolerance: float = 0.01) -> bool:
@@ -372,15 +391,24 @@ class CuboidFinder:
         Returns:
             True if valid cuboid and calculations succeeded.
         """
-        # Calculate center (average of all vertices, rounded)
-        center_x = sum(v.x for v in vertex_positions) / 8
-        center_y = sum(v.y for v in vertex_positions) / 8
-        center_z = sum(v.z for v in vertex_positions) / 8
+        # Calculate center (midpoint of bounding box, not centroid)
+        min_x = min(v.x for v in vertex_positions)
+        max_x = max(v.x for v in vertex_positions)
+        min_y = min(v.y for v in vertex_positions)
+        max_y = max(v.y for v in vertex_positions)
+        min_z = min(v.z for v in vertex_positions)
+        max_z = max(v.z for v in vertex_positions)
         self.center = Point3(
-            round(center_x, self.DECIMAL_PLACES),
-            round(center_y, self.DECIMAL_PLACES),
-            round(center_z, self.DECIMAL_PLACES)
+            round((min_x + max_x) / 2, self.DECIMAL_PLACES),
+            round((min_y + max_y) / 2, self.DECIMAL_PLACES),
+            round((min_z + max_z) / 2, self.DECIMAL_PLACES)
         )
+        LOGGER.debug(f"DEBUG CuboidFinder._validate_and_calculate:")
+        LOGGER.debug(f"  vertex_positions count: {len(vertex_positions)}")
+        LOGGER.debug(f"  vertex_positions: {vertex_positions}")
+        LOGGER.debug(f"  min: ({min_x}, {min_y}, {min_z})")
+        LOGGER.debug(f"  max: ({max_x}, {max_y}, {max_z})")
+        LOGGER.debug(f"  center: {self.center}")
 
         # Try all 8 corners and pick the one with simplest rotation
         best_result = None
@@ -795,25 +823,32 @@ def get_cuboid(
     finder = CuboidFinder(transform=transform, faces=faces, edges=edges, vertices=vertices, locators=locators)
 
     if not finder.is_valid:
+        LOGGER.debug(f"DEBUG get_cuboid: CuboidFinder is_valid=False, returning None")
         return None
 
+    LOGGER.debug(f"DEBUG get_cuboid: returning Bounds")
+    LOGGER.debug(f"  size: {finder.size}")
+    LOGGER.debug(f"  center: {finder.center}")
+    LOGGER.debug(f"  rotation: {finder.rotation}")
     return Bounds(size=finder.size, position=finder.center, rotation=finder.rotation)
 
 
 def get_bounds(
-        geometry: str | list[Component] | list[str] | None = None
+        geometry: str | list[Component] | list[str] | None = None,
+        inherit_rotations: bool = False
 ) -> Bounds | None:
     """Get the axis-aligned bounding box of the input geometry.
-
-    Unlike get_cuboid which fits a rotated box, this returns a world-axis-aligned
-    bounding box with rotation always (0, 0, 0).
 
     Args:
         geometry: A transform name, list of transform names, list of Component objects,
                   list of strings (component ranges like 'mesh.vtx[0:5]'), or None to use selection.
+        inherit_rotations: If True and all geometry originates from a single transform,
+                          bounds are calculated in object-space and the transform's rotation
+                          is inherited. If False (default) or multiple transforms, bounds are
+                          calculated in world-space with zero rotation.
 
     Returns:
-        Bounds with axis-aligned size, center position, and zero rotation. None if invalid.
+        Bounds with size, center position, and rotation. None if invalid.
     """
     if geometry is None:
         geometry = components_from_selection()
@@ -821,10 +856,42 @@ def get_bounds(
             return None
 
     positions: list[Point3] = []
+    node: str | None = None
+    rotation = Point3(0.0, 0.0, 0.0)
 
     # Case 1: Single transform string
     if isinstance(geometry, str):
-        return get_bounds_from_bounding_box(geometry=geometry)
+        node = geometry
+        if inherit_rotations:
+            # Get the original center position before any modifications
+            orig_bbox = cmds.exactWorldBoundingBox(geometry)
+            position = Point3(
+                (orig_bbox[0] + orig_bbox[3]) / 2,
+                (orig_bbox[1] + orig_bbox[4]) / 2,
+                (orig_bbox[2] + orig_bbox[5]) / 2
+            )
+
+            # Store and reset rotation for object-space size calculation
+            # Use bounding box center as pivot so geometry doesn't shift when rotation is zeroed
+            pivot_position = node_utils.get_translation(node=node, absolute=True)
+            rotation = node_utils.get_rotation(node=node)
+            node_utils.set_pivot(nodes=node, value=position, reset=False)
+            node_utils.set_rotation(nodes=node, value=ZERO3)
+
+            # Get object-space size
+            min_x, min_y, min_z, max_x, max_y, max_z = cmds.exactWorldBoundingBox(geometry)
+            size = Point3(max_x - min_x, max_y - min_y, max_z - min_z)
+
+            # Restore
+            node_utils.set_rotation(nodes=node, value=rotation)
+            node_utils.set_pivot(nodes=node, value=pivot_position, reset=False)
+
+            return Bounds(size=size, position=position, rotation=rotation)
+        else:
+            min_x, min_y, min_z, max_x, max_y, max_z = cmds.exactWorldBoundingBox(geometry)
+            size = Point3(max_x - min_x, max_y - min_y, max_z - min_z)
+            position = Point3((min_x + max_x) / 2, (min_y + max_y) / 2, (min_z + max_z) / 2)
+            return Bounds(size=size, position=position, rotation=rotation)
 
     # Case 2: List input
     if isinstance(geometry, list) and geometry:
@@ -833,54 +900,106 @@ def get_bounds(
             # Could be transform names or component strings
             # Try as transforms first
             if cmds.objExists(geometry[0]) and cmds.ls(geometry[0], transforms=True):
-                return get_bounds_from_bounding_box(geometry=geometry)
+                if len(geometry) == 1:
+                    # Single transform - pass through inherit_rotations
+                    return get_bounds(geometry[0], inherit_rotations=inherit_rotations)
+                else:
+                    # Multiple transforms - always world-space
+                    return get_bounds_from_bounding_box(geometry=geometry)
             # Otherwise convert to components
             geometry = components_from_selection(geometry)
             if not geometry:
                 return None
 
-        # Now we have Component objects
+        # Now we have Component objects - check if all from single transform
+        transforms = set(c.transform for c in geometry)
+        single_transform = len(transforms) == 1
         component_type = geometry[0].component_type
 
         if component_type == ComponentType.object:
-            # List of ObjectComponents - use exactWorldBoundingBox on transforms
-            transforms = [c.transform for c in geometry]
-            return get_bounds_from_bounding_box(geometry=transforms)
+            transforms_list = [c.transform for c in geometry]
+            if len(transforms_list) == 1:
+                return get_bounds(transforms_list[0], inherit_rotations=inherit_rotations)
+            return get_bounds_from_bounding_box(geometry=transforms_list)
 
         elif component_type == ComponentType.locator:
-            # Get locator world positions
+            # Locators don't have mesh rotation to inherit
             for loc in geometry:
                 pos = cmds.xform(loc.transform, query=True, worldSpace=True, translation=True)
                 positions.append(Point3(*pos))
+        else:
+            # vertex, edge, face components
+            if single_transform:
+                node = transforms.pop()
 
-        elif component_type == ComponentType.vertex:
-            # Get vertex positions directly
-            for v in geometry:
-                pos = cmds.pointPosition(f'{v.transform}.vtx[{v.idx}]', world=True)
-                positions.append(Point3(*pos))
+            # Helper to collect positions based on component type
+            def collect_positions():
+                collected = []
+                if component_type == ComponentType.vertex:
+                    for v in geometry:
+                        pos = cmds.pointPosition(f'{v.transform}.vtx[{v.idx}]', world=True)
+                        collected.append(Point3(*pos))
+                elif component_type == ComponentType.edge:
+                    for edge in geometry:
+                        edge_verts = cmds.polyListComponentConversion(
+                            f'{edge.transform}.e[{edge.idx}]', fromEdge=True, toVertex=True)
+                        for vtx in cmds.ls(edge_verts, flatten=True):
+                            pos = cmds.pointPosition(vtx, world=True)
+                            collected.append(Point3(*pos))
+                elif component_type == ComponentType.face:
+                    for face in geometry:
+                        face_verts = cmds.polyListComponentConversion(
+                            f'{face.transform}.f[{face.idx}]', fromFace=True, toVertex=True)
+                        for vtx in cmds.ls(face_verts, flatten=True):
+                            pos = cmds.pointPosition(vtx, world=True)
+                            collected.append(Point3(*pos))
+                return collected
 
-        elif component_type == ComponentType.edge:
-            # Convert edges to vertices
-            for edge in geometry:
-                edge_verts = cmds.polyListComponentConversion(
-                    f'{edge.transform}.e[{edge.idx}]', fromEdge=True, toVertex=True)
-                for vtx in cmds.ls(edge_verts, flatten=True):
-                    pos = cmds.pointPosition(vtx, world=True)
-                    positions.append(Point3(*pos))
+            if inherit_rotations and single_transform:
+                # Store transform's pivot position and rotation
+                pivot_position = node_utils.get_translation(node=node, absolute=True)
+                rotation = node_utils.get_rotation(node=node)
 
-        elif component_type == ComponentType.face:
-            # Convert faces to vertices
-            for face in geometry:
-                face_verts = cmds.polyListComponentConversion(
-                    f'{face.transform}.f[{face.idx}]', fromFace=True, toVertex=True)
-                for vtx in cmds.ls(face_verts, flatten=True):
-                    pos = cmds.pointPosition(vtx, world=True)
-                    positions.append(Point3(*pos))
+                # Zero the rotation to calculate object-space bounds
+                node_utils.set_rotation(nodes=node, value=ZERO3)
+
+                # Collect positions with zeroed rotation
+                positions = collect_positions()
+
+                # Calculate bounds center in zeroed-rotation space
+                min_x = min(p.x for p in positions)
+                min_y = min(p.y for p in positions)
+                min_z = min(p.z for p in positions)
+                max_x = max(p.x for p in positions)
+                max_y = max(p.y for p in positions)
+                max_z = max(p.z for p in positions)
+
+                size = Point3(max_x - min_x, max_y - min_y, max_z - min_z)
+                bounds_position = Point3(
+                    (min_x + max_x) / 2,
+                    (min_y + max_y) / 2,
+                    (min_z + max_z) / 2
+                )
+
+                # Restore rotation
+                node_utils.set_rotation(nodes=node, value=rotation)
+
+                # Rotate bounds_position back to world space
+                position = math_utils.apply_euler_xyz_rotation(
+                    point=bounds_position,
+                    rotation=rotation,
+                    pivot=pivot_position
+                )
+
+                return Bounds(size=size, position=position, rotation=rotation)
+            else:
+                # World-space calculation
+                positions = collect_positions()
 
     if not positions:
         return None
 
-    # Calculate min/max from positions
+    # Calculate min/max from positions (world-space case)
     min_x = min(p.x for p in positions)
     min_y = min(p.y for p in positions)
     min_z = min(p.z for p in positions)
@@ -891,7 +1010,7 @@ def get_bounds(
     size = Point3(max_x - min_x, max_y - min_y, max_z - min_z)
     position = Point3((min_x + max_x) / 2, (min_y + max_y) / 2, (min_z + max_z) / 2)
 
-    return Bounds(size=size, position=position, rotation=Point3(0.0, 0.0, 0.0))
+    return Bounds(size=size, position=position, rotation=rotation)
 
 
 def get_bounds_from_bounding_box(geometry: str | list[str]) -> Bounds:

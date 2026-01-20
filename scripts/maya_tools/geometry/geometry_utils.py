@@ -15,6 +15,7 @@ from core.core_enums import ComponentType, Axis
 from core.point_classes import Point3, Point3Pair, NEGATIVE_Y_AXIS, ZERO3
 from core.math_utils import dot_product, normalize_vector, degrees_to_radians, get_midpoint_from_point_list
 from maya_tools import display_utils, node_utils
+from maya_tools.geometry import component_utils
 from maya_tools.maya_enums import ObjectType
 from maya_tools.node_utils import set_translation
 
@@ -136,7 +137,7 @@ def detach_faces(transform: str, faces: list[int]) -> str:
     :param faces:
     :return:
     """
-    selection = get_component_list(transform=transform, indices=faces, component_type=ComponentType.face)
+    selection = get_component_list(node=transform, indices=faces, component_type=ComponentType.face)
     children = cmds.listRelatives(transform, children=True, type=ObjectType.transform.name)
 
     if children:
@@ -217,15 +218,15 @@ def get_component_indices(component_list: list[str], component_type: ComponentTy
     return [int(x.split(f'.{get_component_type_tag(component_type)}[')[1].split(']')[0]) for x in flat_list]
 
 
-def get_component_list(transform: str, indices: list[int], component_type: ComponentType):
+def get_component_list(node: str, indices: list[int], component_type: ComponentType):
     """
     Get a component list from a list of indices
-    :param transform:
+    :param node:
     :param indices:
     :param component_type:
     :return:
     """
-    return [f'{transform}.{get_component_type_tag(component_type)}[{x}]' for x in indices]
+    return [f'{node}.{get_component_type_tag(component_type)}[{x}]' for x in indices]
 
 
 def get_open_edges(transform: str, select=False):
@@ -251,7 +252,7 @@ def get_perimeter_edges_from_faces(transform: str, faces: list[int]):
     :param faces:
     :return:
     """
-    face_components = get_component_list(transform=transform, indices=faces, component_type=ComponentType.face)
+    face_components = get_component_list(node=transform, indices=faces, component_type=ComponentType.face)
     all_edges = get_component_indices(cmds.polyListComponentConversion(face_components, fromFace=True, toEdge=True),
                                       component_type=ComponentType.edge)
     internal_edges = get_component_indices(
@@ -282,39 +283,12 @@ def get_selected_edges(node: str = '') -> list[int] or None:
     return get_selected_components(node=node, component_type=ComponentType.edge)
 
 
-def get_selected_vertices(node: str = '') -> list[int] or None:
-    """
-    Gets a list of the vertex ids, or None if node not found
-    :param node:
-    :return:
-    """
-    return get_selected_components(node=node, component_type=ComponentType.vertex)
-
-
 def get_selection() -> om.MSelectionList:
     """
     Get selected
     :return:
     """
     return om.MGlobal.getActiveSelectionList()
-
-
-def get_selected_faces(node: str = '') -> list[int] or None:
-    """
-    Gets a list of the face ids, or None if node not found
-    :param node:
-    :return:
-    """
-    return get_selected_components(node=node, component_type=ComponentType.face)
-
-
-def get_selected_vertices(node: str = '') -> list[int] or None:
-    """
-    Gets a list of the face ids, or None if node not found
-    :param node:
-    :return:
-    """
-    return get_selected_components(node=node, component_type=ComponentType.vertex)
 
 
 def get_selected_components(node: str = '', component_type: ComponentType = ComponentType.face) -> list[int] or None:
@@ -330,13 +304,51 @@ def get_selected_components(node: str = '', component_type: ComponentType = Comp
     assert cmds.objExists(node), 'Node does not exist.'
     component_label: dict = {ComponentType.edge: 'e', ComponentType.face: 'f', ComponentType.vertex: 'vtx'}
     state = node_utils.State()
+    LOGGER.debug(f"initial component mode: {state.component_mode}")
     cmds.select(node)
     node_utils.set_component_mode(component_type=component_type)
-    selection = cmds.ls(sl=True, flatten=True)
+    selection = cmds.ls(selection=True, flatten=True)
+    LOGGER.debug(f"get_selected_components() - selection: {selection}")
     state.restore()
     component_prefix = f'{component_label[component_type]}['
     component_ids = [int(x.split(component_prefix)[1].split(']')[0]) for x in selection]
     return component_ids
+
+
+
+def get_selected_faces(node: str = '') -> list[int] or None:
+    """
+    Gets a list of the face ids, or None if node not found
+    :param node:
+    :return:
+    """
+    return get_selected_components(node=node, component_type=ComponentType.face)
+
+
+def get_selected_vertex_positions(node: str = '', convert: bool = False) -> list[Point3]:
+    """Get a list of the vertex positions of the currently selected components."""
+    LOGGER.debug(f"geometry_utils.get_selected_vertex_positions() -> {node}")
+    node = node if node else node_utils.get_selected_transforms(full_path=True, first_only=True)
+    LOGGER.debug(f"Calculated node: {node}")
+    component_mode =  node_utils.get_component_mode()
+    if component_mode in (ComponentType.face, ComponentType.edge) and convert:
+        indices = [x.idx for x in component_utils.components_from_selection()]
+        LOGGER.debug(f"selected indices: {indices}")
+        vertices = get_vertices_from_faces(node=node, faces=indices)
+    else:
+        node_utils.set_component_mode(component_type=ComponentType.vertex)
+        vertices = [x.idx for x in component_utils.components_from_selection()]
+    vertex_positions = get_vertex_positions_cmds(node=node)
+    return [vertex_positions[i] for i in vertices]
+
+
+def get_selected_vertices(node: str = '') -> list[int] or None:
+    """
+    Gets a list of the face ids, or None if node not found
+    :param node:
+    :return:
+    """
+    return get_selected_components(node=node, component_type=ComponentType.vertex)
 
 
 def get_vertex_count(transform: str) -> int:
@@ -348,14 +360,14 @@ def get_vertex_count(transform: str) -> int:
     return cmds.polyEvaluate(transform, vertex=True)
 
 
-def get_vertex_positions_cmds(transform: str) -> list[Point3]:
+def get_vertex_positions_cmds(node: str) -> list[Point3]:
     """
     Gets the position of each vertex in a mesh
-    :param transform:
+    :param node:
     :return:
     """
-    vertex_list = range(get_vertex_count(transform))
-    return [get_vertex_position(node=transform, vertex_id=i) for i in vertex_list]
+    vertex_list = range(get_vertex_count(node))
+    return [get_vertex_position(node=node, vertex_id=i) for i in vertex_list]
 
 
 def get_vertex_positions(node: str, verbose: bool = False) -> om.MPointArray:
@@ -471,7 +483,7 @@ def merge_vertices(transform: str, vertices: list[int] = (), threshold: float = 
     if not vertices:
         vertex_components = f'{transform}.vtx[*]'
     else:
-        vertex_components = get_component_list(transform=transform, indices=vertices,
+        vertex_components = get_component_list(node=transform, indices=vertices,
                                                component_type=ComponentType.vertex)
 
     return cmds.polyMergeVertex(vertex_components, distance=threshold)[0]
@@ -720,7 +732,7 @@ def delete_faces(transform: str, faces: int or list[int]):
     :param faces:
     """
     face_list = faces if type(faces) is list else [faces]
-    cmds.delete(get_component_list(transform=transform, indices=face_list, component_type=ComponentType.face))
+    cmds.delete(get_component_list(node=transform, indices=face_list, component_type=ComponentType.face))
 
 
 def delete_down_facing_faces(transform: str, tolerance_angle: float = 0.05):
@@ -814,7 +826,7 @@ def slice_faces(transform: str, faces: Sequence[int] = (), position: Point3 = ZE
     :param axis:
     """
     if faces:
-        operand = get_component_list(transform=transform, indices=faces, component_type=ComponentType.face)
+        operand = get_component_list(node=transform, indices=faces, component_type=ComponentType.face)
     else:
         operand = transform
 
@@ -880,15 +892,29 @@ def group_geometry_shells(transform: str, faces: Sequence[int]):
     return [x.a for x in shells]
 
 
-def get_vertices_from_faces(transform: str, faces: Sequence[int]) -> list[int]:
+def get_vertices_from_faces(node: str, faces: Sequence[int]) -> list[int]:
     """
     Convert a face list to a vertex list
-    :param transform:
+    :param node:
     :param faces:
     :return:
     """
-    face_components = get_component_list(transform=transform, indices=faces, component_type=ComponentType.face)
+    LOGGER.debug(f"node: {node}, faces: {faces}")
+    face_components = get_component_list(node=node, indices=faces, component_type=ComponentType.face)
+    LOGGER.debug(f"face_components: {face_components}")
     vertex_components = cmds.polyListComponentConversion(face_components, fromFace=True, toVertex=True)
+    return get_component_indices(vertex_components, component_type=ComponentType.vertex)
+
+
+def get_vertices_from_edges(node: str, edges: Sequence[int]) -> list[int]:
+    """
+    Convert a face list to a vertex list
+    :param node:
+    :param edges:
+    :return:
+    """
+    edge_components = get_component_list(node=node, indices=edges, component_type=ComponentType.edge)
+    vertex_components = cmds.polyListComponentConversion(edge_components, fromEdge=True, toVertex=True)
     return get_component_indices(vertex_components, component_type=ComponentType.vertex)
 
 
@@ -899,7 +925,8 @@ def get_midpoint_from_faces(transform: str, faces: Sequence[int]) -> Point3:
     :param faces:
     :return:
     """
-    vertices = get_vertices_from_faces(transform=transform, faces=faces)
+    LOGGER.debug("get_midpoint_from_faces()")
+    vertices = get_vertices_from_faces(node=transform, faces=faces)
     vertex_positions = [get_vertex_position(node=transform, vertex_id=vertex) for vertex in vertices]
 
     return get_midpoint_from_point_list(points=vertex_positions)
@@ -1030,7 +1057,7 @@ def reverse_face_normals(transform: str, faces: list[int] or None = None):
     :param faces:
     """
     if faces:
-        component_list = get_component_list(transform=transform, indices=faces, component_type=ComponentType.face)
+        component_list = get_component_list(node=transform, indices=faces, component_type=ComponentType.face)
     else:
         component_list = f'{transform}.f[*]'
 
