@@ -22,7 +22,7 @@ from tests.validators import boxy_validator
 
 DEBUG_MODE = False
 DEFAULT_SIZE: float = 100.0
-LOGGER = get_logger(__name__, level=logging.DEBUG)
+LOGGER = get_logger(__name__, level=logging.INFO)
 
 
 @dataclass
@@ -102,14 +102,23 @@ class Boxy:
     def _build(self, inherit_rotations: bool = True):
         """Build boxy box."""
         component_selection = self.component_selection
+        LOGGER.debug(f"DEBUG Boxy._build:")
+        LOGGER.debug(f"  inherit_rotations: {inherit_rotations}")
+        LOGGER.debug(f"  component_selection: {component_selection}")
         if inherit_rotations and component_selection:
             # Look for a cuboid
             bounds = bounds_utils.get_cuboid(geometry=component_selection)
+            LOGGER.debug(f"  get_cuboid returned: {bounds}")
             # If no cuboid, get the bounds using the rotation
             if not bounds:
                 bounds = bounds_utils.get_bounds(geometry=self.component_selection, inherit_rotations=True)
+                LOGGER.debug(f"  get_bounds returned: {bounds}")
         else:
             bounds = Bounds(size=self.size, position=self.position, rotation=self.rotation)
+        LOGGER.debug(f"  FINAL bounds for boxy_data:")
+        LOGGER.debug(f"    size: {bounds.size}")
+        LOGGER.debug(f"    position: {bounds.position}")
+        LOGGER.debug(f"    rotation: {bounds.rotation}")
         boxy_data = BoxyData(
             bounds=bounds,
             pivot=self.pivot,
@@ -185,13 +194,25 @@ class Boxy:
         return component_utils.components_from_selection(selection=self.selection)
 
     @property
+    def element_types(self):
+        return list(self.element_type_dict.keys())
+
+    @property
+    def element_type_dict(self) -> dict:
+        return self._element_type_dict
+
+    @property
+    def selected_transforms(self) -> list[str]:
+        return self._selected_transforms
+
+    @selected_transforms.setter
+    def selected_transforms(self, value: list[str]):
+        self._selected_transforms = value
+
+    @property
     def two_locators_only(self) -> bool:
         """Returns True if there are only two locators selected."""
         return len(self.selection) == 2 and len(self.element_type_dict.get(ElementType.locator, [])) == 2
-
-    @property
-    def element_types(self):
-        return list(self.element_type_dict.keys())
 
     def create(self, pivot: Side = Side.center, inherit_rotations: bool = True,
                default_size: float = 10.0) -> tuple[list[str], list[BoxyException]]:
@@ -246,27 +267,9 @@ class Boxy:
                     self.append_dict_list(_dict=element_type_dict, key=ElementType.mesh, value=x)
                 elif node_utils.is_nurbs_curve(x):
                     self.append_dict_list(_dict=element_type_dict, key=ElementType.curve, value=x)
-                elif cmds.objectType(x) == ObjectType.nurbsCurve.name:
-                    self.append_dict_list(_dict=element_type_dict, key=ElementType.curve, value=x)
                 else:
                     append_dict_list(_dict=element_type_dict, key=ElementType.invalid, value=x)
         self._element_type_dict = element_type_dict
-
-    @property
-    def component_mode(self) -> ComponentType:
-        return node_utils.get_component_mode()
-
-    @property
-    def element_type_dict(self) -> dict:
-        return self._element_type_dict
-
-    @property
-    def selected_transforms(self) -> list[str]:
-        return self._selected_transforms
-
-    @selected_transforms.setter
-    def selected_transforms(self, value: list[str]):
-        self._selected_transforms = value
 
 
 def build(boxy_data: BoxyData) -> str:

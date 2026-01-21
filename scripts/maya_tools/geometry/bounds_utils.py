@@ -416,11 +416,14 @@ class CuboidFinder:
 
         # First, check if any calculated rotation matches the transform's rotation
         best_result = None
+        calculated_rotation_for_match = None
         if transform_rotation:
             for axis_assignment, rotation in valid_results:
                 if self._rotations_match(rotation, transform_rotation):
                     best_result = (axis_assignment, transform_rotation)
+                    calculated_rotation_for_match = rotation
                     LOGGER.debug(f"Using transform rotation: {transform_rotation}")
+                    LOGGER.debug(f"  (matched with calculated rotation: {rotation})")
                     break
 
         # If no match with transform rotation, pick the simplest rotation
@@ -434,11 +437,24 @@ class CuboidFinder:
 
         axis_assignment, rotation = best_result
 
-        # Calculate size from edge lengths (rounded)
+        # Calculate size from edge lengths
+        size_x = axis_assignment['x']['length']
+        size_y = axis_assignment['y']['length']
+        size_z = axis_assignment['z']['length']
+
+        # If using transform rotation that differs from calculated rotation by 90° in Y,
+        # swap X and Z dimensions (because the local axes are swapped)
+        if calculated_rotation_for_match is not None:
+            y_diff = normalize_angle(rotation.y - calculated_rotation_for_match.y)
+            LOGGER.debug(f"  Y rotation diff: {y_diff}° (transform: {rotation.y}, calculated: {calculated_rotation_for_match.y})")
+            if abs(abs(y_diff) - 90) < 1.0:
+                LOGGER.debug(f"  Swapping X and Z dimensions due to 90° Y rotation difference")
+                size_x, size_z = size_z, size_x
+
         self.size = Point3(
-            round(axis_assignment['x']['length'], self.DECIMAL_PLACES),
-            round(axis_assignment['y']['length'], self.DECIMAL_PLACES),
-            round(axis_assignment['z']['length'], self.DECIMAL_PLACES)
+            round(size_x, self.DECIMAL_PLACES),
+            round(size_y, self.DECIMAL_PLACES),
+            round(size_z, self.DECIMAL_PLACES)
         )
 
         # Store rotation (rounded)
@@ -447,6 +463,12 @@ class CuboidFinder:
             round(rotation.y, self.DECIMAL_PLACES),
             round(rotation.z, self.DECIMAL_PLACES)
         )
+
+        LOGGER.debug(f"DEBUG _validate_and_calculate FINAL RESULT:")
+        LOGGER.debug(f"  size: {self.size}")
+        LOGGER.debug(f"  center: {self.center}")
+        LOGGER.debug(f"  rotation: {self.rotation}")
+        LOGGER.debug(f"  transform rotation: {self._get_transform_rotation() if self.transform else 'N/A'}")
 
         return True
 
@@ -701,7 +723,13 @@ class CuboidFinder:
                 'vector': vector,
                 'length': edge['length']
             }
+            LOGGER.debug(f"  Axis '{axis_name}': edge_idx={best_edge_idx}, alignment={best_alignment:.4f}, "
+                         f"vector={vector}, length={edge['length']:.4f}")
 
+        LOGGER.debug(f"DEBUG _assign_edges_to_axes result:")
+        for axis_name in ['x', 'y', 'z']:
+            LOGGER.debug(f"  {axis_name}: vector={assignment[axis_name]['vector']}, "
+                         f"length={assignment[axis_name]['length']:.4f}")
         return assignment
 
     def _calculate_xyz_rotation(self, axis_assignment: dict) -> Point3:
@@ -720,6 +748,11 @@ class CuboidFinder:
         edge_x = axis_assignment['x']['vector']
         edge_y = axis_assignment['y']['vector']
         edge_z = axis_assignment['z']['vector']
+
+        LOGGER.debug(f"DEBUG _calculate_xyz_rotation:")
+        LOGGER.debug(f"  edge_x (assigned to X axis): {edge_x}")
+        LOGGER.debug(f"  edge_y (assigned to Y axis): {edge_y}")
+        LOGGER.debug(f"  edge_z (assigned to Z axis): {edge_z}")
 
         # Euler XYZ decomposition for R = Rz * Ry * Rx
         # edge_x, edge_y, edge_z are columns of R
@@ -745,11 +778,13 @@ class CuboidFinder:
             x_rotation = math.atan2(-edge_y.x, edge_y.y)
             z_rotation = 0.0
 
-        return Point3(
+        result = Point3(
             radians_to_degrees(x_rotation),
             radians_to_degrees(y_rotation),
             radians_to_degrees(z_rotation)
         )
+        LOGGER.debug(f"  Calculated rotation: {result}")
+        return result
 
     def _calculate_y_rotation(self, edge_directions: list[Point3]) -> float:
         """

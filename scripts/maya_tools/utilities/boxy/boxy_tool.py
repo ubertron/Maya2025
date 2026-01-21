@@ -7,7 +7,7 @@ from PySide6.QtWidgets import QCheckBox, QComboBox, QColorDialog, QDoubleSpinBox
 
 from core import color_classes, DEVELOPER
 from core.color_classes import RGBColor
-from core.core_enums import Side
+from core.core_enums import ComponentType, Side, SurfaceDirection
 from core.core_paths import image_path
 from core.version_info import VersionInfo, Versions
 from maya_tools import maya_widget_utils, node_utils
@@ -20,6 +20,8 @@ from widgets.image_label import ImageLabel
 
 with contextlib.suppress(ImportError):
     from maya import cmds
+    from maya_tools.geometry import face_finder
+    from maya_tools.geometry.component_utils import FaceComponent, components_from_selection
     from maya_tools.utilities.boxy import boxy, BoxyException
 
 TOOL_NAME = "Boxy Tool"
@@ -28,7 +30,7 @@ VERSIONS = Versions(
         VersionInfo(name=TOOL_NAME, version="1.0.0", codename="cobra", info="first release"),
         VersionInfo(name=TOOL_NAME, version="1.0.1", codename="banshee", info="size field added"),
         VersionInfo(name=TOOL_NAME, version="1.0.2", codename="newt", info="issue fixed for nodes with children"),
-        VersionInfo(name=TOOL_NAME, version="1.0.3", codename="panther wip", info="button functions added"),
+        VersionInfo(name=TOOL_NAME, version="1.0.3", codename="panther [faces]", info="button functions added"),
     ]
 )
 
@@ -65,6 +67,33 @@ class BoxyTool(GenericWidget):
         default_color = self.settings.value(self.color_key, color_classes.DEEP_GREEN.values)
         self.wireframe_color = RGBColor(*default_color)
         self._setup_ui()
+
+    def _create_boxy_from_face(self, surface_direction: SurfaceDirection):
+        """Create a Boxy from a selected face and its opposite face."""
+        components = components_from_selection()
+
+        # Validate single face selection
+        if len(components) != 1 or not isinstance(components[0], FaceComponent):
+            self.info = "Select a single face"
+            return
+
+        face = components[0]
+
+        # Find opposite face
+        opposite = face_finder.get_opposite_face(
+            component=face,
+            surface_direction=surface_direction,
+            select=False
+        )
+
+        if opposite is None:
+            self.info = "No matching face found"
+            return
+
+        # Select both faces and create Boxy
+        cmds.select([face.name, opposite.name], replace=True)
+        cmds.hilite(face.transform)
+        self.create_button_clicked()
 
     def _setup_ui(self):
         """Set up ui."""
@@ -126,11 +155,11 @@ class BoxyTool(GenericWidget):
 
     def concave_face_button_clicked(self):
         """Event for concave face button."""
-        self.info = "Concave face button clicked."
+        self._create_boxy_from_face(surface_direction=SurfaceDirection.concave)
 
     def convex_face_button_clicked(self):
         """Event for convex face button."""
-        self.info = "Convex face button clicked."
+        self._create_boxy_from_face(surface_direction=SurfaceDirection.convex)
 
     def create_button_clicked(self):
         """Event for create button."""
@@ -150,6 +179,7 @@ class BoxyTool(GenericWidget):
             else:
                 self.info = f"Boxy objects created: {', '.join(boxy_items)}"
             cmds.select(boxy_items)
+            node_utils.set_component_mode(ComponentType.object)
 
     def help_button_clicked(self):
         """Event for help button."""
