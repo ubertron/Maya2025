@@ -20,7 +20,7 @@ from widgets.image_label import ImageLabel
 
 with contextlib.suppress(ImportError):
     from maya import cmds
-    from maya_tools.utilities.boxy import boxy
+    from maya_tools.utilities.boxy import boxy, BoxyException
 
 TOOL_NAME = "Boxy Tool"
 VERSIONS = Versions(
@@ -161,16 +161,30 @@ class BoxyTool(GenericWidget):
 
     def boxy_cube_toggle_clicked(self):
         """Event for boxy cube toggle button."""
-        self.info = "Boxy cube toggle clicked."
         selection_list = []
+        exceptions = []
         boxy_nodes = boxy.get_selected_boxy_nodes()
         poly_cubes = boxy.get_selected_poly_cubes()
         for boxy_node in boxy_nodes:
-            selection_list.append(boxy.convert_boxy_to_poly_cube(node=boxy_node))
+            result = boxy.convert_boxy_to_poly_cube(node=boxy_node)
+            if isinstance(result, BoxyException):
+                exceptions.append(result)
+            else:
+                selection_list.append(result)
         for poly_cube in poly_cubes:
-            selection_list.append(boxy.convert_poly_cube_to_boxy(node=poly_cube))
-        if selection_list:
+            result = boxy.convert_poly_cube_to_boxy(node=poly_cube)
+            if isinstance(result, BoxyException):
+                exceptions.append(result)
+            else:
+                selection_list.append(result)
+        if exceptions:
+            exception_string = ", ".join(ex.message for ex in exceptions)
+            self.info = f"Issues found: {exception_string}"
+        elif selection_list:
+            self.info = f"Toggled: {', '.join(selection_list)}"
             cmds.select(selection_list)
+        else:
+            self.info = "No valid selection for toggle."
 
     def size_field_value_changed(self, arg):
         """Event for size field."""

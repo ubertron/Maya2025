@@ -157,6 +157,17 @@ def set_attribute(node: str, attr: str, value: Union[int, float, str, Sequence],
         cmds.setAttr(f'{node}.{attr}', value, lock=lock)
 
 
+def set_lock(node: str, attr: str, lock_state: bool = True):
+    """Set the lock state of an attribute.
+
+    Args:
+        node: The node name.
+        attr: The attribute name.
+        lock_state: True to lock, False to unlock.
+    """
+    cmds.setAttr(f'{node}.{attr}', lock=lock_state)
+
+
 if __name__ == '__main__':
     test_node = createGroupNode(name='testNode', overwrite=True)
     addAttribute(transform=test_node, attr_name='metadata', data_type=DataType.string)

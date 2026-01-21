@@ -11,7 +11,7 @@ from core import logging_utils, math_utils
 from core.core_enums import ComponentType
 from core.math_utils import (
     normalize_vector, dot_product, angle_between_two_vectors,
-    radians_to_degrees
+    radians_to_degrees, are_orthogonal, points_match, normalize_angle
 )
 from core.point_classes import Point3, Point3Pair, X_AXIS, Y_AXIS, Z_AXIS, ZERO3
 from maya_tools import node_utils
@@ -161,7 +161,6 @@ class CuboidFinder:
     def _vertices_from_edges(self, edges: list[EdgeComponent]) -> list[Point3] | None:
         """Get vertices from edge components."""
         if len(edges) < 3 or len(edges) > 12:
-            cmds.warning(f"Expected 3-12 edges, got {len(edges)}.")
             LOGGER.debug(f"CuboidFinder._vertices_from_edges: FAILED - Expected 3-12 edges, got {len(edges)}")
             return None
 
@@ -186,7 +185,7 @@ class CuboidFinder:
     def _vertices_from_vertices(self, vertices: list[VertexComponent]) -> list[Point3] | None:
         """Get vertices from vertex components."""
         if len(vertices) < 5 or len(vertices) > 8:
-            cmds.warning(f"Expected 5-8 vertices, got {len(vertices)}.")
+            LOGGER.debug(f"Expected 5-8 vertices, got {len(vertices)}.")
             return None
 
         self.transform = vertices[0].transform
@@ -196,7 +195,7 @@ class CuboidFinder:
     def _vertices_from_locators(self, locators: list[LocatorComponent]) -> list[Point3] | None:
         """Get vertex positions from locator world positions."""
         if len(locators) < 5 or len(locators) > 8:
-            cmds.warning(f"Expected 5-8 locators, got {len(locators)}.")
+            LOGGER.debug(f"Expected 5-8 locators, got {len(locators)}.")
             return None
 
         return [Point3(*cmds.xform(loc.transform, query=True, worldSpace=True, translation=True))
@@ -281,7 +280,7 @@ class CuboidFinder:
                 edge_vectors = [Point3Pair(corner, v).delta for v in edge_verts]
 
                 # Check if these form orthogonal edges (dot products ≈ 0)
-                if not self._are_orthogonal(edge_vectors):
+                if not are_orthogonal(edge_vectors):
                     continue
 
                 # Generate all 8 cuboid vertices from corner and edges
@@ -297,18 +296,6 @@ class CuboidFinder:
         cmds.warning("Could not infer valid cuboid from input vertices.")
         LOGGER.debug(f"DEBUG CuboidFinder._infer_cuboid_vertices: FAILED to infer cuboid")
         return None
-
-    def _are_orthogonal(self, vectors: list[Point3], tolerance: float = 0.01) -> bool:
-        """Check if 3 vectors are mutually orthogonal."""
-        if len(vectors) != 3:
-            return False
-
-        for i in range(3):
-            for j in range(i + 1, 3):
-                dp = abs(dot_product(vectors[i], vectors[j], normalize=True))
-                if dp > tolerance:
-                    return False
-        return True
 
     def _generate_cuboid_vertices(self, corner: Point3, edges: list[Point3]) -> list[Point3]:
         """
@@ -342,7 +329,7 @@ class CuboidFinder:
             for inp in inputs:
                 found_match = False
                 for idx, gen in enumerate(generated):
-                    if idx not in matched_generated and self._positions_match(inp, gen):
+                    if idx not in matched_generated and points_match(inp, gen):
                         matched_generated.add(idx)
                         found_match = True
                         break
@@ -355,16 +342,12 @@ class CuboidFinder:
         for inp in inputs:
             matched = False
             for gen in generated:
-                if self._positions_match(inp, gen):
+                if points_match(inp, gen):
                     matched = True
                     break
             if not matched:
                 return False
         return True
-
-    def _positions_match(self, a: Point3, b: Point3) -> bool:
-        """Check if two positions are within tolerance."""
-        return Point3Pair(a, b).length < self.TOLERANCE
 
     def _validate_cuboid_vertices(self, vertices: list[Point3]) -> bool:
         """Validate that 8 vertices form a valid cuboid."""
@@ -379,7 +362,7 @@ class CuboidFinder:
         edge_verts = [d[1] for d in distances[:3]]
         edge_vectors = [Point3Pair(v0, v).delta for v in edge_verts]
 
-        return self._are_orthogonal(edge_vectors)
+        return are_orthogonal(edge_vectors)
 
     def _validate_and_calculate(self, vertex_positions: list[Point3]) -> bool:
         """
@@ -530,14 +513,6 @@ class CuboidFinder:
         Returns:
             True if rotations are equivalent within tolerance (accounting for 90° symmetry).
         """
-        def normalize_angle(angle: float) -> float:
-            """Normalize angle to -180 to 180 range."""
-            while angle > 180:
-                angle -= 360
-            while angle < -180:
-                angle += 360
-            return angle
-
         def angles_match_with_90_symmetry(a: float, b: float) -> bool:
             """Check if angles match, accounting for 90° cuboid symmetry."""
             diff = normalize_angle(a - b)
@@ -645,7 +620,7 @@ class CuboidFinder:
 
         for v in vertex_positions:
             # Use tolerance-based comparison for Point3
-            if self._positions_match(v, corner):
+            if points_match(v, corner):
                 continue
             pair = Point3Pair(corner, v)
             distances.append((pair.length, v, pair.delta))
@@ -661,7 +636,7 @@ class CuboidFinder:
             edges = [distances[i] for i in combo]
             vectors = [Point3Pair(corner, e[1]).delta for e in edges]
 
-            if self._are_orthogonal(vectors):
+            if are_orthogonal(vectors):
                 edge_data = []
                 for dist, v, delta in edges:
                     edge_data.append({

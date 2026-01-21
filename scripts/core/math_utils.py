@@ -18,6 +18,67 @@ logging.getLogger().setLevel(logging.DEBUG)
 IDENTITY_MATRIX: np.array = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
 
 
+def angle_between_two_vectors(vector_a: Point3, vector_b: Point3, ref_axis: Optional[Point3] = None):
+    """
+    θ = acos [(a · b) / (| a | | b |)]
+    :param vector_a:
+    :param vector_b:
+    :param ref_axis: provide a reference axis to get a signed result
+    """
+    magnitude_product = vector_a.magnitude * vector_b.magnitude
+    angle = math.acos(dot_product(vector_a=vector_a, vector_b=vector_b, normalize=False) / magnitude_product)
+
+    return -angle if ref_axis and dot_product(vector_a, ref_axis) < 0 else angle
+
+
+def apply_euler_xyz_rotation(point: Point3, rotation: Point3, pivot: Point3 = None) -> Point3:
+    """
+    Apply Euler XYZ rotation to a point.
+
+    Args:
+        point: The point to rotate.
+        rotation: Euler XYZ rotation angles in degrees.
+        pivot: Optional pivot point (defaults to origin).
+
+    Returns:
+        The rotated point.
+    """
+    if pivot is None:
+        pivot = ZERO3
+
+    # Translate to origin
+    p = Point3(point.x - pivot.x, point.y - pivot.y, point.z - pivot.z)
+
+    # Apply rotations in XYZ order (Rx first, then Ry, then Rz)
+    p = rotate_point(p, X_AXIS, math.radians(rotation.x))
+    p = rotate_point(p, Y_AXIS, math.radians(rotation.y))
+    p = rotate_point(p, Z_AXIS, math.radians(rotation.z))
+
+    # Translate back
+    return Point3(p.x + pivot.x, p.y + pivot.y, p.z + pivot.z)
+
+
+def are_orthogonal(vectors: list[Point3], tolerance: float = 0.01) -> bool:
+    """Check if 3 vectors are mutually orthogonal.
+
+    Args:
+        vectors: List of 3 Point3 vectors.
+        tolerance: Dot product tolerance (0 = perfectly orthogonal).
+
+    Returns:
+        True if all vector pairs are orthogonal within tolerance.
+    """
+    if len(vectors) != 3:
+        return False
+
+    for i in range(3):
+        for j in range(i + 1, 3):
+            dp = abs(dot_product(vectors[i], vectors[j], normalize=True))
+            if dp > tolerance:
+                return False
+    return True
+
+
 def calculate_bounds_with_y_offset(points: Point3Pair, y_offset: float) -> Point3Pair:
     """
     Rotate a pair of points about the Y-axis (right-handed, Y-up), then calculate the size
@@ -55,93 +116,6 @@ def calculate_size_with_y_offset(points: Point3Pair, y_offset: float) -> Point3:
     return calculate_bounds_with_y_offset(points=points, y_offset=y_offset).size
 
 
-def get_minimum_maximum_from_points(points: list[Point3], y_offset: float = 0.0,
-                                    pivot: Point3 | None = None) -> Point3Pair:
-    """Get the bounds of a set of points.
-    :param pivot:
-    :param points: Point3
-    :param y_offset: Rotation angle in degrees
-    :return: Size: Point3"""
-    minimum_point = Point3(*[min(point.values[i] for point in points) for i in range(3)])
-    maximum_point = Point3(*[max(point.values[i] for point in points) for i in range(3)])
-    if y_offset:
-        rotated = []
-        for x in points:
-            rotated.append(rotate_point_about_y(point=x, y_rotation=y_offset, pivot=pivot))
-        points = rotated
-        minimum_point = Point3(*[min(point.values[i] for point in points) for i in range(3)])
-        maximum_point = Point3(*[max(point.values[i] for point in points) for i in range(3)])
-    return Point3Pair(minimum_point, maximum_point)
-
-
-def get_midpoint_from_point_list(points: Sequence[Point3]) -> Point3:
-    """
-    Gets the midpoint from a list of points
-    :param points:
-    :return:
-    """
-    x = sum(item.x for item in points) / len(points)
-    y = sum(item.y for item in points) / len(points)
-    z = sum(item.z for item in points) / len(points)
-    return Point3(x, y, z)
-
-
-def interpolate_linear(input_range: Point2, output_range: Point2, value: float) -> float:
-    """
-    Maps a value from an input range to a corresponding output range
-    :param input_range:
-    :param output_range:
-    :param value:
-    :return:
-    """
-    input_size = input_range.y - input_range.x
-    output_size = output_range.y - output_range.x
-    coefficient = (value - input_range.x) / input_size
-    mapped_value = output_range.x + output_size * coefficient
-
-    return mapped_value
-
-
-def normalize_vector(input_vector: Point3):
-    """
-    Convert to a vector with a magnitude of 1
-    :param input_vector:
-    :return:
-    """
-    assert input_vector != Point3(0, 0, 0), 'Invalid vector'
-    result = np.array(input_vector.values) / np.sqrt(np.sum(np.array(input_vector.values) ** 2))
-
-    return Point3(*result)
-
-
-def dot_product(vector_a: Point3, vector_b: Point3, normalize: bool = False) -> int:
-    """
-    Returns an integer which indicates whether two vectors are parallel
-    :param vector_a:
-    :param vector_b:
-    :param normalize:
-    :return:
-    """
-    if normalize:
-        vector_a = normalize_vector(vector_a)
-        vector_b = normalize_vector(vector_b)
-
-    return np.dot(vector_a.values, vector_b.values)
-
-
-def angle_between_two_vectors(vector_a: Point3, vector_b: Point3, ref_axis: Optional[Point3] = None):
-    """
-    θ = acos [(a · b) / (| a | | b |)]
-    :param vector_a:
-    :param vector_b:
-    :param ref_axis: provide a reference axis to get a signed result
-    """
-    magnitude_product = vector_a.magnitude * vector_b.magnitude
-    angle = math.acos(dot_product(vector_a=vector_a, vector_b=vector_b, normalize=False) / magnitude_product)
-
-    return -angle if ref_axis and dot_product(vector_a, ref_axis) < 0 else angle
-
-
 def cross_product(vector_a: Point3, vector_b: Point3, normalize: bool = True):
     """
     The cross product a × b is defined as a vector c that is perpendicular (orthogonal) to both a and b,
@@ -157,29 +131,6 @@ def cross_product(vector_a: Point3, vector_b: Point3, normalize: bool = True):
     return normalize_vector(result) if normalize else result
 
 
-def get_normal_vector(a: Point3, b: Point3, c: Point3) -> Point3:
-    """
-    Gets a normal vector from three points
-    :param a:
-    :param b:
-    :param c:
-    :return:
-    """
-    vector_a = Point3Pair(a, b).delta
-    vector_b = Point3Pair(a, c).delta
-
-    return cross_product(vector_a, vector_b)
-
-
-def radians_to_degrees(x: float) -> float:
-    """
-    Convert radians to degrees
-    :param x:
-    :return:
-    """
-    return math.degrees(x)
-
-
 def degrees_to_radians(degrees: float):
     """
     Convert degrees to radians
@@ -189,40 +140,19 @@ def degrees_to_radians(degrees: float):
     return (degrees * math.pi) / 180.0
 
 
-def get_vector(point_a: Point3, point_b: Point3):
-    return Point3(*[point_a.values[i] - point_b.values[i] for i in range(3)])
+def dot_product(vector_a: Point3, vector_b: Point3, normalize: bool = False) -> int:
+    """
+    Returns an integer which indicates whether two vectors are parallel
+    :param vector_a:
+    :param vector_b:
+    :param normalize:
+    :return:
+    """
+    if normalize:
+        vector_a = normalize_vector(vector_a)
+        vector_b = normalize_vector(vector_b)
 
-
-def rotate_x(matrix, angle):
-    _rotation_matrix = np.array([[1, 0, 0, 0],
-                                [0, np.cos(angle), np.sin(angle), 0],
-                                [0, -np.sin(angle), np.cos(angle), 0],
-                                [0, 0, 0, 1]])
-    return np.dot(_rotation_matrix, matrix)
-
-
-def rotate_y(matrix, angle):
-    _rotation_matrix = np.array([[np.cos(angle), 0, -np.sin(angle), 0],
-                                [0, 1, 0, 0],
-                                [np.sin(angle), 0, np.cos(angle), 0],
-                                [0, 0, 0, 1]])
-    return np.dot(_rotation_matrix, matrix)
-
-
-def rotate_z(matrix, angle):
-    _rotation_matrix = np.array([[np.cos(angle), -np.sin(angle), 0, 0],
-                                [np.sin(angle), np.cos(angle), 0, 0],
-                                [0, 0, 1, 0],
-                                [0, 0, 0, 1]])
-    return np.dot(_rotation_matrix, matrix)
-
-
-def translation(matrix, value: Point3):
-    translation_matrix = np.array([[1, 0, 0, value.x],
-                                   [0, 1, 0, value.y],
-                                   [0, 0, 1, value.z],
-                                   [0, 0, 0, 1]])
-    return np.dot(translation_matrix, matrix)
+    return np.dot(vector_a.values, vector_b.values)
 
 
 def flatten_matrix(matrix: np.array):
@@ -255,6 +185,77 @@ def get_average_normal_from_points(points: Sequence[Point3]) -> Point3:
     return normal
 
 
+def get_closest_position_on_line_to_point(point: Point3, line: Point3Pair) -> Point3:
+    """
+    Gets the closest position on a line to a point
+    :param point:
+    :param line:
+    :return:
+    """
+    normalized_vector = normalize_vector(line.delta)
+    point_vector = Point3Pair(line.a, point).delta
+    dp = dot_product(point_vector, normalized_vector, normalize=False)
+
+    return Point3Pair(line.a, normalized_vector.multiply(scalar=dp)).sum
+
+
+def get_midpoint_from_point_list(points: Sequence[Point3]) -> Point3:
+    """
+    Gets the midpoint from a list of points
+    :param points:
+    :return:
+    """
+    x = sum(item.x for item in points) / len(points)
+    y = sum(item.y for item in points) / len(points)
+    z = sum(item.z for item in points) / len(points)
+    return Point3(x, y, z)
+
+
+def get_minimum_maximum_from_points(points: list[Point3], y_offset: float = 0.0,
+                                    pivot: Point3 | None = None) -> Point3Pair:
+    """Get the bounds of a set of points.
+    :param pivot:
+    :param points: Point3
+    :param y_offset: Rotation angle in degrees
+    :return: Size: Point3"""
+    minimum_point = Point3(*[min(point.values[i] for point in points) for i in range(3)])
+    maximum_point = Point3(*[max(point.values[i] for point in points) for i in range(3)])
+    if y_offset:
+        rotated = []
+        for x in points:
+            rotated.append(rotate_point_about_y(point=x, y_rotation=y_offset, pivot=pivot))
+        points = rotated
+        minimum_point = Point3(*[min(point.values[i] for point in points) for i in range(3)])
+        maximum_point = Point3(*[max(point.values[i] for point in points) for i in range(3)])
+    return Point3Pair(minimum_point, maximum_point)
+
+
+def get_normal_vector(a: Point3, b: Point3, c: Point3) -> Point3:
+    """
+    Gets a normal vector from three points
+    :param a:
+    :param b:
+    :param c:
+    :return:
+    """
+    vector_a = Point3Pair(a, b).delta
+    vector_b = Point3Pair(a, c).delta
+
+    return cross_product(vector_a, vector_b)
+
+
+def get_point_normal_angle_on_ellipse(point: Point2, ellipse_radius_pair: Point2):
+    """
+    theta = atan2(2y/semiminorradius, x/semimajorradius)
+    :param point:
+    :param ellipse_radius_pair:
+    :return:
+    """
+    radians = math.atan2(-(ellipse_radius_pair.y ** 2) * point.x, (ellipse_radius_pair.x ** 2 * point.y))
+
+    return radians_to_degrees(radians)
+
+
 def get_point_position_on_ellipse(degrees: float, ellipse_radius_pair: Point2) -> Point2:
     """
     Get the position of a point on an ellipse
@@ -282,30 +283,66 @@ def get_point_position_on_ellipse(degrees: float, ellipse_radius_pair: Point2) -
     return Point2(x_value, y_value)
 
 
-def get_point_normal_angle_on_ellipse(point: Point2, ellipse_radius_pair: Point2):
+def get_vector(point_a: Point3, point_b: Point3):
+    return Point3(*[point_a.values[i] - point_b.values[i] for i in range(3)])
+
+
+def interpolate_linear(input_range: Point2, output_range: Point2, value: float) -> float:
     """
-    theta = atan2(2y/semiminorradius, x/semimajorradius)
-    :param point:
-    :param ellipse_radius_pair:
+    Maps a value from an input range to a corresponding output range
+    :param input_range:
+    :param output_range:
+    :param value:
     :return:
     """
-    radians = math.atan2(-(ellipse_radius_pair.y ** 2) * point.x, (ellipse_radius_pair.x ** 2 * point.y))
+    input_size = input_range.y - input_range.x
+    output_size = output_range.y - output_range.x
+    coefficient = (value - input_range.x) / input_size
+    mapped_value = output_range.x + output_size * coefficient
 
-    return radians_to_degrees(radians)
+    return mapped_value
 
 
-def get_closest_position_on_line_to_point(point: Point3, line: Point3Pair) -> Point3:
+def normalize_angle(angle: float) -> float:
+    """Normalize angle to -180 to 180 range.
+
+    Args:
+        angle: Angle in degrees.
+
+    Returns:
+        Angle normalized to -180 to 180 range.
     """
-    Gets the closest position on a line to a point
-    :param point:
-    :param line:
+    while angle > 180:
+        angle -= 360
+    while angle < -180:
+        angle += 360
+    return angle
+
+
+def normalize_vector(input_vector: Point3):
+    """
+    Convert to a vector with a magnitude of 1
+    :param input_vector:
     :return:
     """
-    normalized_vector = normalize_vector(line.delta)
-    point_vector = Point3Pair(line.a, point).delta
-    dp = dot_product(point_vector, normalized_vector, normalize=False)
+    assert input_vector != Point3(0, 0, 0), 'Invalid vector'
+    result = np.array(input_vector.values) / np.sqrt(np.sum(np.array(input_vector.values) ** 2))
 
-    return Point3Pair(line.a, normalized_vector.multiply(scalar=dp)).sum
+    return Point3(*result)
+
+
+def points_match(a: Point3, b: Point3, tolerance: float = 0.0001) -> bool:
+    """Check if two Point3 positions are within tolerance.
+
+    Args:
+        a: First point.
+        b: Second point.
+        tolerance: Maximum distance between points.
+
+    Returns:
+        True if distance between points is less than tolerance.
+    """
+    return Point3Pair(a, b).length < tolerance
 
 
 def project_point_onto_plane(plane_position: Point3, unit_normal_vector: Point3, point: Point3) -> Point3:
@@ -326,6 +363,15 @@ def project_point_onto_plane(plane_position: Point3, unit_normal_vector: Point3,
     projection_vector = unit_normal_vector.multiply(scalar_distance)
 
     return Point3Pair(projection_vector, point).delta
+
+
+def radians_to_degrees(x: float) -> float:
+    """
+    Convert radians to degrees
+    :param x:
+    :return:
+    """
+    return math.degrees(x)
 
 
 def rotate_point(point: Point3, axis: Point3, theta: float, algorithm: bool = False) -> Point3:
@@ -386,31 +432,28 @@ def rotate_point_about_y(point: Point3, y_rotation: float, pivot: Point3 = None)
     return Point3(final_x, final_y, final_z)
 
 
-def apply_euler_xyz_rotation(point: Point3, rotation: Point3, pivot: Point3 = None) -> Point3:
-    """
-    Apply Euler XYZ rotation to a point.
+def rotate_x(matrix, angle):
+    _rotation_matrix = np.array([[1, 0, 0, 0],
+                                [0, np.cos(angle), np.sin(angle), 0],
+                                [0, -np.sin(angle), np.cos(angle), 0],
+                                [0, 0, 0, 1]])
+    return np.dot(_rotation_matrix, matrix)
 
-    Args:
-        point: The point to rotate.
-        rotation: Euler XYZ rotation angles in degrees.
-        pivot: Optional pivot point (defaults to origin).
 
-    Returns:
-        The rotated point.
-    """
-    if pivot is None:
-        pivot = ZERO3
+def rotate_y(matrix, angle):
+    _rotation_matrix = np.array([[np.cos(angle), 0, -np.sin(angle), 0],
+                                [0, 1, 0, 0],
+                                [np.sin(angle), 0, np.cos(angle), 0],
+                                [0, 0, 0, 1]])
+    return np.dot(_rotation_matrix, matrix)
 
-    # Translate to origin
-    p = Point3(point.x - pivot.x, point.y - pivot.y, point.z - pivot.z)
 
-    # Apply rotations in XYZ order (Rx first, then Ry, then Rz)
-    p = rotate_point(p, X_AXIS, math.radians(rotation.x))
-    p = rotate_point(p, Y_AXIS, math.radians(rotation.y))
-    p = rotate_point(p, Z_AXIS, math.radians(rotation.z))
-
-    # Translate back
-    return Point3(p.x + pivot.x, p.y + pivot.y, p.z + pivot.z)
+def rotate_z(matrix, angle):
+    _rotation_matrix = np.array([[np.cos(angle), -np.sin(angle), 0, 0],
+                                [np.sin(angle), np.cos(angle), 0, 0],
+                                [0, 0, 1, 0],
+                                [0, 0, 0, 1]])
+    return np.dot(_rotation_matrix, matrix)
 
 
 def rotation_matrix(axis: Point3, theta: float) -> np.array:
@@ -428,6 +471,14 @@ def rotation_matrix(axis: Point3, theta: float) -> np.array:
     return np.array([[aa + bb - cc - dd, 2 * (bc + ad), 2 * (bd - ac)],
                      [2 * (bc - ad), aa + cc - bb - dd, 2 * (cd + ab)],
                      [2 * (bd + ac), 2 * (cd - ab), aa + dd - bb - cc]])
+
+
+def translation(matrix, value: Point3):
+    translation_matrix = np.array([[1, 0, 0, value.x],
+                                   [0, 1, 0, value.y],
+                                   [0, 0, 1, value.z],
+                                   [0, 0, 0, 1]])
+    return np.dot(translation_matrix, matrix)
 
 
 def vector_to_euler_angles(vector: Point3) -> Point3:

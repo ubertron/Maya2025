@@ -328,26 +328,29 @@ def build(boxy_data: BoxyData) -> str:
     magnitude_expression = f"{box}.magnitude = mag(<<{box}.size_x, {box}.size_y, {box}.size_z>>)"
     cmds.expression(name='calculateMagnitude', string=magnitude_expression)
 
+    # lock scale attributes
+    attribute_utils.set_lock(node=box, attr="scaleX")
+    attribute_utils.set_lock(node=box, attr="scaleY")
+    attribute_utils.set_lock(node=box, attr="scaleZ")
+
     return box
 
 
-def convert_boxy_to_poly_cube(node: str) -> str:
+def convert_boxy_to_poly_cube(node: str) -> str | BoxyException:
     """Convert a boxy node to a poly-cube."""
     result = rebuild(node=node)
-    if result:
-        boxy_data: BoxyData = get_boxy_data(node=result)
-        baseline = {
-            Side.bottom: -1,
-            Side.center: 0,
-            Side.top: 1,
-        }[boxy_data.pivot]
-        cube = geometry_utils.create_cube(size=boxy_data.bounds.size, position=boxy_data.pivot_position, baseline=baseline)
-        node_utils.set_rotation(nodes=cube, value=boxy_data.bounds.rotation)
-        cmds.delete(node)
-        return cube
-    else:
-        cmds.warning(f"Invalid boxy node: {node}.")
-        return node
+    if isinstance(result, BoxyException):
+        return result
+    boxy_data: BoxyData = get_boxy_data(node=result)
+    baseline = {
+        Side.bottom: -1,
+        Side.center: 0,
+        Side.top: 1,
+    }[boxy_data.pivot]
+    cube = geometry_utils.create_cube(size=boxy_data.bounds.size, position=boxy_data.pivot_position, baseline=baseline)
+    node_utils.set_rotation(nodes=cube, value=boxy_data.bounds.rotation)
+    cmds.delete(node)
+    return cube
 
 
 def convert_poly_cube_to_boxy(node: str, color: RGBColor = color_classes.DEEP_GREEN) -> str:
