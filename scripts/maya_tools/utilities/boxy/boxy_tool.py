@@ -17,6 +17,7 @@ from widgets.clickable_label import ClickableLabel
 from widgets.generic_widget import GenericWidget
 from widgets.grid_widget import GridWidget
 from widgets.image_label import ImageLabel
+from maya_tools.utilities.boxy.boxy_help import BoxyHelp
 
 with contextlib.suppress(ImportError):
     from maya import cmds
@@ -183,7 +184,9 @@ class BoxyTool(GenericWidget):
 
     def help_button_clicked(self):
         """Event for help button."""
-        self.info = "Help button clicked."
+        help_widget = BoxyHelp(parent_widget=self)
+        help_widget.setWindowModality(Qt.WindowModality.ApplicationModal)
+        help_widget.show()
 
     def pivot_combo_box_index_changed(self, arg):
         """Event for pivot combo box."""
