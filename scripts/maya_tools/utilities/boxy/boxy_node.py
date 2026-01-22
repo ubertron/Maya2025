@@ -469,12 +469,85 @@ def uninitializePlugin(mobject):
 
 
 # ============================================================================
-# Python Helper Function (alternative to MPxCommand)
+# Python Helper Functions (alternative to MPxCommand)
 # ============================================================================
+
+def _ensure_plugin_loaded():
+    """Ensure the boxy plugin is loaded."""
+    import maya.cmds as cmds
+    plugin_path = __file__
+    if not cmds.pluginInfo(plugin_path, query=True, loaded=True):
+        cmds.loadPlugin(plugin_path)
+
+
+def build(boxy_data) -> str:
+    """
+    Build a custom boxy node from BoxyData.
+
+    This function mirrors the signature of boxy_utils.build() but creates
+    a custom MPxLocatorNode instead of a polyCube-based boxy.
+
+    Args:
+        boxy_data: BoxyData instance with bounds, pivot, color, and name
+
+    Returns:
+        str: The name of the created transform node
+    """
+    import maya.cmds as cmds
+    from core.core_enums import Side
+
+    _ensure_plugin_loaded()
+
+    # Create the shape node
+    name = boxy_data.name or "boxy"
+    shape = cmds.createNode('boxyShape', name=f'{name}Shape')
+    transform = cmds.listRelatives(shape, parent=True)[0]
+    transform = cmds.rename(transform, name)
+
+    # Set size from bounds
+    size = boxy_data.bounds.size
+    cmds.setAttr(f'{shape}.sizeX', size.x)
+    cmds.setAttr(f'{shape}.sizeY', size.y)
+    cmds.setAttr(f'{shape}.sizeZ', size.z)
+
+    # Set pivot
+    pivot_map = {Side.bottom: 0, Side.center: 1, Side.top: 2}
+    pivot_value = pivot_map.get(boxy_data.pivot, 1)
+    cmds.setAttr(f'{shape}.previousPivot', pivot_value)
+    cmds.setAttr(f'{shape}.pivot', pivot_value)
+
+    # Set wireframe color
+    color = boxy_data.color
+    cmds.setAttr(f'{shape}.wireframeColorR', color.r)
+    cmds.setAttr(f'{shape}.wireframeColorG', color.g)
+    cmds.setAttr(f'{shape}.wireframeColorB', color.b)
+
+    # Set position from pivot_position
+    pos = boxy_data.pivot_position
+    cmds.setAttr(f'{transform}.translateX', pos.x)
+    cmds.setAttr(f'{transform}.translateY', pos.y)
+    cmds.setAttr(f'{transform}.translateZ', pos.z)
+
+    # Set rotation from bounds
+    rot = boxy_data.bounds.rotation
+    cmds.setAttr(f'{transform}.rotateX', rot.x)
+    cmds.setAttr(f'{transform}.rotateY', rot.y)
+    cmds.setAttr(f'{transform}.rotateZ', rot.z)
+
+    # Enable selection handle
+    cmds.toggle(transform, selectHandle=True)
+
+    # Select the transform
+    cmds.select(transform)
+
+    return transform
+
 
 def create_boxy(size=None, pivot=None, color=None, position=None, name=None):
     """
     Create a boxy node with the specified attributes.
+
+    For integration with the Boxy ecosystem, use build() with BoxyData instead.
 
     Args:
         size: tuple of (width, height, depth) or None for defaults
@@ -490,13 +563,9 @@ def create_boxy(size=None, pivot=None, color=None, position=None, name=None):
         create_boxy()
         create_boxy(size=(50, 100, 50), pivot='bottom', color=(1, 0.5, 0), name='myBoxy')
     """
-    # Import cmds here to avoid issues during plugin load
     import maya.cmds as cmds
 
-    # Ensure plugin is loaded
-    plugin_path = __file__
-    if not cmds.pluginInfo(plugin_path, query=True, loaded=True):
-        cmds.loadPlugin(plugin_path)
+    _ensure_plugin_loaded()
 
     # Create the shape node (transform is created automatically)
     if name:
