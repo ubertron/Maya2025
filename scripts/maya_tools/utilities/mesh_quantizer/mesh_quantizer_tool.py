@@ -2,7 +2,7 @@
 import contextlib
 import sys
 
-from PySide6.QtWidgets import QSizePolicy
+from PySide6.QtWidgets import QSizePolicy, QDoubleSpinBox
 from PySide6.QtCore import QSettings
 
 from core import DEVELOPER

@@ -5,6 +5,7 @@ import sys
 from PySide6.QtWidgets import QSizePolicy
 
 from core.core_enums import Alignment
+from core.core_paths import image_path
 from widgets.generic_widget import GenericWidget
 from widgets.icon_button import IconButton
 

@@ -21,7 +21,7 @@ from widgets.generic_widget import GenericWidget
 with contextlib.suppress(ImportError):
     from maya import cmds
     from maya_tools import node_utils
-    from maya_tools.utilities.boxy import boxy
+    from maya_tools.utilities.boxy import boxy_utils
 
 VERSIONS = Versions(versions=[
     VersionInfo(name=TOOL_NAME, version="0.0.1", codename="hawk", info="first_release"),

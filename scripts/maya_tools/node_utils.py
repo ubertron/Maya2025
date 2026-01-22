@@ -16,6 +16,7 @@ from maya_tools.maya_enums import ObjectType, MayaAttributes
 
 LOGGER = get_logger(name=__name__, level=logging.DEBUG)
 TRANSFORMATION_ATTRS = MayaAttributes.transformation_attribute_names()
+CUSTOM_TYPE = "custom_type"
 
 
 class State:

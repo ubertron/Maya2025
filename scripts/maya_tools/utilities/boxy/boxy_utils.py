@@ -387,11 +387,11 @@ def edit_boxy_orientation(node: str, rotation: float, axis: Axis) -> str | False
     """Rotate the pivot by 90° about an axis."""
     result, issues = boxy_validator.test_selected_boxy(node=node, test_poly_cube=False)
     if result is False:
-        print("Invalid boxy object")
-        print("\n".join(issues))
+        LOGGER.info(f"Invalid boxy object: {node}")
+        LOGGER.info("\n".join(issues))
         return False
     if rotation % 90 != 0:
-        print(f"Invalid rotation: {rotation}")
+        LOGGER.info(f"Invalid rotation: {rotation}")
         return False
     result = rebuild(node=node)
     if type(result) is BoxyException:

@@ -9,7 +9,7 @@ from widgets.form_widget import FormWidget
 from widgets.generic_widget import GenericWidget
 from maya_tools import node_utils
 from maya_tools.utilities.architools import arch_utils, TOOL_NAME
-from maya_tools.utilities.boxy import boxy
+from maya_tools.utilities.boxy import boxy_utils
 
 
 class ArchWidget(GenericWidget):

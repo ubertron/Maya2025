@@ -47,7 +47,7 @@ from core.point_classes import Point3
 from maya_tools import node_utils
 from maya_tools.utilities.architools.data.arch_data import ArchData
 from maya_tools.utilities.architools import arch_utils
-from maya_tools.utilities.boxy import boxy
+from maya_tools.utilities.boxy import boxy_utils
 
 LOGGER = get_logger(name=__name__, level=logging.INFO)
 
