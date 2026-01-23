@@ -626,13 +626,9 @@ def get_type_from_transform(transform: str):
 
 
 def is_boxy(node: str) -> bool:
-    """Check if node is a boxy (supports both custom DAG node and legacy polyCube-based)."""
-    # Check for custom DAG node (boxyShape)
+    """Check if node is a boxy (boxyShape)."""
     shape = get_shape_from_transform(node=node)
-    if shape and cmds.objectType(shape) == "boxyShape":
-        return True
-    # Check for legacy polyCube-based boxy
-    return is_custom_type(node=node, custom_type=CustomType.boxy)
+    return shape is not None and cmds.objectType(shape) == "boxyShape"
 
 
 def is_custom_type(node: str, custom_type: CustomType) -> bool:
@@ -642,15 +638,9 @@ def is_custom_type(node: str, custom_type: CustomType) -> bool:
 
 
 def is_custom_type_node(node: str) -> bool:
-    """Is node a custom type node (supports both custom DAG node and legacy)."""
-    # Check for legacy attribute
-    if attribute_utils.has_attribute(node=node, attr="custom_type"):
-        return True
-    # Check for custom DAG node (boxyShape has customType attribute)
+    """Is node a custom type node (boxyShape)."""
     shape = get_shape_from_transform(node=node)
-    if shape and cmds.objectType(shape) == "boxyShape":
-        return True
-    return False
+    return shape is not None and cmds.objectType(shape) == "boxyShape"
 
 
 def is_geometry(node: str) -> bool:

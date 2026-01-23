@@ -206,7 +206,7 @@ class BoxyTool(GenericWidget):
             else:
                 selection_list.append(result)
         for poly_cube in poly_cubes:
-            result = boxy_utils.convert_poly_cube_to_boxy(node=poly_cube)
+            result = boxy_utils.convert_poly_cube_to_boxy(node=poly_cube, color=self.wireframe_color)
             if isinstance(result, BoxyException):
                 exceptions.append(result)
             else:

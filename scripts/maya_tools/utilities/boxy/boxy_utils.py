@@ -355,73 +355,61 @@ def edit_boxy_orientation(node: str, rotation: float, axis: Axis) -> str | False
 
 
 def get_boxy_data(node: str) -> BoxyData:
-    """Get BoxyData from a boxy node (supports both custom DAG node and legacy polyCube-based)."""
+    """Get BoxyData from a boxy node."""
     LOGGER.debug(f"=== get_boxy_data({node}) ===")
     shape = node_utils.get_shape_from_transform(node=node)
-    is_custom_dag = cmds.objectType(shape) == "boxyShape"
-    LOGGER.debug(f"  shape: {shape}, is_custom_dag: {is_custom_dag}")
 
-    # Get transform position for debugging
+    if not shape or cmds.objectType(shape) != "boxyShape":
+        raise ValueError(f"Node '{node}' is not a valid boxy node")
+
+    # Get transform position
     transform_pos = node_utils.get_translation(node)
     LOGGER.debug(f"  transform position: {transform_pos}")
 
-    # Check if this is the custom DAG node (boxyShape) or legacy polyCube-based
-    if is_custom_dag:
-        # Custom DAG node - color is on the shape with camelCase attributes
-        color = RGBColor(
-            int(cmds.getAttr(f"{shape}.wireframeColorR") * 255),
-            int(cmds.getAttr(f"{shape}.wireframeColorG") * 255),
-            int(cmds.getAttr(f"{shape}.wireframeColorB") * 255)
-        )
-        # Get size directly from shape attributes
-        size = Point3(
-            cmds.getAttr(f"{shape}.sizeX"),
-            cmds.getAttr(f"{shape}.sizeY"),
-            cmds.getAttr(f"{shape}.sizeZ")
-        )
-        LOGGER.debug(f"  size from shape attrs: {size}")
-    else:
-        # Legacy polyCube-based - color is on the transform with snake_case
-        color = RGBColor(*cmds.getAttr(f"{node}.wireframe_color")[0])
-        size = None
+    # Get color from shape attributes
+    color = RGBColor(
+        int(cmds.getAttr(f"{shape}.wireframeColorR") * 255),
+        int(cmds.getAttr(f"{shape}.wireframeColorG") * 255),
+        int(cmds.getAttr(f"{shape}.wireframeColorB") * 255)
+    )
+
+    # Get size from shape attributes
+    size = Point3(
+        cmds.getAttr(f"{shape}.sizeX"),
+        cmds.getAttr(f"{shape}.sizeY"),
+        cmds.getAttr(f"{shape}.sizeZ")
+    )
+    LOGGER.debug(f"  size: {size}")
 
     pivot = get_boxy_pivot(node=node)
     LOGGER.debug(f"  pivot: {pivot}")
 
-    # For custom DAG node, we need to calculate bounds.position (center) from transform position
-    if is_custom_dag:
-        rotation = node_utils.get_rotation(node)
-        # Transform position IS the pivot position, we need to calculate center
-        if pivot == Side.bottom:
-            # Transform is at base, center is half height up
-            local_offset = Point3(0.0, size.y / 2.0, 0.0)
-            rotated_offset = math_utils.apply_euler_xyz_rotation(local_offset, rotation)
-            center = Point3(
-                transform_pos.x + rotated_offset.x,
-                transform_pos.y + rotated_offset.y,
-                transform_pos.z + rotated_offset.z
-            )
-        elif pivot == Side.top:
-            # Transform is at top, center is half height down
-            local_offset = Point3(0.0, -size.y / 2.0, 0.0)
-            rotated_offset = math_utils.apply_euler_xyz_rotation(local_offset, rotation)
-            center = Point3(
-                transform_pos.x + rotated_offset.x,
-                transform_pos.y + rotated_offset.y,
-                transform_pos.z + rotated_offset.z
-            )
-        else:
-            # Transform is at center
-            center = transform_pos
-
-        bounds = Bounds(size=size, position=center, rotation=rotation)
-        LOGGER.debug(f"  calculated center: {center}")
+    # Calculate center from transform position based on pivot
+    rotation = node_utils.get_rotation(node)
+    if pivot == Side.bottom:
+        # Transform is at base, center is half height up
+        local_offset = Point3(0.0, size.y / 2.0, 0.0)
+        rotated_offset = math_utils.apply_euler_xyz_rotation(local_offset, rotation)
+        center = Point3(
+            transform_pos.x + rotated_offset.x,
+            transform_pos.y + rotated_offset.y,
+            transform_pos.z + rotated_offset.z
+        )
+    elif pivot == Side.top:
+        # Transform is at top, center is half height down
+        local_offset = Point3(0.0, -size.y / 2.0, 0.0)
+        rotated_offset = math_utils.apply_euler_xyz_rotation(local_offset, rotation)
+        center = Point3(
+            transform_pos.x + rotated_offset.x,
+            transform_pos.y + rotated_offset.y,
+            transform_pos.z + rotated_offset.z
+        )
     else:
-        bounds = bounds_utils.get_bounds(geometry=node, inherit_rotations=True)
-        if not node_utils.is_geometry(node=node):
-            bounds.size = Point3(*cmds.getAttr(f"{node}.size")[0])
+        # Transform is at center
+        center = transform_pos
 
-    LOGGER.debug(f"  bounds.position (center): {bounds.position}")
+    bounds = Bounds(size=size, position=center, rotation=rotation)
+    LOGGER.debug(f"  center: {center}")
     LOGGER.debug(f"  bounds.size: {bounds.size}")
     LOGGER.debug(f"  bounds.rotation: {bounds.rotation}")
 
@@ -437,16 +425,13 @@ def get_boxy_data(node: str) -> BoxyData:
 
 
 def get_boxy_pivot(node: str) -> Side:
-    """Get the pivot of a boxy node (supports both custom DAG node and legacy polyCube-based)."""
+    """Get the pivot of a boxy node."""
     shape = node_utils.get_shape_from_transform(node=node)
 
-    # Check if this is the custom DAG node (boxyShape) - pivot is on shape
-    if cmds.objectType(shape) == "boxyShape":
-        pivot_index = cmds.getAttr(f"{shape}.pivot")
-    else:
-        # Legacy polyCube-based - pivot is on transform
-        pivot_index = attribute_utils.get_attribute(node=node, attr="pivot")
+    if not shape or cmds.objectType(shape) != "boxyShape":
+        raise ValueError(f"Node '{node}' is not a valid boxy node")
 
+    pivot_index = cmds.getAttr(f"{shape}.pivot")
     return {
         0: Side.bottom,
         1: Side.center,
@@ -490,6 +475,8 @@ def rebuild(node: str, pivot: Side | None = None, color: RGBColor | None = None)
         return BoxyException(message=f"Invalid boxy object [{node}]")
     pivot: Side = pivot if pivot else get_boxy_pivot(node=node)
     bounds: Bounds = bounds_utils.get_cuboid(geometry=node)
+    # Preserve scale before deleting
+    scale = node_utils.get_scale(node)
     cmds.delete(node)
     boxy_data = BoxyData(
         bounds=bounds,
@@ -498,5 +485,7 @@ def rebuild(node: str, pivot: Side | None = None, color: RGBColor | None = None)
         name=node
     )
     boxy_object = build(boxy_data=boxy_data)
+    # Restore scale after building
+    node_utils.scale(nodes=boxy_object, value=scale)
     LOGGER.debug(f"Boxy rebuilt: {boxy_object}")
     return boxy_object
