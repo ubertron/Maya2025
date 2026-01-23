@@ -36,24 +36,15 @@ LOGGER = get_logger(name=__name__, level=logging.INFO)
 
 def validator_boxy(node: str, test_poly_cube: bool = True):
     """
-    Validate that a polygon object is a proper cuboid.
+    Validate that a node is a proper boxy object.
 
-    Requirements:
-    1. Must be a polygon mesh
-    2. Must have a "custom_type" attribute set to "boxy"
-    3. Must have a "pivot" attribute that returns a string value
-    4. Must have a "size" attribute that returns three float values
-    5. Must have a polyCube node connected to shape's inMesh (if test_poly_cube=True)
-    6. Must have exactly 6 faces
-    7. All vertices must be welded (no overlapping vertices)
-    8. Must be cuboid-shaped (rectangular box)
-    9. Opposite faces must be coplanar (dot product of normals = -1)
-    10. All face corners must be right angles (90 degrees)
-    11. Face normals must align with object's pivot axes
+    Supports both:
+    - Custom DAG node (boxyShape): MPxLocatorNode with customType attribute
+    - Legacy polyCube-based: polygon mesh with custom_type attribute
 
     Args:
-        node (str): Name of the polygon object to validate
-        test_poly_cube (bool): Whether to test for polyCube connection (default: True)
+        node (str): Name of the object to validate
+        test_poly_cube (bool): Whether to test for polyCube connection (default: True, legacy only)
 
     Returns:
         tuple: (bool, list)
@@ -73,6 +64,12 @@ def validator_boxy(node: str, test_poly_cube: bool = True):
     if not cmds.objExists(node):
         return False, [f"Node '{node}' does not exist"]
 
+    # Check if this is a custom DAG node (boxyShape)
+    shapes = cmds.listRelatives(node, shapes=True)
+    if shapes and cmds.objectType(shapes[0]) == "boxyShape":
+        return _validate_custom_dag_boxy(node, shapes[0])
+
+    # Legacy polyCube-based validation
     # Test 1: Check for "custom_type" attribute (must be "boxy")
     if not cmds.attributeQuery('custom_type', node=node, exists=True):
         issues.append(f"Node '{node}' does not have required 'custom_type' attribute")
@@ -228,6 +225,48 @@ def validator_boxy(node: str, test_poly_cube: bool = True):
 
     except Exception as e:
         return False, [f"Validation error: {str(e)}"]
+
+
+def _validate_custom_dag_boxy(transform: str, shape: str):
+    """
+    Validate a custom DAG boxy node (boxyShape).
+
+    Args:
+        transform (str): Transform node name
+        shape (str): Shape node name (boxyShape)
+
+    Returns:
+        tuple: (bool, list) - (passed, issues)
+    """
+    issues = []
+
+    # Check for customType attribute on shape
+    if not cmds.attributeQuery('customType', node=shape, exists=True):
+        issues.append(f"Shape '{shape}' does not have required 'customType' attribute")
+    else:
+        try:
+            custom_type_value = cmds.getAttr(f'{shape}.customType')
+            if custom_type_value != "boxy":
+                issues.append(f"Attribute 'customType' must be 'boxy', found '{custom_type_value}'")
+        except Exception as e:
+            issues.append(f"Failed to read 'customType' attribute: {str(e)}")
+
+    # Check for pivot attribute on shape
+    if not cmds.attributeQuery('pivot', node=shape, exists=True):
+        issues.append(f"Shape '{shape}' does not have required 'pivot' attribute")
+
+    # Check for size attributes on shape
+    for attr in ['sizeX', 'sizeY', 'sizeZ']:
+        if not cmds.attributeQuery(attr, node=shape, exists=True):
+            issues.append(f"Shape '{shape}' does not have required '{attr}' attribute")
+
+    # Check for wireframeColor attributes on shape
+    for attr in ['wireframeColorR', 'wireframeColorG', 'wireframeColorB']:
+        if not cmds.attributeQuery(attr, node=shape, exists=True):
+            issues.append(f"Shape '{shape}' does not have required '{attr}' attribute")
+
+    passed = len(issues) == 0
+    return passed, issues
 
 
 def _check_vertices_welded(mesh_fn):

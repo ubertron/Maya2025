@@ -212,7 +212,7 @@ class GridWidget(QWidget):
     def show_workspace_control(
             self, floating: bool = True, retain: bool = True, restore: bool = True, ui_script: str = "") -> str:
         """Build the workspace control."""
-        LOGGER.info(f">>> {self.workspace_control}.show_workspace_control | retain={retain} | restore={restore}")
+        LOGGER.debug(f">>> {self.workspace_control}.show_workspace_control | retain={retain} | restore={restore}")
         with contextlib.suppress(RuntimeError):
             from maya import cmds
         if cmds.workspaceControl(self.workspace_control, query=True, exists=True):

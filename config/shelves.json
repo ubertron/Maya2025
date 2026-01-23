@@ -217,6 +217,18 @@
                 "tool tip": "Pivot to origin",
                 "script": "from maya_tools import node_utils\nnode_utils.pivot_to_origin()"
             },
+            "Match Pivots": {
+                "icon": "match_pivots.png",
+                "language": "python",
+                "tool tip": "Match pivots to last selected object",
+                "script": "from maya_tools import node_utils\nnode_utils.match_pivot_to_last()"
+            },
+            "Move To Last": {
+                "icon": "move_to_last.png",
+                "language": "python",
+                "tool_tip": "Move selected to last selected object",
+                "script": "from maya_tools import node_utils\nnode_utils.move_to_last()"
+            },
             "Move To Origin": {
                 "icon": "move_to_origin.png",
                 "language": "python",

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 from itertools import combinations
+from os import abort
 
 import math
 from maya import cmds
@@ -14,14 +15,14 @@ from core.math_utils import (
     radians_to_degrees, are_orthogonal, points_match, normalize_angle
 )
 from core.point_classes import Point3, Point3Pair, X_AXIS, Y_AXIS, Z_AXIS, ZERO3
-from maya_tools import node_utils
+from maya_tools import attribute_utils, node_utils
 from maya_tools.geometry.bounds import Bounds
 from maya_tools.geometry.component_utils import (
     Component, EdgeComponent, FaceComponent, LocatorComponent, VertexComponent,
     components_from_selection
 )
 
-LOGGER = logging_utils.get_logger(name=__name__, level=logging.INFO)
+LOGGER = logging_utils.get_logger(name=__name__, level=logging.DEBUG)
 
 
 class CuboidFinder:
@@ -128,7 +129,7 @@ class CuboidFinder:
         vertex_count = cmds.polyEvaluate(transform, vertex=True)
 
         if vertex_count != 8:
-            cmds.warning(f"Transform must have exactly 8 vertices, got {vertex_count}.")
+            LOGGER.debug(f"Transform must have exactly 8 vertices, got {vertex_count}.")
             return None
 
         return [Point3(*cmds.pointPosition(f'{transform}.vtx[{i}]', world=True))
@@ -850,6 +851,9 @@ def get_cuboid(
     locators = None
 
     if isinstance(geometry, str):
+        if node_utils.is_boxy(node=geometry):
+            from maya_tools.utilities.boxy.boxy_utils import get_boxy_data
+            return get_boxy_data(node=geometry).bounds
         transform = geometry
     elif isinstance(geometry, list) and geometry:
         # Check if list contains strings - convert via components_from_selection

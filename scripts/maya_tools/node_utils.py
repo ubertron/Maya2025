@@ -268,6 +268,11 @@ def get_component_mode() -> ComponentType or False:
         return False
 
 
+def get_custom_type(node: str) -> CustomType | None:
+    """Get the custom type of a node."""
+    return CustomType[cmds.getAttr(f"{node}.custom_type")] if is_custom_type_node(node=node) else None
+
+
 def get_cv_position(node: str, cv_id: int) -> Point3:
     """Gets the position of a cv."""
     return Point3(*cmds.pointPosition(f"{node}.cv[{cv_id}]"))
@@ -621,18 +626,31 @@ def get_type_from_transform(transform: str):
 
 
 def is_boxy(node: str) -> bool:
+    """Check if node is a boxy (supports both custom DAG node and legacy polyCube-based)."""
+    # Check for custom DAG node (boxyShape)
+    shape = get_shape_from_transform(node=node)
+    if shape and cmds.objectType(shape) == "boxyShape":
+        return True
+    # Check for legacy polyCube-based boxy
     return is_custom_type(node=node, custom_type=CustomType.boxy)
 
 
 def is_custom_type(node: str, custom_type: CustomType) -> bool:
-    """Is node a custom type."""
+    """Is node a custom type (legacy polyCube-based)."""
     return cmds.attributeQuery("custom_type", node=node, exists=True) and \
         cmds.getAttr(f"{node}.custom_type") == custom_type.name
 
 
 def is_custom_type_node(node: str) -> bool:
-    """Is node a custom type node."""
-    return attribute_utils.has_attribute(node=node, attr="custom_type")
+    """Is node a custom type node (supports both custom DAG node and legacy)."""
+    # Check for legacy attribute
+    if attribute_utils.has_attribute(node=node, attr="custom_type"):
+        return True
+    # Check for custom DAG node (boxyShape has customType attribute)
+    shape = get_shape_from_transform(node=node)
+    if shape and cmds.objectType(shape) == "boxyShape":
+        return True
+    return False
 
 
 def is_geometry(node: str) -> bool:
@@ -727,11 +745,12 @@ def match_translation():
 
 def move_to_last():
     """Move selected objects to the location of the last selected object."""
-    transforms = cmds.ls(sl=True, tr=True)
+    transforms = get_selected_transforms()
     assert len(transforms) > 1, 'Select more than one node.'
     location = get_translation(node=transforms[-1], absolute=True)
     for i in range(len(transforms) - 1):
         cmds.setAttr(f'{transforms[i]}.translate', *location.values, type=DataType.float3.name)
+    cmds.select(transforms[:-1])
 
 
 def move_to_origin(transform=None):

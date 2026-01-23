@@ -20,10 +20,26 @@ Usage:
 """
 
 import math
+from pathlib import Path
 
 import maya.api.OpenMaya as om
 import maya.api.OpenMayaRender as omr
 import maya.api.OpenMayaUI as omui
+
+# File logger for debugging plugin load
+LOG_FILE = Path.home() / "boxy_node_debug.log"
+
+
+def _log(msg):
+    """Write a message to the debug log file."""
+    with open(LOG_FILE, "a") as f:
+        f.write(f"{msg}\n")
+
+
+def _clear_log():
+    """Clear the debug log file."""
+    with open(LOG_FILE, "w") as f:
+        f.write("=== Boxy Plugin Debug Log ===\n")
 
 
 def maya_useNewAPI():
@@ -43,9 +59,12 @@ DEFAULT_SIZE = 100.0
 DEFAULT_COLOR = (0.0, 0.627, 0.0)  # Deep green
 
 
-class BoxyShape(omui.MPxLocatorNode):
+class BoxyShape(om.MPxSurfaceShape):
     """
-    Custom locator node that represents a wireframe cube.
+    Custom surface shape node that represents a wireframe cube.
+
+    Using MPxSurfaceShape instead of MPxLocatorNode to properly support
+    bounding box queries for Frame Selected (f key) and viewFit.
 
     Attributes:
         customType (string): "boxy" - locked identifier
@@ -75,7 +94,7 @@ class BoxyShape(omui.MPxLocatorNode):
     _callbacks = {}
 
     def __init__(self):
-        omui.MPxLocatorNode.__init__(self)
+        om.MPxSurfaceShape.__init__(self)
 
     def postConstructor(self):
         """Called after the node is created. Register attribute changed callback."""
@@ -211,17 +230,17 @@ class BoxyShape(omui.MPxLocatorNode):
         BoxyShape.sizeX = nAttr.create("sizeX", "sx", om.MFnNumericData.kFloat, DEFAULT_SIZE)
         nAttr.keyable = True
         nAttr.storable = True
-        nAttr.setMin(0.001)
+        nAttr.setMin(0.0)
 
         BoxyShape.sizeY = nAttr.create("sizeY", "sy", om.MFnNumericData.kFloat, DEFAULT_SIZE)
         nAttr.keyable = True
         nAttr.storable = True
-        nAttr.setMin(0.001)
+        nAttr.setMin(0.0)
 
         BoxyShape.sizeZ = nAttr.create("sizeZ", "sz", om.MFnNumericData.kFloat, DEFAULT_SIZE)
         nAttr.keyable = True
         nAttr.storable = True
-        nAttr.setMin(0.001)
+        nAttr.setMin(0.0)
 
         BoxyShape.size = cAttr.create("size", "s")
         cAttr.addChild(BoxyShape.sizeX)
@@ -287,26 +306,36 @@ class BoxyShape(omui.MPxLocatorNode):
 
         return None
 
+    def isBounded(self):
+        """Return True to indicate this shape has a bounding box for framing."""
+        return True
+
     def boundingBox(self):
-        """Return the bounding box for selection and culling."""
-        thisNode = self.thisMObject()
+        """Return the bounding box for selection and framing (Frame Selected 'f' key)."""
+        try:
+            thisNode = self.thisMObject()
 
-        sx = om.MPlug(thisNode, BoxyShape.sizeX).asFloat()
-        sy = om.MPlug(thisNode, BoxyShape.sizeY).asFloat()
-        sz = om.MPlug(thisNode, BoxyShape.sizeZ).asFloat()
-        pivot = om.MPlug(thisNode, BoxyShape.pivot).asInt()
+            # Use MFnDependencyNode.findPlug for robustness (survives plugin reloads)
+            fn = om.MFnDependencyNode(thisNode)
+            sx = fn.findPlug("sizeX", False).asFloat()
+            sy = fn.findPlug("sizeY", False).asFloat()
+            sz = fn.findPlug("sizeZ", False).asFloat()
+            pivot = fn.findPlug("pivot", False).asInt()
 
-        halfX, halfZ = sx / 2.0, sz / 2.0
+            halfX, halfZ = sx / 2.0, sz / 2.0
 
-        if pivot == 0:  # bottom
-            yMin, yMax = 0.0, sy
-        elif pivot == 2:  # top
-            yMin, yMax = -sy, 0.0
-        else:  # center
-            halfY = sy / 2.0
-            yMin, yMax = -halfY, halfY
+            if pivot == 0:  # bottom
+                yMin, yMax = 0.0, sy
+            elif pivot == 2:  # top
+                yMin, yMax = -sy, 0.0
+            else:  # center
+                halfY = sy / 2.0
+                yMin, yMax = -halfY, halfY
 
-        return om.MBoundingBox(om.MPoint(-halfX, yMin, -halfZ), om.MPoint(halfX, yMax, halfZ))
+            return om.MBoundingBox(om.MPoint(-halfX, yMin, -halfZ), om.MPoint(halfX, yMax, halfZ))
+        except Exception:
+            # Return default bounding box during plugin reload
+            return om.MBoundingBox(om.MPoint(-50, -50, -50), om.MPoint(50, 50, 50))
 
 
 class BoxyUserData(om.MUserData):
@@ -336,68 +365,76 @@ class BoxyDrawOverride(omr.MPxDrawOverride):
         return True
 
     def boundingBox(self, objPath, cameraPath):
-        node = objPath.node()
-        fn = om.MFnDependencyNode(node)
+        try:
+            node = objPath.node()
+            fn = om.MFnDependencyNode(node)
 
-        sx = fn.findPlug("sizeX", False).asFloat()
-        sy = fn.findPlug("sizeY", False).asFloat()
-        sz = fn.findPlug("sizeZ", False).asFloat()
-        pivot = fn.findPlug("pivot", False).asInt()
+            sx = fn.findPlug("sizeX", False).asFloat()
+            sy = fn.findPlug("sizeY", False).asFloat()
+            sz = fn.findPlug("sizeZ", False).asFloat()
+            pivot = fn.findPlug("pivot", False).asInt()
 
-        halfX, halfZ = sx / 2.0, sz / 2.0
+            halfX, halfZ = sx / 2.0, sz / 2.0
 
-        if pivot == 0:
-            yMin, yMax = 0.0, sy
-        elif pivot == 2:
-            yMin, yMax = -sy, 0.0
-        else:
-            halfY = sy / 2.0
-            yMin, yMax = -halfY, halfY
+            if pivot == 0:
+                yMin, yMax = 0.0, sy
+            elif pivot == 2:
+                yMin, yMax = -sy, 0.0
+            else:
+                halfY = sy / 2.0
+                yMin, yMax = -halfY, halfY
 
-        return om.MBoundingBox(om.MPoint(-halfX, yMin, -halfZ), om.MPoint(halfX, yMax, halfZ))
+            return om.MBoundingBox(om.MPoint(-halfX, yMin, -halfZ), om.MPoint(halfX, yMax, halfZ))
+        except Exception:
+            # Return default bounding box during plugin reload
+            return om.MBoundingBox(om.MPoint(-50, -50, -50), om.MPoint(50, 50, 50))
 
     def prepareForDraw(self, objPath, cameraPath, frameContext, oldData):
         data = oldData if isinstance(oldData, BoxyUserData) else BoxyUserData()
 
-        node = objPath.node()
-        fn = om.MFnDependencyNode(node)
+        try:
+            node = objPath.node()
+            fn = om.MFnDependencyNode(node)
 
-        sx = fn.findPlug("sizeX", False).asFloat()
-        sy = fn.findPlug("sizeY", False).asFloat()
-        sz = fn.findPlug("sizeZ", False).asFloat()
-        pivot = fn.findPlug("pivot", False).asInt()
+            sx = fn.findPlug("sizeX", False).asFloat()
+            sy = fn.findPlug("sizeY", False).asFloat()
+            sz = fn.findPlug("sizeZ", False).asFloat()
+            pivot = fn.findPlug("pivot", False).asInt()
 
-        colorR = fn.findPlug("wireframeColorR", False).asFloat()
-        colorG = fn.findPlug("wireframeColorG", False).asFloat()
-        colorB = fn.findPlug("wireframeColorB", False).asFloat()
-        data.color = om.MColor([colorR, colorG, colorB, 1.0])
+            colorR = fn.findPlug("wireframeColorR", False).asFloat()
+            colorG = fn.findPlug("wireframeColorG", False).asFloat()
+            colorB = fn.findPlug("wireframeColorB", False).asFloat()
+            data.color = om.MColor([colorR, colorG, colorB, 1.0])
 
-        halfX, halfZ = sx / 2.0, sz / 2.0
+            halfX, halfZ = sx / 2.0, sz / 2.0
 
-        if pivot == 0:  # bottom
-            yMin, yMax = 0.0, sy
-        elif pivot == 2:  # top
-            yMin, yMax = -sy, 0.0
-        else:  # center
-            halfY = sy / 2.0
-            yMin, yMax = -halfY, halfY
+            if pivot == 0:  # bottom
+                yMin, yMax = 0.0, sy
+            elif pivot == 2:  # top
+                yMin, yMax = -sy, 0.0
+            else:  # center
+                halfY = sy / 2.0
+                yMin, yMax = -halfY, halfY
 
-        data.vertices = [
-            om.MPoint(-halfX, yMin, -halfZ),
-            om.MPoint(halfX, yMin, -halfZ),
-            om.MPoint(halfX, yMin, halfZ),
-            om.MPoint(-halfX, yMin, halfZ),
-            om.MPoint(-halfX, yMax, -halfZ),
-            om.MPoint(halfX, yMax, -halfZ),
-            om.MPoint(halfX, yMax, halfZ),
-            om.MPoint(-halfX, yMax, halfZ),
-        ]
+            data.vertices = [
+                om.MPoint(-halfX, yMin, -halfZ),
+                om.MPoint(halfX, yMin, -halfZ),
+                om.MPoint(halfX, yMin, halfZ),
+                om.MPoint(-halfX, yMin, halfZ),
+                om.MPoint(-halfX, yMax, -halfZ),
+                om.MPoint(halfX, yMax, -halfZ),
+                om.MPoint(halfX, yMax, halfZ),
+                om.MPoint(-halfX, yMax, halfZ),
+            ]
 
-        data.edges = [
-            (0, 1), (1, 2), (2, 3), (3, 0),
-            (4, 5), (5, 6), (6, 7), (7, 4),
-            (0, 4), (1, 5), (2, 6), (3, 7),
-        ]
+            data.edges = [
+                (0, 1), (1, 2), (2, 3), (3, 0),
+                (4, 5), (5, 6), (6, 7), (7, 4),
+                (0, 4), (1, 5), (2, 6), (3, 7),
+            ]
+        except Exception:
+            # Return default data during plugin reload
+            pass
 
         return data
 
@@ -418,39 +455,234 @@ class BoxyDrawOverride(omr.MPxDrawOverride):
         drawManager.endDrawable()
 
 
+class BoxyCommand(om.MPxCommand):
+    """Command to create a boxy node with optional flags."""
+
+    # Size flags
+    kSizeXFlag = "-sx"
+    kSizeXLongFlag = "-sizeX"
+    kSizeYFlag = "-sy"
+    kSizeYLongFlag = "-sizeY"
+    kSizeZFlag = "-sz"
+    kSizeZLongFlag = "-sizeZ"
+
+    # Pivot flag (0=bottom, 1=center, 2=top)
+    kPivotFlag = "-p"
+    kPivotLongFlag = "-pivot"
+
+    # Color flags
+    kColorRFlag = "-cr"
+    kColorRLongFlag = "-colorR"
+    kColorGFlag = "-cg"
+    kColorGLongFlag = "-colorG"
+    kColorBFlag = "-cb"
+    kColorBLongFlag = "-colorB"
+
+    # Position flags
+    kPosXFlag = "-px"
+    kPosXLongFlag = "-positionX"
+    kPosYFlag = "-py"
+    kPosYLongFlag = "-positionY"
+    kPosZFlag = "-pz"
+    kPosZLongFlag = "-positionZ"
+
+    # Name flag - use object selection instead of string flag
+    kNameFlag = "-n"
+    kNameLongFlag = "-name"
+
+    def __init__(self):
+        om.MPxCommand.__init__(self)
+        self._created_node = None
+
+    @staticmethod
+    def creator():
+        return BoxyCommand()
+
+    @staticmethod
+    def createSyntax():
+        syntax = om.MSyntax()
+        # Size flags
+        syntax.addFlag(BoxyCommand.kSizeXFlag, BoxyCommand.kSizeXLongFlag, om.MSyntax.kDouble)
+        syntax.addFlag(BoxyCommand.kSizeYFlag, BoxyCommand.kSizeYLongFlag, om.MSyntax.kDouble)
+        syntax.addFlag(BoxyCommand.kSizeZFlag, BoxyCommand.kSizeZLongFlag, om.MSyntax.kDouble)
+        # Pivot flag (long: 0=bottom, 1=center, 2=top)
+        syntax.addFlag(BoxyCommand.kPivotFlag, BoxyCommand.kPivotLongFlag, om.MSyntax.kLong)
+        # Color flags
+        syntax.addFlag(BoxyCommand.kColorRFlag, BoxyCommand.kColorRLongFlag, om.MSyntax.kDouble)
+        syntax.addFlag(BoxyCommand.kColorGFlag, BoxyCommand.kColorGLongFlag, om.MSyntax.kDouble)
+        syntax.addFlag(BoxyCommand.kColorBFlag, BoxyCommand.kColorBLongFlag, om.MSyntax.kDouble)
+        # Position flags
+        syntax.addFlag(BoxyCommand.kPosXFlag, BoxyCommand.kPosXLongFlag, om.MSyntax.kDouble)
+        syntax.addFlag(BoxyCommand.kPosYFlag, BoxyCommand.kPosYLongFlag, om.MSyntax.kDouble)
+        syntax.addFlag(BoxyCommand.kPosZFlag, BoxyCommand.kPosZLongFlag, om.MSyntax.kDouble)
+        # Name uses command argument instead of flag to avoid kString issues
+        syntax.setObjectType(om.MSyntax.kStringObjects, 0, 1)
+        return syntax
+
+    def doIt(self, args):
+        """Create a boxy node with optional flags."""
+        import maya.cmds as cmds
+
+        # Parse arguments
+        argParser = om.MArgParser(self.syntax(), args)
+
+        # Parse size
+        size = None
+        if (argParser.isFlagSet(BoxyCommand.kSizeXFlag) or
+            argParser.isFlagSet(BoxyCommand.kSizeYFlag) or
+            argParser.isFlagSet(BoxyCommand.kSizeZFlag)):
+            size = (
+                argParser.flagArgumentDouble(BoxyCommand.kSizeXFlag, 0) if argParser.isFlagSet(BoxyCommand.kSizeXFlag) else DEFAULT_SIZE,
+                argParser.flagArgumentDouble(BoxyCommand.kSizeYFlag, 0) if argParser.isFlagSet(BoxyCommand.kSizeYFlag) else DEFAULT_SIZE,
+                argParser.flagArgumentDouble(BoxyCommand.kSizeZFlag, 0) if argParser.isFlagSet(BoxyCommand.kSizeZFlag) else DEFAULT_SIZE,
+            )
+
+        # Parse pivot (0=bottom, 1=center, 2=top)
+        pivot = None
+        if argParser.isFlagSet(BoxyCommand.kPivotFlag):
+            pivot = argParser.flagArgumentInt(BoxyCommand.kPivotFlag, 0)
+
+        # Parse color
+        color = None
+        if (argParser.isFlagSet(BoxyCommand.kColorRFlag) or
+            argParser.isFlagSet(BoxyCommand.kColorGFlag) or
+            argParser.isFlagSet(BoxyCommand.kColorBFlag)):
+            color = (
+                argParser.flagArgumentDouble(BoxyCommand.kColorRFlag, 0) if argParser.isFlagSet(BoxyCommand.kColorRFlag) else DEFAULT_COLOR[0],
+                argParser.flagArgumentDouble(BoxyCommand.kColorGFlag, 0) if argParser.isFlagSet(BoxyCommand.kColorGFlag) else DEFAULT_COLOR[1],
+                argParser.flagArgumentDouble(BoxyCommand.kColorBFlag, 0) if argParser.isFlagSet(BoxyCommand.kColorBFlag) else DEFAULT_COLOR[2],
+            )
+
+        # Parse position
+        position = None
+        if (argParser.isFlagSet(BoxyCommand.kPosXFlag) or
+            argParser.isFlagSet(BoxyCommand.kPosYFlag) or
+            argParser.isFlagSet(BoxyCommand.kPosZFlag)):
+            position = (
+                argParser.flagArgumentDouble(BoxyCommand.kPosXFlag, 0) if argParser.isFlagSet(BoxyCommand.kPosXFlag) else 0.0,
+                argParser.flagArgumentDouble(BoxyCommand.kPosYFlag, 0) if argParser.isFlagSet(BoxyCommand.kPosYFlag) else 0.0,
+                argParser.flagArgumentDouble(BoxyCommand.kPosZFlag, 0) if argParser.isFlagSet(BoxyCommand.kPosZFlag) else 0.0,
+            )
+
+        # Parse name from command objects (first positional argument)
+        name = None
+        if argParser.numberOfFlagUses(BoxyCommand.kNameFlag) == 0:
+            # Check for positional argument
+            objs = argParser.getObjectStrings()
+            if objs:
+                name = objs[0]
+
+        # Create shape node
+        if name:
+            shape = cmds.createNode('boxyShape', name=f'{name}Shape')
+        else:
+            shape = cmds.createNode('boxyShape')
+
+        transform = cmds.listRelatives(shape, parent=True)[0]
+
+        # Rename transform if name provided
+        if name:
+            transform = cmds.rename(transform, name)
+            # Get the updated shape name after transform rename
+            shape = cmds.listRelatives(transform, shapes=True)[0]
+
+        # Set size if provided
+        if size:
+            cmds.setAttr(f'{shape}.sizeX', size[0])
+            cmds.setAttr(f'{shape}.sizeY', size[1])
+            cmds.setAttr(f'{shape}.sizeZ', size[2])
+
+        # Set pivot if provided (set previousPivot first to avoid unwanted translation adjustment)
+        if pivot is not None:
+            cmds.setAttr(f'{shape}.previousPivot', pivot)
+            cmds.setAttr(f'{shape}.pivot', pivot)
+
+        # Set color if provided
+        if color:
+            cmds.setAttr(f'{shape}.wireframeColorR', color[0])
+            cmds.setAttr(f'{shape}.wireframeColorG', color[1])
+            cmds.setAttr(f'{shape}.wireframeColorB', color[2])
+
+        # Set position if provided
+        if position:
+            cmds.setAttr(f'{transform}.translateX', position[0])
+            cmds.setAttr(f'{transform}.translateY', position[1])
+            cmds.setAttr(f'{transform}.translateZ', position[2])
+
+        # Enable selection handle
+        cmds.toggle(transform, selectHandle=True)
+
+        # Select and return
+        cmds.select(transform)
+        self._created_node = transform
+
+        self.setResult(transform)
+
+    def isUndoable(self):
+        return True
+
+
 def initializePlugin(mobject):
     """Register all plugin components."""
+    _clear_log()
+    _log("initializePlugin started")
+
     mplugin = om.MFnPlugin(mobject, "Robonobo", "1.0", "Any")
+    _log("MFnPlugin created")
 
     try:
+        _log("Registering node...")
         mplugin.registerNode(
             BOXY_SHAPE_NAME,
             BOXY_SHAPE_ID,
             BoxyShape.creator,
             BoxyShape.initialize,
-            om.MPxNode.kLocatorNode,
+            om.MPxNode.kSurfaceShape,
             BOXY_SHAPE_CLASSIFICATION
         )
+        _log("Node registered successfully")
     except Exception as e:
+        _log(f"Failed to register node: {e}")
         om.MGlobal.displayError(f"Failed to register node: {e}")
         raise
 
     try:
+        _log("Registering draw override...")
         omr.MDrawRegistry.registerDrawOverrideCreator(
             BOXY_SHAPE_CLASSIFICATION,
             BOXY_DRAW_OVERRIDE_NAME,
             BoxyDrawOverride.creator
         )
+        _log("Draw override registered successfully")
     except Exception as e:
+        _log(f"Failed to register draw override: {e}")
         om.MGlobal.displayError(f"Failed to register draw override: {e}")
         raise
 
-    om.MGlobal.displayInfo("Boxy plugin loaded. Use: cmds.createNode('boxyShape')")
+    try:
+        _log("Registering command...")
+        _log(f"  Command name: {BOXY_COMMAND_NAME}")
+        _log(f"  Creator function: {BoxyCommand.creator}")
+        _log(f"  Syntax function: {BoxyCommand.createSyntax}")
+        mplugin.registerCommand(BOXY_COMMAND_NAME, BoxyCommand.creator, BoxyCommand.createSyntax)
+        _log("Command registered successfully")
+    except Exception as e:
+        _log(f"Failed to register command: {e}")
+        om.MGlobal.displayError(f"Failed to register command: {e}")
+        raise
+
+    _log("initializePlugin completed successfully")
+    om.MGlobal.displayInfo("Boxy plugin loaded. Use: cmds.boxy()")
 
 
 def uninitializePlugin(mobject):
     """Unregister all plugin components."""
     mplugin = om.MFnPlugin(mobject)
+
+    try:
+        mplugin.deregisterCommand(BOXY_COMMAND_NAME)
+    except:
+        pass
 
     try:
         omr.MDrawRegistry.deregisterDrawOverrideCreator(
@@ -494,7 +726,18 @@ def build(boxy_data) -> str:
         str: The name of the created transform node
     """
     import maya.cmds as cmds
+    import logging
     from core.core_enums import Side
+    from core.logging_utils import get_logger
+
+    LOGGER = get_logger(__name__, level=logging.DEBUG)
+    LOGGER.debug(f"=== boxy_node.build() ===")
+    LOGGER.debug(f"  boxy_data.name: {boxy_data.name}")
+    LOGGER.debug(f"  boxy_data.pivot: {boxy_data.pivot}")
+    LOGGER.debug(f"  boxy_data.bounds.position (center): {boxy_data.bounds.position}")
+    LOGGER.debug(f"  boxy_data.bounds.size: {boxy_data.bounds.size}")
+    LOGGER.debug(f"  boxy_data.bounds.rotation: {boxy_data.bounds.rotation}")
+    LOGGER.debug(f"  boxy_data.pivot_position: {boxy_data.pivot_position}")
 
     _ensure_plugin_loaded()
 
@@ -503,6 +746,9 @@ def build(boxy_data) -> str:
     shape = cmds.createNode('boxyShape', name=f'{name}Shape')
     transform = cmds.listRelatives(shape, parent=True)[0]
     transform = cmds.rename(transform, name)
+
+    # Get the updated shape name after transform rename (Maya renames shape too)
+    shape = cmds.listRelatives(transform, shapes=True)[0]
 
     # Set size from bounds
     size = boxy_data.bounds.size
@@ -516,14 +762,16 @@ def build(boxy_data) -> str:
     cmds.setAttr(f'{shape}.previousPivot', pivot_value)
     cmds.setAttr(f'{shape}.pivot', pivot_value)
 
-    # Set wireframe color
+    # Set wireframe color (normalize 0-255 to 0-1)
     color = boxy_data.color
-    cmds.setAttr(f'{shape}.wireframeColorR', color.r)
-    cmds.setAttr(f'{shape}.wireframeColorG', color.g)
-    cmds.setAttr(f'{shape}.wireframeColorB', color.b)
+    r, g, b = color.normalized
+    cmds.setAttr(f'{shape}.wireframeColorR', r)
+    cmds.setAttr(f'{shape}.wireframeColorG', g)
+    cmds.setAttr(f'{shape}.wireframeColorB', b)
 
     # Set position from pivot_position
     pos = boxy_data.pivot_position
+    LOGGER.debug(f"  Setting transform position to pivot_position: {pos}")
     cmds.setAttr(f'{transform}.translateX', pos.x)
     cmds.setAttr(f'{transform}.translateY', pos.y)
     cmds.setAttr(f'{transform}.translateZ', pos.z)
@@ -540,6 +788,7 @@ def build(boxy_data) -> str:
     # Select the transform
     cmds.select(transform)
 
+    LOGGER.debug(f"=== end boxy_node.build() ===")
     return transform
 
 
@@ -579,6 +828,8 @@ def create_boxy(size=None, pivot=None, color=None, position=None, name=None):
     # Rename transform if name provided
     if name:
         transform = cmds.rename(transform, name)
+        # Get the updated shape name after transform rename
+        shape = cmds.listRelatives(transform, shapes=True)[0]
 
     # Set size attributes
     if size is not None:

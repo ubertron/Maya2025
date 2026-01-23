@@ -12,7 +12,6 @@ from core.core_paths import image_path
 from core.version_info import VersionInfo, Versions
 from maya_tools import maya_widget_utils, node_utils
 from maya_tools.utilities.boxy import boxy_utils
-# from maya_tools.utilities.boxy.boxy_help import BoxyHelp
 from widgets.button_bar import ButtonBar
 from widgets.clickable_label import ClickableLabel
 from widgets.generic_widget import GenericWidget
@@ -28,10 +27,11 @@ with contextlib.suppress(ImportError):
 TOOL_NAME = "Boxy Tool"
 VERSIONS = Versions(
     versions=[
-        VersionInfo(name=TOOL_NAME, version="1.0.0", codename="cobra", info="first release"),
-        VersionInfo(name=TOOL_NAME, version="1.0.1", codename="banshee", info="size field added"),
-        VersionInfo(name=TOOL_NAME, version="1.0.2", codename="newt", info="issue fixed for nodes with children"),
-        VersionInfo(name=TOOL_NAME, version="1.0.3", codename="panther", info="button functions added"),
+        VersionInfo(name=TOOL_NAME, version="1.0", codename="cobra", info="Initial release"),
+        VersionInfo(name=TOOL_NAME, version="1.0.1", codename="banshee", info="Size field added"),
+        VersionInfo(name=TOOL_NAME, version="1.0.2", codename="newt", info="Issue fixed for nodes with children"),
+        VersionInfo(name=TOOL_NAME, version="1.0.3", codename="panther", info="Button functions added"),
+        VersionInfo(name=TOOL_NAME, version="1.0.4", codename="dumb animals", info="Boxy v2 node implemented"),
     ]
 )
 
@@ -48,7 +48,7 @@ class BoxyTool(GenericWidget):
         self.logo = self.add_widget(ImageLabel(image_path("boxy_logo.png")))
         left_alignment = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         button_bar: ButtonBar = self.add_widget(ButtonBar(button_size=32))
-        button_bar.add_icon_button(icon_path=image_path("boxy_utils.png"), tool_tip="Generate boxy", clicked=self.create_button_clicked)
+        button_bar.add_icon_button(icon_path=image_path("boxy.png"), tool_tip="Generate boxy", clicked=self.create_button_clicked)
         button_bar.add_icon_button(icon_path=image_path("boxy_to_cube.png"), tool_tip="Toggle Boxy/Poly-Cube", clicked=self.boxy_cube_toggle_clicked)
         button_bar.add_icon_button(icon_path=image_path("boxy_face_concave.png"), tool_tip="Concave boxy from face", clicked=self.concave_face_button_clicked)
         button_bar.add_icon_button(icon_path=image_path("boxy_face_convex.png"), tool_tip="Convex boxy from face", clicked=self.convex_face_button_clicked)
@@ -184,6 +184,7 @@ class BoxyTool(GenericWidget):
 
     def help_button_clicked(self):
         """Event for help button."""
+        from maya_tools.utilities.boxy.boxy_help import BoxyHelp
         help_widget = BoxyHelp(parent_widget=self)
         help_widget.setWindowModality(Qt.WindowModality.ApplicationModal)
         help_widget.show()
