@@ -108,56 +108,43 @@ class BoxyShape(om.MPxSurfaceShape):
     @staticmethod
     def _onAttributeChanged(msg, plug, otherPlug, clientData):
         """Callback when an attribute changes."""
-        # Only care about attribute set events
-        if not (msg & om.MNodeMessage.kAttributeSet):
-            return
+        try:
+            # Only care about attribute set events
+            if not (msg & om.MNodeMessage.kAttributeSet):
+                return
 
-        # Check if it's the pivot attribute
-        if plug.attribute() != BoxyShape.pivot:
-            return
+            # Check if it's the pivot attribute
+            if plug.attribute() != BoxyShape.pivot:
+                return
 
-        node = plug.node()
-        fn = om.MFnDependencyNode(node)
+            node = plug.node()
+            fn = om.MFnDependencyNode(node)
 
-        # Get current (new) pivot value
-        newPivot = plug.asInt()
+            # Get current (new) pivot value
+            newPivot = plug.asInt()
 
-        # Get previous pivot value
-        prevPivotPlug = fn.findPlug("previousPivot", False)
-        oldPivot = prevPivotPlug.asInt()
+            # Get previous pivot value
+            prevPivotPlug = fn.findPlug("previousPivot", False)
+            oldPivot = prevPivotPlug.asInt()
 
-        # If pivot hasn't actually changed, skip
-        if newPivot == oldPivot:
-            return
+            # If pivot hasn't actually changed, skip
+            if newPivot == oldPivot:
+                return
 
-        # Get preservePivotPosition flag
-        preservePlug = fn.findPlug("preservePivotPosition", False)
-        preserve = preservePlug.asBool()
+            # Get preservePivotPosition flag
+            preservePlug = fn.findPlug("preservePivotPosition", False)
+            preserve = preservePlug.asBool()
 
-        # Get height for offset calculation
-        heightPlug = fn.findPlug("sizeY", False)
-        height = heightPlug.asFloat()
+            # Get size for offset calculation (from shape attributes - unscaled)
+            sizeX = fn.findPlug("sizeX", False).asFloat()
+            sizeY = fn.findPlug("sizeY", False).asFloat()
+            sizeZ = fn.findPlug("sizeZ", False).asFloat()
 
-        # Calculate pivot Y positions relative to cube center
-        # bottom (0): pivot at -height/2 from center
-        # center (1): pivot at 0 from center
-        # top (2): pivot at +height/2 from center
-        def pivot_offset(piv, h):
-            if piv == 0:  # bottom
-                return -h / 2.0
-            elif piv == 2:  # top
-                return h / 2.0
-            return 0.0  # center
+            # Update previousPivot attribute
+            prevPivotPlug.setInt(newPivot)
 
-        oldOffset = pivot_offset(oldPivot, height)
-        newOffset = pivot_offset(newPivot, height)
-
-        # Update previousPivot attribute
-        prevPivotPlug.setInt(newPivot)
-
-        # If NOT preserving pivot position, adjust transform to keep cube in place
-        if not preserve:
-            try:
+            # If NOT preserving pivot position, adjust transform to keep cube in place
+            if not preserve:
                 # Get the DAG path to the shape node
                 dagPath = om.MDagPath.getAPathTo(node)
 
@@ -167,17 +154,56 @@ class BoxyShape(om.MPxSurfaceShape):
 
                 transformFn = om.MFnTransform(transformPath)
 
-                # Get current translation
-                translation = transformFn.translation(om.MSpace.kTransform)
+                # Get transform's scale - we need to apply scale to the offset
+                scale = transformFn.scale()
+                scaledSizeX = sizeX * scale[0]
+                scaledSizeY = sizeY * scale[1]
+                scaledSizeZ = sizeZ * scale[2]
 
-                # Adjust Y translation: move by (newOffset - oldOffset)
-                # This keeps the cube visually in the same world position
-                yAdjust = newOffset - oldOffset
-                translation.y += yAdjust
+                # Calculate pivot offset from center for each pivot type
+                # Returns (x, y, z) offset from center to pivot position in LOCAL space
+                # Use SCALED size since the visual offset in world space is affected by scale
+                def pivot_offset(piv, sx, sy, sz):
+                    if piv == 0:  # bottom
+                        return (0.0, -sy / 2.0, 0.0)
+                    elif piv == 2:  # top
+                        return (0.0, sy / 2.0, 0.0)
+                    elif piv == 3:  # left (min X)
+                        return (-sx / 2.0, 0.0, 0.0)
+                    elif piv == 4:  # right (max X)
+                        return (sx / 2.0, 0.0, 0.0)
+                    elif piv == 5:  # front (max Z)
+                        return (0.0, 0.0, sz / 2.0)
+                    elif piv == 6:  # back (min Z)
+                        return (0.0, 0.0, -sz / 2.0)
+                    return (0.0, 0.0, 0.0)  # center
+
+                oldOffset = pivot_offset(oldPivot, scaledSizeX, scaledSizeY, scaledSizeZ)
+                newOffset = pivot_offset(newPivot, scaledSizeX, scaledSizeY, scaledSizeZ)
+
+                # Calculate the local-space offset (from old pivot to new pivot)
+                localOffsetX = newOffset[0] - oldOffset[0]
+                localOffsetY = newOffset[1] - oldOffset[1]
+                localOffsetZ = newOffset[2] - oldOffset[2]
+
+                # Get the transform's rotation to convert local offset to world space
+                rotation = transformFn.rotation(om.MSpace.kTransform, asQuaternion=False)
+
+                # Build rotation-only matrix and transform local offset to world space
+                rotMatrix = rotation.asMatrix()
+                localOffsetVec = om.MVector(localOffsetX, localOffsetY, localOffsetZ)
+                worldOffsetVec = localOffsetVec * rotMatrix
+
+                # Get current translation and adjust by the world-space offset
+                translation = transformFn.translation(om.MSpace.kTransform)
+                translation.x += worldOffsetVec.x
+                translation.y += worldOffsetVec.y
+                translation.z += worldOffsetVec.z
 
                 transformFn.setTranslation(translation, om.MSpace.kTransform)
-            except Exception as e:
-                om.MGlobal.displayWarning(f"Pivot adjust failed: {e}")
+        except Exception:
+            # Silently ignore errors during node initialization
+            pass
 
     @staticmethod
     def creator():
@@ -200,11 +226,15 @@ class BoxyShape(om.MPxSurfaceShape):
         tAttr.hidden = False
         tAttr.channelBox = True
 
-        # ========== pivot (enum: bottom=0, center=1, top=2) ==========
+        # ========== pivot (enum) ==========
         BoxyShape.pivot = eAttr.create("pivot", "piv", 1)  # default: center
         eAttr.addField("bottom", 0)
         eAttr.addField("center", 1)
         eAttr.addField("top", 2)
+        eAttr.addField("left", 3)
+        eAttr.addField("right", 4)
+        eAttr.addField("front", 5)
+        eAttr.addField("back", 6)
         eAttr.keyable = True
         eAttr.storable = True
         eAttr.channelBox = True
@@ -322,17 +352,27 @@ class BoxyShape(om.MPxSurfaceShape):
             sz = fn.findPlug("sizeZ", False).asFloat()
             pivot = fn.findPlug("pivot", False).asInt()
 
-            halfX, halfZ = sx / 2.0, sz / 2.0
+            halfX, halfY, halfZ = sx / 2.0, sy / 2.0, sz / 2.0
+
+            # Default: center pivot
+            xMin, xMax = -halfX, halfX
+            yMin, yMax = -halfY, halfY
+            zMin, zMax = -halfZ, halfZ
 
             if pivot == 0:  # bottom
                 yMin, yMax = 0.0, sy
             elif pivot == 2:  # top
                 yMin, yMax = -sy, 0.0
-            else:  # center
-                halfY = sy / 2.0
-                yMin, yMax = -halfY, halfY
+            elif pivot == 3:  # left (min X)
+                xMin, xMax = 0.0, sx
+            elif pivot == 4:  # right (max X)
+                xMin, xMax = -sx, 0.0
+            elif pivot == 5:  # front (max Z)
+                zMin, zMax = -sz, 0.0
+            elif pivot == 6:  # back (min Z)
+                zMin, zMax = 0.0, sz
 
-            return om.MBoundingBox(om.MPoint(-halfX, yMin, -halfZ), om.MPoint(halfX, yMax, halfZ))
+            return om.MBoundingBox(om.MPoint(xMin, yMin, zMin), om.MPoint(xMax, yMax, zMax))
         except Exception:
             # Return default bounding box during plugin reload
             return om.MBoundingBox(om.MPoint(-50, -50, -50), om.MPoint(50, 50, 50))
@@ -374,17 +414,27 @@ class BoxyDrawOverride(omr.MPxDrawOverride):
             sz = fn.findPlug("sizeZ", False).asFloat()
             pivot = fn.findPlug("pivot", False).asInt()
 
-            halfX, halfZ = sx / 2.0, sz / 2.0
+            halfX, halfY, halfZ = sx / 2.0, sy / 2.0, sz / 2.0
 
-            if pivot == 0:
+            # Default: center pivot
+            xMin, xMax = -halfX, halfX
+            yMin, yMax = -halfY, halfY
+            zMin, zMax = -halfZ, halfZ
+
+            if pivot == 0:  # bottom
                 yMin, yMax = 0.0, sy
-            elif pivot == 2:
+            elif pivot == 2:  # top
                 yMin, yMax = -sy, 0.0
-            else:
-                halfY = sy / 2.0
-                yMin, yMax = -halfY, halfY
+            elif pivot == 3:  # left (min X)
+                xMin, xMax = 0.0, sx
+            elif pivot == 4:  # right (max X)
+                xMin, xMax = -sx, 0.0
+            elif pivot == 5:  # front (max Z)
+                zMin, zMax = -sz, 0.0
+            elif pivot == 6:  # back (min Z)
+                zMin, zMax = 0.0, sz
 
-            return om.MBoundingBox(om.MPoint(-halfX, yMin, -halfZ), om.MPoint(halfX, yMax, halfZ))
+            return om.MBoundingBox(om.MPoint(xMin, yMin, zMin), om.MPoint(xMax, yMax, zMax))
         except Exception:
             # Return default bounding box during plugin reload
             return om.MBoundingBox(om.MPoint(-50, -50, -50), om.MPoint(50, 50, 50))
@@ -406,25 +456,35 @@ class BoxyDrawOverride(omr.MPxDrawOverride):
             colorB = fn.findPlug("wireframeColorB", False).asFloat()
             data.color = om.MColor([colorR, colorG, colorB, 1.0])
 
-            halfX, halfZ = sx / 2.0, sz / 2.0
+            halfX, halfY, halfZ = sx / 2.0, sy / 2.0, sz / 2.0
+
+            # Default: center pivot
+            xMin, xMax = -halfX, halfX
+            yMin, yMax = -halfY, halfY
+            zMin, zMax = -halfZ, halfZ
 
             if pivot == 0:  # bottom
                 yMin, yMax = 0.0, sy
             elif pivot == 2:  # top
                 yMin, yMax = -sy, 0.0
-            else:  # center
-                halfY = sy / 2.0
-                yMin, yMax = -halfY, halfY
+            elif pivot == 3:  # left (min X)
+                xMin, xMax = 0.0, sx
+            elif pivot == 4:  # right (max X)
+                xMin, xMax = -sx, 0.0
+            elif pivot == 5:  # front (max Z)
+                zMin, zMax = -sz, 0.0
+            elif pivot == 6:  # back (min Z)
+                zMin, zMax = 0.0, sz
 
             data.vertices = [
-                om.MPoint(-halfX, yMin, -halfZ),
-                om.MPoint(halfX, yMin, -halfZ),
-                om.MPoint(halfX, yMin, halfZ),
-                om.MPoint(-halfX, yMin, halfZ),
-                om.MPoint(-halfX, yMax, -halfZ),
-                om.MPoint(halfX, yMax, -halfZ),
-                om.MPoint(halfX, yMax, halfZ),
-                om.MPoint(-halfX, yMax, halfZ),
+                om.MPoint(xMin, yMin, zMin),
+                om.MPoint(xMax, yMin, zMin),
+                om.MPoint(xMax, yMin, zMax),
+                om.MPoint(xMin, yMin, zMax),
+                om.MPoint(xMin, yMax, zMin),
+                om.MPoint(xMax, yMax, zMin),
+                om.MPoint(xMax, yMax, zMax),
+                om.MPoint(xMin, yMax, zMax),
             ]
 
             data.edges = [
@@ -757,7 +817,10 @@ def build(boxy_data) -> str:
     cmds.setAttr(f'{shape}.sizeZ', size.z)
 
     # Set pivot
-    pivot_map = {Side.bottom: 0, Side.center: 1, Side.top: 2}
+    pivot_map = {
+        Side.bottom: 0, Side.center: 1, Side.top: 2,
+        Side.left: 3, Side.right: 4, Side.front: 5, Side.back: 6
+    }
     pivot_value = pivot_map.get(boxy_data.pivot, 1)
     cmds.setAttr(f'{shape}.previousPivot', pivot_value)
     cmds.setAttr(f'{shape}.pivot', pivot_value)

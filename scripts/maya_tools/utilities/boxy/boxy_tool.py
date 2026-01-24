@@ -38,7 +38,6 @@ VERSIONS = Versions(
 class BoxyTool(GenericWidget):
     """Boxy UI Class."""
     color_key = "color"
-    default_name = "boxy"
     pivot_index = "pivot_index"
     size_key = "size"
 
@@ -55,15 +54,13 @@ class BoxyTool(GenericWidget):
         button_bar.add_icon_button(icon_path=image_path("help.png"), tool_tip="Help", clicked=self.help_button_clicked)
         grid: GridWidget = self.add_group_box(GridWidget(title="Boxy Parameters", spacing=8))
         grid.add_label(text="Pivot Position", row=0, column=0, alignment=left_alignment)
-        self.pivot_combo_box: QComboBox = grid.add_combo_box(items=["bottom", "center", "top"], default_index=1, row=0, column=1)
+        self.pivot_combo_box: QComboBox = grid.add_combo_box(items=["bottom", "center", "top", "left", "right", "front", "back"], default_index=1, row=0, column=1)
         grid.add_label(text="Wirefame Color", row=1, column=0, alignment=left_alignment)
         self.color_picker: ClickableLabel = grid.add_widget(widget=ClickableLabel(""), row=1, column=1)
-        grid.add_label(text="Base Name", row=2, column=0, alignment=left_alignment)
-        self.name_field = grid.add_widget(widget=QLineEdit(self.default_name), row=2, column=1)
-        grid.add_label(text="Default Size", row=3, column=0, alignment=left_alignment)
-        self.size_field: QDoubleSpinBox = grid.add_widget(widget=QDoubleSpinBox(), row=3, column=1)
-        grid.add_label(text="Inherit Rotation", row=4, column=0, alignment=left_alignment)
-        self.rotation_check_box = grid.add_widget(widget=QCheckBox(), row=4, column=1)
+        grid.add_label(text="Default Size", row=2, column=0, alignment=left_alignment)
+        self.size_field: QDoubleSpinBox = grid.add_widget(widget=QDoubleSpinBox(), row=2, column=1)
+        grid.add_label(text="Inherit Rotation", row=3, column=0, alignment=left_alignment)
+        self.rotation_check_box = grid.add_widget(widget=QCheckBox(), row=3, column=1)
         self.info_label = self.add_label(text="Ready...", side=Side.left)
         default_color = self.settings.value(self.color_key, color_classes.DEEP_GREEN.values)
         self.wireframe_color = RGBColor(*default_color)
@@ -99,7 +96,6 @@ class BoxyTool(GenericWidget):
     def _setup_ui(self):
         """Set up ui."""
         self.color_picker.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
-        self.name_field.setPlaceholderText("Enter base name...")
         self.rotation_check_box.setChecked(True)
         self.color_picker.clicked.connect(self.color_picker_clicked)
         self.pivot_combo_box.setCurrentIndex(self.settings.value(self.pivot_index, 1))
