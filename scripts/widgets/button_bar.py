@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import sys
 
-from PySide6.QtWidgets import QSizePolicy
+try:
+    from PySide6.QtWidgets import QSizePolicy
+except ImportError:
+    from PySide2.QtWidgets import QSizePolicy
 
 from core.core_enums import Alignment
 from core.core_paths import image_path
@@ -29,7 +32,11 @@ class ButtonBar(GenericWidget):
 
 
 if __name__ == "__main__":
-    from PySide6.QtWidgets import QApplication
+    try:
+        from PySide6.QtWidgets import QApplication
+    except ImportError:
+        from PySide2.QtWidgets import QApplication
+
     from pathlib import Path
     app = QApplication(sys.argv)
     widget = ButtonBar("Test Button Bar")

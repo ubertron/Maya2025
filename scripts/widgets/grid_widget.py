@@ -1,11 +1,18 @@
+from __future__ import annotations
+
 # Grid Widget
 import contextlib
 import enum
 import platform
-import shiboken6
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QPushButton, QSpacerItem, QMainWindow, QComboBox
+try:
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QPushButton, QSpacerItem, QMainWindow, QComboBox
+    import shiboken6 as shiboken
+except ImportError:
+    from PySide2.QtCore import Qt
+    from PySide2.QtWidgets import QWidget, QGridLayout, QLabel, QPushButton, QSpacerItem, QMainWindow, QComboBox
+    import shiboken2 as shiboken
 from typing import Callable, Optional
 
 from core import DARWIN_STR
@@ -31,7 +38,7 @@ class GridWidget(QWidget):
         """
         if is_using_maya_python():
             from maya import OpenMayaUI
-            self.mayaMainWindow = shiboken6.wrapInstance(int(OpenMayaUI.MQtUtil.mainWindow()), QMainWindow)
+            self.mayaMainWindow = shiboken.wrapInstance(int(OpenMayaUI.MQtUtil.mainWindow()), QMainWindow)
             self.setWindowFlags(Qt.Window)
             self.setWindowFlags(Qt.Tool if platform.system() == DARWIN_STR else Qt.Window)
 
@@ -185,7 +192,7 @@ class GridWidget(QWidget):
         with contextlib.suppress(RuntimeError):
             from maya import OpenMayaUI
         control_ptr = OpenMayaUI.MQtUtil.findControl(self.workspace_control)
-        control_widget = shiboken6.wrapInstance(int(control_ptr), QWidget)
+        control_widget = shiboken.wrapInstance(int(control_ptr), QWidget)
         layout = control_widget.layout()
         if layout is not None and not layout.count():
             layout.addWidget(self)
@@ -258,7 +265,10 @@ class GridWidgetTest(GridWidget):
 
 
 if __name__ == '__main__':
-    from PySide6.QtWidgets import QApplication
+    try:
+        from PySide6.QtWidgets import QApplication
+    except ImportError:
+        from PySide2.QtWidgets import QApplication
 
     app = QApplication()
     test_widget = GridWidgetTest()

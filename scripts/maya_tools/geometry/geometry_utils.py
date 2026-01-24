@@ -44,26 +44,39 @@ def combine(transforms: list[str] | None = None, name: str = '', position: Optio
 def create_cube(name: Optional[str] = None, size: float | Point3 = 1, position: Point3 = Point3(0, 0, 0),
                 divisions: int = 1, baseline: float = 0) -> str:
     """
-    Mirrors geometry along an axis
-    :param name: str
-    :param size: int
-    :param position:
-    :param divisions: int
-    :param baseline: float
+    Create a polygon cube with manual pivot positioning for Maya 2022/2026 compatibility.
+
+    :param name: Name for the cube
+    :param size: Size as float (uniform) or Point3 (width, height, depth)
+    :param position: Position for the cube
+    :param divisions: Number of subdivisions
+    :param baseline: Height baseline (0=bottom, 0.5=center, 1=top) - handled manually for compatibility
     """
     if type(size) is Point3:
         width = size.x
         height = size.y
-        depth= size.z
+        depth = size.z
     else:
         width = size
         height = size
         depth = size
+
+    # Create cube without heightBaseline (Maya 2022 compatibility)
     cube, _ = cmds.polyCube(
         name=name if name else 'cube',
-        width=width, height=height, depth=depth, heightBaseline=baseline,
+        width=width, height=height, depth=depth,
         sx=divisions, sy=divisions, sz=divisions)
-    node_utils.set_translation(nodes=cube, value=position)
+
+    # Manually adjust position based on baseline
+    # baseline: 0=bottom at position, 0.5=center at position (default), 1=top at position
+    # Default polyCube is centered, so we need to offset to place the baseline point at position
+    # If baseline=0 (bottom), center needs to be height/2 above position
+    # If baseline=0.5 (center), no offset needed
+    # If baseline=1 (top), center needs to be height/2 below position
+    y_offset = (0.5 - baseline) * height
+    adjusted_position = Point3(position.x, position.y + y_offset, position.z)
+
+    node_utils.set_translation(nodes=cube, value=adjusted_position)
     return cube
 
 

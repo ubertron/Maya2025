@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 import importlib
-import shiboken6
 
 from typing import Any
-from PySide6.QtWidgets import QWidget
+try:
+    from PySide6.QtWidgets import QWidget
+    import shiboken6 as shiboken
+    PYSIDE_VERSION = 6
+except ImportError:
+    from PySide2.QtWidgets import QWidget
+    import shiboken2 as shiboken
+    PYSIDE_VERSION = 2
 
 from maya_tools.maya_environment_utils import MAYA_MAIN_WINDOW
 from tests.validators import widget_validator
@@ -51,7 +57,7 @@ def launch_tool(
             "utils.maya.vray_material_tool",
             "VrayMaterialTool",
             use_workspace_control=True,
-            ui_script="from python.utils.maya import vray_material_tool; "
+            ui_script="from maya_tools import vray_material_tool; "
                      "vray_material_tool.VrayMaterialTool().restore()"
         )
 
@@ -111,7 +117,7 @@ def launch_tool(
 
             if debug:
                 print(f"\n  Checking candidate {id(widget)}:")
-                print(f"    isValid: {shiboken6.isValid(widget)}")
+                print(f"    isValid: {shiboken.isValid(widget)}")
                 print(f"    isVisible: {widget.isVisible()}")
                 print(f"    isHidden: {widget.isHidden()}")
                 print(f"    windowHandle: {widget.windowHandle()}")
@@ -175,7 +181,7 @@ def print_widget_diagnostics(widget: QWidget) -> None:
     # Basic validity
     print(f"Widget type: {type(widget)}")
     print(f"Widget class name: {type(widget).__name__}")
-    print(f"Shiboken valid: {shiboken6.isValid(widget)}")
+    print(f"Shiboken valid: {shiboken.isValid(widget)}")
     print(f"Widget visible: {widget.isVisible()}")
     print(f"Widget hidden: {widget.isHidden()}")
 
@@ -189,13 +195,13 @@ def print_widget_diagnostics(widget: QWidget) -> None:
         for i in range(layout.count()):
             item = layout.itemAt(i)
             child_widget = item.widget() if item else None
-            is_valid = shiboken6.isValid(child_widget) if child_widget else False
+            is_valid = shiboken.isValid(child_widget) if child_widget else False
             print(f"  [{i}] {child_widget} - Valid: {is_valid if child_widget else 'N/A'}")
 
     # Check all children recursively
     all_children = widget.findChildren(QWidget)
     print(f"\nTotal child widgets: {len(all_children)}")
-    print(f"Valid children: {sum(1 for w in all_children if shiboken6.isValid(w))}")
+    print(f"Valid children: {sum(1 for w in all_children if shiboken.isValid(w))}")
 
     # Object ID (to see if it's reusing same instance)
     print(f"\nPython object ID: {id(widget)}")

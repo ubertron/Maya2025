@@ -30,7 +30,7 @@ def get_python_platform() -> PythonPlatform:
     Finds the platform of Python as a string
     :return: str
     """
-    return PythonPlatform.get_by_value(Path(sys.executable).name.lower())
+    return PythonPlatform.get_by_value(Path(sys.executable).stem.lower())
 
 
 def is_using_maya_python() -> bool:

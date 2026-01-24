@@ -3,9 +3,14 @@ import os
 import sys
 from pathlib import Path
 
-from PySide6.QtWidgets import QApplication, QPushButton
-from PySide6.QtCore import QSize, Signal
-from PySide6.QtGui import QPixmap, QIcon
+try:
+    from PySide6.QtWidgets import QApplication, QPushButton
+    from PySide6.QtCore import QSize, Signal
+    from PySide6.QtGui import QPixmap, QIcon
+except ImportError:
+    from PySide2.QtWidgets import QApplication, QPushButton
+    from PySide2.QtCore import QSize, Signal
+    from PySide2.QtGui import QPixmap, QIcon
 from typing import Callable
 
 from core.core_paths import image_path
@@ -32,7 +37,7 @@ class IconButton(QPushButton):
         self.setToolTip(tool_tip if tool_tip else icon_path.stem)
         if icon_path.exists():
             self.setToolTip(tool_tip)
-            self.setIcon(QIcon(QPixmap(icon_path)))
+            self.setIcon(QIcon(QPixmap(str(icon_path))))
             self.setIconSize(QSize(size, size))
             self.setFixedSize(QSize(size + margin * 2, size + margin * 2))
         else:
@@ -44,7 +49,11 @@ class IconButton(QPushButton):
 
 
 if __name__ == "__main__":
-    from PySide6.QtWidgets import QApplication
+    try:
+        from PySide6.QtWidgets import QApplication
+    except ImportError:
+        from PySide2.QtWidgets import QApplication
+
     from core.core_paths import image_path
 
     import qdarktheme

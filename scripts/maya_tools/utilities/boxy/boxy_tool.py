@@ -1,9 +1,14 @@
 """UI for Boxy."""
 import contextlib
 
-from PySide6.QtCore import Qt, QSettings
-from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QCheckBox, QComboBox, QColorDialog, QDoubleSpinBox, QLineEdit, QSizePolicy
+try:
+    from PySide6.QtCore import Qt, QSettings
+    from PySide6.QtGui import QColor
+    from PySide6.QtWidgets import QCheckBox, QComboBox, QColorDialog, QDoubleSpinBox, QLineEdit, QSizePolicy
+except ImportError:
+    from PySide2.QtCore import Qt, QSettings
+    from PySide2.QtGui import QColor
+    from PySide2.QtWidgets import QCheckBox, QComboBox, QColorDialog, QDoubleSpinBox, QLineEdit, QSizePolicy
 
 from core import color_classes, DEVELOPER
 from core.color_classes import RGBColor
@@ -231,7 +236,11 @@ def launch():
     )
 
 if __name__ == "__main__":
-    from PySide6.QtWidgets import QApplication
+    try:
+        from PySide6.QtWidgets import QApplication
+    except ImportError:
+        from PySide2.QtWidgets import QApplication
+
     app = QApplication()
     window = BoxyTool()
     window.show()

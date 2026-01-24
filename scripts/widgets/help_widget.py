@@ -1,7 +1,10 @@
 """Widget to use for help documentation."""
 from __future__ import annotations
 
-from PySide6.QtWidgets import QLabel, QWidget
+try:
+    from PySide6.QtWidgets import QLabel, QWidget
+except ImportError:
+    from PySide2.QtWidgets import QLabel, QWidget
 
 from core.core_enums import Side
 from widgets.generic_widget import GenericWidget
@@ -46,7 +49,11 @@ class HelpWidget(GenericWidget):
 
 
 if __name__ == "__main__":
-    from PySide6.QtWidgets import QApplication
+    try:
+        from PySide6.QtWidgets import QApplication
+    except ImportError:
+        from PySide2.QtWidgets import QApplication
+
     app = QApplication()
     widget = HelpWidget(title="Test Help", parent_widget=None)
     widget.add_section(title="Test Section", body="This is the body text for the test section.")

@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
-import shiboken6
-from PySide6.QtWidgets import QWidget
+try:
+    from PySide6.QtWidgets import QWidget
+    import shiboken6 as shiboken
+except ImportError:
+    from PySide2.QtWidgets import QWidget
+    import shiboken2 as shiboken
 
 
 def validate_widget(widget: QWidget) -> tuple[bool, str]:
@@ -27,8 +31,8 @@ def validate_widget(widget: QWidget) -> tuple[bool, str]:
             print(f"Widget validation failed: {reason}")
     """
     # Check 1: Widget exists in C++ memory
-    if not shiboken6.isValid(widget):
-        return False, "shiboken2.isValid() = False (C++ object deleted)"
+    if not shiboken.isValid(widget):
+        return False, "shiboken.isValid() = False (C++ object deleted)"
 
     # Check 2: Widget has a valid layout with children (not a cleared zombie widget)
     layout = widget.layout()

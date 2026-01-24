@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import contextlib
-import shiboken6
 
-from PySide6.QtWidgets import QWidget, QPushButton, QLabel, QLayout, QSizePolicy, QSpacerItem, QGroupBox
-from PySide6.QtCore import Qt
+try:
+    from PySide6.QtWidgets import QWidget, QPushButton, QLabel, QLayout, QSizePolicy, QSpacerItem, QGroupBox
+    from PySide6.QtCore import Qt
+    import shiboken6 as shiboken
+except ImportError:
+    from PySide2.QtWidgets import QWidget, QPushButton, QLabel, QLayout, QSizePolicy, QSpacerItem, QGroupBox
+    from PySide2.QtCore import Qt
+    import shiboken2 as shiboken
 
 from core.core_enums import Alignment, Side
 from core.core_paths import image_path
@@ -134,7 +139,7 @@ class GenericWidget(QWidget):
         with contextlib.suppress(RuntimeError):
             from maya import OpenMayaUI
         control_ptr = OpenMayaUI.MQtUtil.findControl(self.workspace_control)
-        control_widget = shiboken6.wrapInstance(int(control_ptr), QWidget)
+        control_widget = shiboken.wrapInstance(int(control_ptr), QWidget)
         layout = control_widget.layout()
         if layout is not None and not layout.count():
             layout.addWidget(self)
@@ -202,7 +207,11 @@ widget.show_workspace_control(ui_script=ui_script)
 
 
 if __name__ == "__main__":
-    from PySide6.QtWidgets import QApplication
+    try:
+        from PySide6.QtWidgets import QApplication
+    except ImportError:
+        from PySide2.QtWidgets import QApplication
+
     app = QApplication()
     tool = ExampleGenericWidget()
     tool.show()

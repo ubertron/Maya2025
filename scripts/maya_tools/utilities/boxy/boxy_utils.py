@@ -150,7 +150,26 @@ class Boxy:
                 bounds = bounds_utils.get_bounds(geometry=self.component_selection, inherit_rotations=True)
                 LOGGER.debug(f"  get_bounds returned: {bounds}")
         else:
-            bounds = Bounds(size=self.size, position=self.position, rotation=self.rotation)
+            # Creating from scratch - calculate center position so pivot ends up at origin
+            # This ensures the transform is at (0, 0, 0) regardless of pivot setting
+            if self.pivot == Side.bottom:
+                center_position = Point3(0, self.size.y / 2, 0)
+            elif self.pivot == Side.top:
+                center_position = Point3(0, -self.size.y / 2, 0)
+            elif self.pivot == Side.center:
+                center_position = ZERO3
+            elif self.pivot == Side.left:
+                center_position = Point3(self.size.x / 2, 0, 0)
+            elif self.pivot == Side.right:
+                center_position = Point3(-self.size.x / 2, 0, 0)
+            elif self.pivot == Side.front:
+                center_position = Point3(0, 0, -self.size.z / 2)
+            elif self.pivot == Side.back:
+                center_position = Point3(0, 0, self.size.z / 2)
+            else:
+                center_position = ZERO3
+
+            bounds = Bounds(size=self.size, position=center_position, rotation=self.rotation)
         LOGGER.debug(f"  FINAL bounds for boxy_data:")
         LOGGER.debug(f"    size: {bounds.size}")
         LOGGER.debug(f"    position: {bounds.position}")
@@ -320,9 +339,9 @@ BOXY_PIVOT_ATTR = "boxyPivotType"
 def convert_boxy_to_poly_cube(node: str) -> str | BoxyException:
     """Convert a boxy node to a poly-cube.
 
-    Maya's polyCube only supports Y-axis baseline (bottom/center/top).
-    For other pivot types (left/right/front/back), the cube is created centered
-    and the pivot is repositioned using set_pivot().
+    Maya 2022 compatible - uses manual baseline positioning.
+    For rotated cubes, we must create the cube at the center position, then set rotation,
+    then reposition the pivot. The baseline parameter only works for unrotated cubes.
 
     The original pivot type is stored as a custom attribute for reliable conversion back.
     """
@@ -334,27 +353,18 @@ def convert_boxy_to_poly_cube(node: str) -> str | BoxyException:
     LOGGER.debug(f"  boxy_data.bounds.position = {boxy_data.bounds.position}")
     LOGGER.debug(f"  boxy_data.pivot_position = {boxy_data.pivot_position}")
 
-    # Maya polyCube only supports Y-axis baseline
-    baseline_map = {
-        Side.bottom: -1,
-        Side.center: 0,
-        Side.top: 1,
-    }
-
-    if boxy_data.pivot in baseline_map:
-        baseline = baseline_map[boxy_data.pivot]
-        position = boxy_data.pivot_position
-    else:
-        # For left/right/front/back, use center baseline and center position
-        baseline = 0
-        position = boxy_data.bounds.position
-
-    cube = geometry_utils.create_cube(size=boxy_data.bounds.size, position=position, baseline=baseline)
+    # Always create cube at center position with baseline=0.5 (center)
+    # This ensures rotation happens around the correct point
+    cube = geometry_utils.create_cube(
+        size=boxy_data.bounds.size,
+        position=boxy_data.bounds.position,
+        baseline=0.5
+    )
     node_utils.set_rotation(nodes=cube, value=boxy_data.bounds.rotation)
 
-    # For non-Y-axis pivots, reposition the pivot to match the original boxy pivot
-    if boxy_data.pivot not in baseline_map:
-        node_utils.set_pivot(nodes=cube, value=boxy_data.pivot_position, reset=True)
+    # Set pivot to match the original boxy pivot position
+    # This ensures the transform translation stays at the pivot location
+    node_utils.set_pivot(nodes=cube, value=boxy_data.pivot_position, reset=True)
 
     # Store the original pivot type as a custom attribute for reliable conversion back
     pivot_index = {
@@ -371,7 +381,11 @@ def convert_boxy_to_poly_cube(node: str) -> str | BoxyException:
 
 
 def convert_poly_cube_to_boxy(node: str, color: RGBColor = color_classes.DEEP_GREEN) -> str:
-    """Convert a poly-cube to a boxy node."""
+    """Convert a poly-cube to a boxy node.
+
+    Maya 2022 compatible - doesn't rely on heightBaseline attribute.
+    Uses custom boxyPivotType attribute if available, otherwise detects from geometry.
+    """
     LOGGER.info(f"=== convert_poly_cube_to_boxy({node}) ===")
     shape = node_utils.get_shape_from_transform(node=node)
     LOGGER.info(f"  shape: {shape}")
@@ -383,51 +397,41 @@ def convert_poly_cube_to_boxy(node: str, color: RGBColor = color_classes.DEEP_GR
         LOGGER.info(f"  No polyCube found in history - not a polyCube")
         return node
     LOGGER.info(f"  poly_cube_node: {poly_cube_node}, type: {cmds.objectType(poly_cube_node)}")
-    baseline = cmds.getAttr(f"{poly_cube_node}.heightBaseline")
-    LOGGER.info(f"  baseline: {baseline}")
-    if baseline in (-1.0, 0.0, 1.0):
-        # Try CuboidFinder first (handles rotated faces), fall back to BoundsFinder
-        bounds: Bounds = bounds_utils.get_cuboid(geometry=node)
-        LOGGER.info(f"  bounds from get_cuboid: {bounds}")
-        if not bounds:
-            bounds = bounds_utils.get_bounds(geometry=node, inherit_rotations=True)
-            LOGGER.info(f"  bounds from get_bounds: {bounds}")
 
-        # Check for stored pivot type attribute first (most reliable)
-        pivot = None
-        if cmds.attributeQuery(BOXY_PIVOT_ATTR, node=node, exists=True):
-            pivot_index = cmds.getAttr(f"{node}.{BOXY_PIVOT_ATTR}")
-            pivot_map = {
-                0: Side.bottom, 1: Side.center, 2: Side.top,
-                3: Side.left, 4: Side.right, 5: Side.front, 6: Side.back
-            }
-            pivot = pivot_map.get(pivot_index, Side.center)
-            LOGGER.info(f"  Found stored pivot attribute: index={pivot_index}, pivot={pivot.name}")
-        else:
-            # Fall back to detection from baseline/geometry
-            if baseline == -1.0:
-                pivot = Side.bottom
-            elif baseline == 1.0:
-                pivot = Side.top
-            else:
-                # baseline == 0.0 (center) - check pivot position for left/right/front/back
-                pivot = _detect_pivot_from_poly_cube(node, bounds)
-            LOGGER.info(f"  Detected pivot from geometry: {pivot.name}")
+    # Get bounds (try CuboidFinder first for rotated faces, fall back to BoundsFinder)
+    bounds: Bounds = bounds_utils.get_cuboid(geometry=node)
+    LOGGER.info(f"  bounds from get_cuboid: {bounds}")
+    if not bounds:
+        bounds = bounds_utils.get_bounds(geometry=node, inherit_rotations=True)
+        LOGGER.info(f"  bounds from get_bounds: {bounds}")
 
-        LOGGER.info(f"  final pivot: {pivot}")
-        boxy_data = BoxyData(
-            bounds=bounds,
-            pivot=pivot,
-            color=color,
-            name="boxy"
-        )
-        LOGGER.info(f"  building boxy with data: {boxy_data.dictionary}")
-        boxy_node = build(boxy_data=boxy_data)
-        LOGGER.info(f"  built boxy_node: {boxy_node}")
-        cmds.delete(node)
-        return boxy_node
-    LOGGER.info(f"  baseline {baseline} not in valid range, returning original node")
-    return node
+    # Check for stored pivot type attribute first (most reliable)
+    pivot = None
+    if cmds.attributeQuery(BOXY_PIVOT_ATTR, node=node, exists=True):
+        pivot_index = cmds.getAttr(f"{node}.{BOXY_PIVOT_ATTR}")
+        pivot_map = {
+            0: Side.bottom, 1: Side.center, 2: Side.top,
+            3: Side.left, 4: Side.right, 5: Side.front, 6: Side.back
+        }
+        pivot = pivot_map.get(pivot_index, Side.center)
+        LOGGER.info(f"  Found stored pivot attribute: index={pivot_index}, pivot={pivot.name}")
+    else:
+        # Detect pivot from geometry (pivot position relative to bounds center)
+        pivot = _detect_pivot_from_poly_cube(node, bounds)
+        LOGGER.info(f"  Detected pivot from geometry: {pivot.name}")
+
+    LOGGER.info(f"  final pivot: {pivot}")
+    boxy_data = BoxyData(
+        bounds=bounds,
+        pivot=pivot,
+        color=color,
+        name="boxy"
+    )
+    LOGGER.info(f"  building boxy with data: {boxy_data.dictionary}")
+    boxy_node = build(boxy_data=boxy_data)
+    LOGGER.info(f"  built boxy_node: {boxy_node}")
+    cmds.delete(node)
+    return boxy_node
 
 
 def _detect_pivot_from_poly_cube(node: str, bounds: Bounds) -> Side:

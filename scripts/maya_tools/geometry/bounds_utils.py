@@ -375,24 +375,21 @@ class CuboidFinder:
         Returns:
             True if valid cuboid and calculations succeeded.
         """
-        # Calculate center (midpoint of bounding box, not centroid)
-        min_x = min(v.x for v in vertex_positions)
-        max_x = max(v.x for v in vertex_positions)
-        min_y = min(v.y for v in vertex_positions)
-        max_y = max(v.y for v in vertex_positions)
-        min_z = min(v.z for v in vertex_positions)
-        max_z = max(v.z for v in vertex_positions)
+        # Calculate center as centroid (average of all 8 vertices)
+        # For rotated cuboids, this is correct - the midpoint of axis-aligned bbox is wrong!
+        sum_x = sum(v.x for v in vertex_positions)
+        sum_y = sum(v.y for v in vertex_positions)
+        sum_z = sum(v.z for v in vertex_positions)
+        num_verts = len(vertex_positions)
         self.center = Point3(
-            round((min_x + max_x) / 2, self.DECIMAL_PLACES),
-            round((min_y + max_y) / 2, self.DECIMAL_PLACES),
-            round((min_z + max_z) / 2, self.DECIMAL_PLACES)
+            round(sum_x / num_verts, self.DECIMAL_PLACES),
+            round(sum_y / num_verts, self.DECIMAL_PLACES),
+            round(sum_z / num_verts, self.DECIMAL_PLACES)
         )
         LOGGER.debug(f"DEBUG CuboidFinder._validate_and_calculate:")
-        LOGGER.debug(f"  vertex_positions count: {len(vertex_positions)}")
+        LOGGER.debug(f"  vertex_positions count: {num_verts}")
         LOGGER.debug(f"  vertex_positions: {vertex_positions}")
-        LOGGER.debug(f"  min: ({min_x}, {min_y}, {min_z})")
-        LOGGER.debug(f"  max: ({max_x}, {max_y}, {max_z})")
-        LOGGER.debug(f"  center: {self.center}")
+        LOGGER.debug(f"  center (centroid): {self.center}")
 
         # Collect all valid rotation results from corners
         valid_results = []
@@ -443,14 +440,30 @@ class CuboidFinder:
         size_y = axis_assignment['y']['length']
         size_z = axis_assignment['z']['length']
 
-        # If using transform rotation that differs from calculated rotation by 90° in Y,
-        # swap X and Z dimensions (because the local axes are swapped)
+        # If using transform rotation that differs from calculated rotation by 90°,
+        # swap dimensions (because the local axes are swapped)
         if calculated_rotation_for_match is not None:
+            x_diff = normalize_angle(rotation.x - calculated_rotation_for_match.x)
             y_diff = normalize_angle(rotation.y - calculated_rotation_for_match.y)
-            LOGGER.debug(f"  Y rotation diff: {y_diff}° (transform: {rotation.y}, calculated: {calculated_rotation_for_match.y})")
+            z_diff = normalize_angle(rotation.z - calculated_rotation_for_match.z)
+
+            LOGGER.debug(f"  Rotation diffs: X={x_diff}°, Y={y_diff}°, Z={z_diff}°")
+            LOGGER.debug(f"    (transform: {rotation}, calculated: {calculated_rotation_for_match})")
+
+            # 90° Y-rotation difference: swap X and Z
             if abs(abs(y_diff) - 90) < 1.0:
                 LOGGER.debug(f"  Swapping X and Z dimensions due to 90° Y rotation difference")
                 size_x, size_z = size_z, size_x
+
+            # 90° Z-rotation difference: swap X and Y
+            if abs(abs(z_diff) - 90) < 1.0:
+                LOGGER.debug(f"  Swapping X and Y dimensions due to 90° Z rotation difference")
+                size_x, size_y = size_y, size_x
+
+            # 90° X-rotation difference: swap Y and Z
+            if abs(abs(x_diff) - 90) < 1.0:
+                LOGGER.debug(f"  Swapping Y and Z dimensions due to 90° X rotation difference")
+                size_y, size_z = size_z, size_y
 
         self.size = Point3(
             round(size_x, self.DECIMAL_PLACES),
