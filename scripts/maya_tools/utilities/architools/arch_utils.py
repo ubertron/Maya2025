@@ -4,31 +4,43 @@ import logging
 
 from maya import cmds
 
+import maya_tools.utilities.boxy.boxy_data
 from core import color_classes
 from core.core_enums import CustomType, Side
 from core.logging_utils import get_logger
 from core.point_classes import Point3
 from maya_tools import node_utils
 from maya_tools.utilities.boxy import boxy_utils
+from core.bounds import Bounds
 
-
-LOGGER = get_logger(name=__name__, level=logging.INFO)
+LOGGER = get_logger(name=__name__, level=logging.DEBUG)
 
 
 def convert_node_to_boxy(node: str, delete: bool = False) -> any:
     """Convert a geometry node to a boxy node."""
     try:
-        data = boxy.BoxyData(
-            position=node_utils.get_translation(node=node),
-            rotation=node_utils.get_rotation(node=node),
+        # Calculate the bounds from the object data as the actual size is bigger than the reference size
+        # TODO: position issue band-aid - remove when fixed
+        position = node_utils.get_translation(node, absolute=True)
+        bounds = Bounds(
             size=Point3(*cmds.getAttr(f"{node}.size")[0]),
-            pivot=Side.bottom,
-            color=color_classes.DEEP_GREEN,
-            name="boxy"
+            position=position,
+            rotation=node_utils.get_rotation(node=node)
         )
+        data = maya_tools.utilities.boxy.boxy_data.BoxyData(
+            bounds=bounds,
+            pivot_side=Side.bottom,
+            color=color_classes.DEEP_GREEN,
+            name='boxy'
+        )
+        LOGGER.debug(f">>> convert_node_to_boxy - data: {data}")
         if delete:
             cmds.delete(node)
-        return boxy.build(boxy_data=data)
+        result = boxy_utils.build(boxy_data=data)
+
+        # TODO: position issue band-aid - remove when fixed
+        node_utils.set_translation(nodes=result, value=position)
+        return result
     except Exception as e:
         LOGGER.info(f"Could not create boxy for {node}: {e}")
         return False

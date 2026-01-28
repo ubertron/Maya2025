@@ -16,7 +16,8 @@ _DEBUG_MODE = False
 
 def setup_maya():
     """Function sets up Maya session."""
-    from maya_tools import shelf_utils, hotkey_manager
+    from maya_tools.ui import shelf_utils
+    from maya_tools.ui import hotkey_manager
     # from startup.robotools_hotkeys import RobotoolsHotkeys
     if _DEBUG_MODE:
         cmds.scriptEditorInfo(clearHistory=True)    # Debug only: comment out to view full startup log

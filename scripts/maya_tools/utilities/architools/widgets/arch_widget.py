@@ -1,15 +1,21 @@
 from __future__ import annotations
 
+import logging
+
 from maya import cmds
 from PySide6.QtCore import QSettings
 
 from core import DEVELOPER
 from core.core_enums import CustomType, Axis
+from core import logging_utils
 from widgets.form_widget import FormWidget
 from widgets.generic_widget import GenericWidget
 from maya_tools import node_utils
 from maya_tools.utilities.architools import arch_utils, TOOL_NAME
 from maya_tools.utilities.boxy import boxy_utils
+
+
+LOGGER = logging_utils.get_logger(name=__name__, level=logging.DEBUG)
 
 
 class ArchWidget(GenericWidget):
@@ -57,6 +63,7 @@ class ArchWidget(GenericWidget):
 
     def create_button_clicked(self):
         """Event for create button."""
+        LOGGER.debug(f"arch_widget.py > create_button_clicked()")
         new_objects = []
         try:
             for node in arch_utils.get_custom_type(custom_type=self.custom_type, selected=True):
@@ -77,7 +84,7 @@ class ArchWidget(GenericWidget):
         for x in node_utils.get_selected_transforms(full_path=True):
             if node_utils.is_custom_type(node=x, custom_type=self.custom_type):
                 temp_boxy = arch_utils.convert_node_to_boxy(node=x, delete=True)
-                boxy.edit_boxy_orientation(node=temp_boxy, rotation=-90, axis=Axis.y)
+                boxy_utils.edit_boxy_orientation(node=temp_boxy, rotation=-90, axis=Axis.y)
                 self.convert_boxy()
             elif node_utils.is_boxy(x):
-                boxy.edit_boxy_orientation(node=x, rotation=-90, axis=Axis.y)
+                boxy_utils.edit_boxy_orientation(node=x, rotation=-90, axis=Axis.y)

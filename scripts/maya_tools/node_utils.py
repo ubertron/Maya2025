@@ -172,7 +172,7 @@ def get_all_root_transforms() -> list[str]:
 
 def get_base_center(node: str) -> Point3:
     """Works out size respecting rotations."""
-    return get_min_max_points(node=node, inherit_rotations=True).base_center
+    return get_min_max_points(node=node, inherit_rotations=True).bottom
 
 
 def get_min_max_points(node: Optional[str] = None, format_results: bool = False,
@@ -208,8 +208,8 @@ def get_min_max_points(node: Optional[str] = None, format_results: bool = False,
     return min_max_points
 
 
-def get_bounds_from_selection(selection_list: list | None = None) -> list[str]:
-    """Get bounds from selection accounting for locators."""
+def get_min_max_from_selection(selection_list: list | None = None) -> Point3Pair:
+    """Get minimum and maximum points from selection accounting for locators."""
     selection = cmds.ls(*selection_list) if selection_list else cmds.ls(selection=True)
     locators = [x for x in selection if is_locator(x)]
     for locator in locators:
@@ -638,9 +638,8 @@ def is_custom_type(node: str, custom_type: CustomType) -> bool:
 
 
 def is_custom_type_node(node: str) -> bool:
-    """Is node a custom type node (boxyShape)."""
-    shape = get_shape_from_transform(node=node)
-    return shape is not None and cmds.objectType(shape) == "boxyShape"
+    """Is node a custom type node."""
+    return attribute_utils.has_attribute(node=node, attr="custom_type")
 
 
 def is_geometry(node: str) -> bool:

@@ -6,8 +6,9 @@ PROJECT_ROOT: Path = Path(__file__).parents[2]
 SCRIPTS_DIR = Path(__file__).parent.parent  # scripts directory
 MAYA_REQUIREMENTS: Path = PROJECT_ROOT / 'maya_requirements.txt'
 AUTODESK_DIR = Path('/Applications/Autodesk')
-CONFIG_DIR = SCRIPTS_DIR / 'config'
-HOTKEYS_CONFIG: Path = CONFIG_DIR / 'hotkeys.json'
+CONFIG_DIR = PROJECT_ROOT / 'config'
+HOTKEYS_DATA: Path = CONFIG_DIR / 'hotkeys.json'
+SHELF_DATA: Path = CONFIG_DIR / 'shelves.json'
 IMAGE_DIR: Path = PROJECT_ROOT / 'images'
 ICON_DIR: Path = IMAGE_DIR / 'icons'
 MAYA_CONFIG: Path = CONFIG_DIR / 'maya_config.ini'
@@ -15,8 +16,6 @@ MODELS_DIR: Path = PROJECT_ROOT / 'models'
 PRESETS_DIR: Path = PROJECT_ROOT.joinpath('scripts/startup/presets')
 REQUIREMENTS: Path = PROJECT_ROOT / 'requirements.txt'
 SCENES_DIR: Path = PROJECT_ROOT / 'scenes'
-SHELVES_CONFIG: Path = CONFIG_DIR / 'shelves.json'
-SHELF_DATA: Path = SHELVES_CONFIG  # Alias for backwards compatibility
 SITE_PACKAGES: Path = PROJECT_ROOT / 'site-packages'
 SCRIPT_ICON: Path = ICON_DIR / 'python.png'  # Default icon for script shelf buttons
 PLUGINS_DIR: Path = PROJECT_ROOT / 'plugins'
@@ -41,3 +40,4 @@ def query_path(path_constant: Path):
 if __name__ == '__main__':
     print(image_path("mirror_geometry.png"))
     print(image_path("mirror_geometry_.png"))
+    print(CONFIG_DIR, CONFIG_DIR.exists())

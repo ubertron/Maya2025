@@ -1,6 +1,5 @@
 import logging
 
-from collections import OrderedDict
 from maya import cmds, mel
 from typing import Optional
 
@@ -9,9 +8,9 @@ from core.math_utils import get_midpoint_from_point_list
 from core.point_classes import Point3, Point3Pair
 from maya_tools.display_utils import info_message, warning_message
 from maya_tools.maya_enums import ObjectType
-from maya_tools.node_utils import get_translation, get_type_from_transform, get_root_transform, is_object_type, \
+from maya_tools.node_utils import get_translation, get_root_transform, is_object_type, \
     get_child_geometry, get_selected_geometry, get_selected_joints, get_selected_transforms, get_immediate_children, \
-    get_all_child_transforms, get_hierarchy_depth, get_hierarchy_path, is_locator
+    get_hierarchy_depth, is_locator
 from maya_tools.helpers import get_selected_locators, create_locator, get_midpoint_from_transform
 from maya_tools.layer_utils import is_display_layer, create_display_layer, add_to_layer
 from maya_tools.scene_utils import get_scene_path

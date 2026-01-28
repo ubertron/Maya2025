@@ -2,97 +2,28 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 from enum import Enum, auto
 
 from maya import cmds
 
 from core import color_classes, math_utils
 from core.color_classes import RGBColor
-from core.core_enums import ComponentType, CustomType, DataType, Side, Axis
+from core.core_enums import Side, Axis
 from core.logging_utils import get_logger
 from core.point_classes import Point3, ZERO3, Point3Pair
-from maya_tools import attribute_utils, node_utils
-from maya_tools.geometry.bounds import Bounds
+from maya_tools import node_utils
+from core.bounds import Bounds
 from maya_tools.geometry import geometry_utils, component_utils, bounds_utils
-from maya_tools.maya_enums import ObjectType
 from maya_tools.node_utils import get_translation
 from maya_tools.utilities.boxy import BoxyException
 from maya_tools.utilities.boxy import boxy_node
+from maya_tools.utilities.boxy.boxy_data import BoxyData
 from tests.validators import boxy_validator
 
 DEBUG_MODE = False
 DEFAULT_SIZE: float = 100.0
-LOGGER = get_logger(__name__, level=logging.DEBUG)
-
-
-@dataclass
-class BoxyData:
-    bounds: Bounds
-    pivot: Side
-    color: RGBColor
-    name: str
-
-    def __repr__(self) -> str:
-        return f"BoxyData(bounds={self.bounds}, pivot={self.pivot}, color={self.color}, name={self.name}"
-
-    @property
-    def dictionary(self) -> dict:
-        return {
-            "position": self.bounds.position.values,
-            "pivot position": self.pivot_position.values,
-            "rotation": self.bounds.rotation.values,
-            "size": self.bounds.size.values,
-            "pivot": self.pivot.name,
-            "color": self.color.values,
-            "name": self.name,
-        }
-
-    @property
-    def center(self) -> Point3:
-        """Center of the Boxy node."""
-        return self.bounds.position
-
-    @property
-    def pivot_position(self) -> Point3:
-        """Position of pivot, based on pivot side."""
-        LOGGER.debug(f"  BoxyData.pivot_position calculation:")
-        LOGGER.debug(f"    self.pivot: {self.pivot}")
-        LOGGER.debug(f"    self.bounds.position: {self.bounds.position}")
-        LOGGER.debug(f"    self.bounds.size: {self.bounds.size}")
-        LOGGER.debug(f"    self.bounds.rotation: {self.bounds.rotation}")
-        if self.pivot == Side.bottom:
-            result = self.bounds.base_center
-            LOGGER.debug(f"    returning base_center: {result}")
-            return result
-        elif self.pivot == Side.top:
-            result = self.bounds.top_center
-            LOGGER.debug(f"    returning top_center: {result}")
-            return result
-        elif self.pivot == Side.center:
-            result = self.bounds.position
-            LOGGER.debug(f"    returning center position: {result}")
-            return result
-        else:
-            # Calculate pivot position for left/right/front/back
-            from core.math_utils import apply_euler_xyz_rotation
-            offsets = {
-                Side.left: Point3(-self.bounds.size.x / 2.0, 0.0, 0.0),
-                Side.right: Point3(self.bounds.size.x / 2.0, 0.0, 0.0),
-                Side.front: Point3(0.0, 0.0, self.bounds.size.z / 2.0),
-                Side.back: Point3(0.0, 0.0, -self.bounds.size.z / 2.0),
-            }
-            local_offset = offsets[self.pivot]
-            LOGGER.debug(f"    local_offset (before rotation): {local_offset}")
-            rotated_offset = apply_euler_xyz_rotation(local_offset, self.bounds.rotation)
-            LOGGER.debug(f"    rotated_offset (after rotation): {rotated_offset}")
-            result = Point3(
-                self.bounds.position.x + rotated_offset.x,
-                self.bounds.position.y + rotated_offset.y,
-                self.bounds.position.z + rotated_offset.z
-            )
-            LOGGER.debug(f"    returning calculated pivot_position: {result}")
-            return result
+LOGGER = get_logger(__name__, level=logging.INFO)
+BOXY_PIVOT_ATTR = "boxyPivotType"
 
 
 class ElementType(Enum):
@@ -116,7 +47,7 @@ class Boxy:
         self.size = Point3(*[DEFAULT_SIZE for _ in range(3)])
         self.position = ZERO3
         self.rotation = ZERO3
-        self.pivot = Side.center
+        self.pivot_side = Side.center
         self.color = color
         self.original_selection = cmds.ls(selection=True, flatten=True)
         self._init_selection()
@@ -149,48 +80,33 @@ class Boxy:
             if not bounds:
                 bounds = bounds_utils.get_bounds(geometry=self.component_selection, inherit_rotations=True)
                 LOGGER.debug(f"  get_bounds returned: {bounds}")
+            # Calculate translation (pivot position) from bounds center
+            translation = bounds.get_pivot(self.pivot_side)
+            size = bounds.size
+            rotation = bounds.rotation
         else:
-            # Creating from scratch - calculate center position so pivot ends up at origin
-            # This ensures the transform is at (0, 0, 0) regardless of pivot setting
-            if self.pivot == Side.bottom:
-                center_position = Point3(0, self.size.y / 2, 0)
-            elif self.pivot == Side.top:
-                center_position = Point3(0, -self.size.y / 2, 0)
-            elif self.pivot == Side.center:
-                center_position = ZERO3
-            elif self.pivot == Side.left:
-                center_position = Point3(self.size.x / 2, 0, 0)
-            elif self.pivot == Side.right:
-                center_position = Point3(-self.size.x / 2, 0, 0)
-            elif self.pivot == Side.front:
-                center_position = Point3(0, 0, -self.size.z / 2)
-            elif self.pivot == Side.back:
-                center_position = Point3(0, 0, self.size.z / 2)
-            else:
-                center_position = ZERO3
-
-            bounds = Bounds(size=self.size, position=center_position, rotation=self.rotation)
-        LOGGER.debug(f"  FINAL bounds for boxy_data:")
-        LOGGER.debug(f"    size: {bounds.size}")
-        LOGGER.debug(f"    position: {bounds.position}")
-        LOGGER.debug(f"    rotation: {bounds.rotation}")
+            # Creating from scratch
+            translation = self.position
+            size = self.size
+            rotation = self.rotation
+        LOGGER.debug(f"  FINAL values for boxy_data:")
+        LOGGER.debug(f"    size: {size}")
+        LOGGER.debug(f"    translation: {translation}")
+        LOGGER.debug(f"    rotation: {rotation}")
         boxy_data = BoxyData(
-            bounds=bounds,
-            pivot=self.pivot,
+            size=size,
+            translation=translation,
+            rotation=rotation,
+            pivot_side=self.pivot_side,
             color=self.color,
-            name="boxy"
         )
         return build(boxy_data=boxy_data)
 
     def _evaluate_for_multiple_selection(self):
         """Set up boxy attributes for multiple nodes."""
-        bounds = node_utils.get_bounds_from_selection(self.selection)
-        self.position = {
-            Side.bottom: bounds.base_center,
-            Side.center: bounds.center,
-            Side.top: bounds.top_center,
-        }[self.pivot]
-        self.size = bounds.size
+        min_max: Point3Pair = node_utils.get_min_max_from_selection(self.selection)
+        self.position = min_max.get_pivot(self.pivot_side)
+        self.size = min_max.size
 
     def _evaluate_for_single_selection(self, inherit_rotations: bool):
         """Set up boxy attributes for a single node."""
@@ -202,21 +118,18 @@ class Boxy:
             # get the bounds of locators/verts/cvs
             points = node_utils.get_points_from_selection()
             y_offset = -self.rotation_y if inherit_rotations else 0.0
-            bounds = math_utils.get_minimum_maximum_from_points(points=points, y_offset=y_offset, pivot=position)
-            self.size = bounds.size
-            position_pre_rotation = get_position_from_bounds(bounds=bounds, pivot=self.pivot)
+            min_max: Point3Pair = math_utils.get_minimum_maximum_from_points(
+                points=points, y_offset=y_offset, pivot=position)
+            self.size = min_max.size
+            position_pre_rotation = get_position_from_bounds(bounds=min_max, pivot=self.pivot_side)
             self.position = math_utils.rotate_point_about_y(
                 point=position_pre_rotation, y_rotation=-y_offset, pivot=position)
         else:
             # get the bounds from the transform
-            bounds = node_utils.get_min_max_points(node=self.selected_transforms[0],
-                                                   inherit_rotations=inherit_rotations)
-            self.size = bounds.size
-            self.position = {
-                Side.bottom: bounds.base_center,
-                Side.center: bounds.center,
-                Side.top: bounds.top_center,
-            }[self.pivot]
+            min_max: Point3Pair = node_utils.get_min_max_points(
+                node=self.selected_transforms[0], inherit_rotations=inherit_rotations)
+            self.size = min_max.size
+            self.position = min_max.get_pivot(self.pivot_side)
 
     def _init_selection(self):
         """Initialize the selection. Convert any edges/faces to vertices."""
@@ -275,7 +188,7 @@ class Boxy:
         valid_pivots = (Side.bottom, Side.center, Side.top, Side.left, Side.right, Side.front, Side.back)
         assert pivot in valid_pivots, f"Invalid pivot position: {pivot.name}"
         exceptions = []
-        self.pivot = pivot
+        self.pivot_side = pivot
         self.size = Point3(default_size, default_size, default_size)
         if ElementType.boxy in self.element_type_dict:
             for boxy_item in self.element_type_dict[ElementType.boxy]:
@@ -324,16 +237,13 @@ class Boxy:
                 elif node_utils.is_nurbs_curve(x):
                     self.append_dict_list(_dict=element_type_dict, key=ElementType.curve, value=x)
                 else:
-                    append_dict_list(_dict=element_type_dict, key=ElementType.invalid, value=x)
+                    self.append_dict_list(_dict=element_type_dict, key=ElementType.invalid, value=x)
         self._element_type_dict = element_type_dict
 
 
 def build(boxy_data: BoxyData) -> str:
     """Build boxy object using custom DAG node."""
     return boxy_node.build(boxy_data=boxy_data)
-
-
-BOXY_PIVOT_ATTR = "boxyPivotType"
 
 
 def convert_boxy_to_poly_cube(node: str) -> str | BoxyException:
@@ -349,32 +259,32 @@ def convert_boxy_to_poly_cube(node: str) -> str | BoxyException:
     if isinstance(result, BoxyException):
         return result
     boxy_data: BoxyData = get_boxy_data(node=result)
-    LOGGER.debug(f"convert_boxy_to_poly_cube: boxy_data.pivot = {boxy_data.pivot}")
-    LOGGER.debug(f"  boxy_data.bounds.position = {boxy_data.bounds.position}")
-    LOGGER.debug(f"  boxy_data.pivot_position = {boxy_data.pivot_position}")
+    LOGGER.debug(f"convert_boxy_to_poly_cube: boxy_data.pivot = {boxy_data.pivot_side}")
+    LOGGER.debug(f"  boxy_data.translation: {boxy_data.translation}")
+    LOGGER.debug(f"  boxy_data.center: {boxy_data.center}")
 
     # Always create cube at center position with baseline=0.5 (center)
     # This ensures rotation happens around the correct point
     cube = geometry_utils.create_cube(
-        size=boxy_data.bounds.size,
-        position=boxy_data.bounds.position,
+        size=boxy_data.size,
+        position=boxy_data.center,
         baseline=0.5
     )
-    node_utils.set_rotation(nodes=cube, value=boxy_data.bounds.rotation)
+    node_utils.set_rotation(nodes=cube, value=boxy_data.rotation)
 
-    # Set pivot to match the original boxy pivot position
+    # Set pivot to match the original boxy pivot position (translation)
     # This ensures the transform translation stays at the pivot location
-    node_utils.set_pivot(nodes=cube, value=boxy_data.pivot_position, reset=True)
+    node_utils.set_pivot(nodes=cube, value=boxy_data.translation, reset=True)
 
     # Store the original pivot type as a custom attribute for reliable conversion back
     pivot_index = {
         Side.bottom: 0, Side.center: 1, Side.top: 2,
         Side.left: 3, Side.right: 4, Side.front: 5, Side.back: 6
-    }[boxy_data.pivot]
+    }[boxy_data.pivot_side]
     if not cmds.attributeQuery(BOXY_PIVOT_ATTR, node=cube, exists=True):
         cmds.addAttr(cube, longName=BOXY_PIVOT_ATTR, attributeType="short", defaultValue=pivot_index)
     cmds.setAttr(f"{cube}.{BOXY_PIVOT_ATTR}", pivot_index)
-    LOGGER.debug(f"  Stored pivot type {boxy_data.pivot.name} (index {pivot_index}) on {cube}.{BOXY_PIVOT_ATTR}")
+    LOGGER.debug(f"  Stored pivot type {boxy_data.pivot_side.name} (index {pivot_index}) on {cube}.{BOXY_PIVOT_ATTR}")
 
     cmds.delete(node)
     return cube
@@ -406,7 +316,6 @@ def convert_poly_cube_to_boxy(node: str, color: RGBColor = color_classes.DEEP_GR
         LOGGER.info(f"  bounds from get_bounds: {bounds}")
 
     # Check for stored pivot type attribute first (most reliable)
-    pivot = None
     if cmds.attributeQuery(BOXY_PIVOT_ATTR, node=node, exists=True):
         pivot_index = cmds.getAttr(f"{node}.{BOXY_PIVOT_ATTR}")
         pivot_map = {
@@ -421,17 +330,20 @@ def convert_poly_cube_to_boxy(node: str, color: RGBColor = color_classes.DEEP_GR
         LOGGER.info(f"  Detected pivot from geometry: {pivot.name}")
 
     LOGGER.info(f"  final pivot: {pivot}")
+    # Calculate translation (pivot position) from bounds center
+    translation = bounds.get_pivot(pivot)
     boxy_data = BoxyData(
-        bounds=bounds,
-        pivot=pivot,
+        size=bounds.size,
+        translation=translation,
+        rotation=bounds.rotation,
+        pivot_side=pivot,
         color=color,
-        name="boxy"
     )
     LOGGER.info(f"  building boxy with data: {boxy_data.dictionary}")
-    boxy_node = build(boxy_data=boxy_data)
-    LOGGER.info(f"  built boxy_node: {boxy_node}")
+    _boxy_node = build(boxy_data=boxy_data)
+    LOGGER.info(f"  built boxy_node: {_boxy_node}")
     cmds.delete(node)
-    return boxy_node
+    return _boxy_node
 
 
 def _detect_pivot_from_poly_cube(node: str, bounds: Bounds) -> Side:
@@ -515,11 +427,11 @@ def edit_boxy_orientation(node: str, rotation: float, axis: Axis) -> str | False
     }[axis]
     boxy_data.size = new_size
     if axis is Axis.x:
-        boxy_data.rotation.x = boxy_data.rotation.x + rotation
+        boxy_data.rotation = Point3(boxy_data.rotation.x + rotation, boxy_data.rotation.y, boxy_data.rotation.z)
     elif axis is Axis.y:
-        boxy_data.rotation.y = boxy_data.rotation.y + rotation
+        boxy_data.rotation = Point3(boxy_data.rotation.x, boxy_data.rotation.y + rotation, boxy_data.rotation.z)
     else:
-        boxy_data.rotation.z = boxy_data.rotation.z + rotation
+        boxy_data.rotation = Point3(boxy_data.rotation.x, boxy_data.rotation.y, boxy_data.rotation.z + rotation)
     cmds.delete(node)
     return build(boxy_data=boxy_data)
 
@@ -532,11 +444,9 @@ def get_boxy_data(node: str) -> BoxyData:
     if not shape or cmds.objectType(shape) != "boxyShape":
         raise ValueError(f"Node '{node}' is not a valid boxy node")
 
-    # Get transform values
+    # Get transform position (this is where the pivot is)
     transform_pos = node_utils.get_translation(node)
-    transform_scale = node_utils.get_scale(node)
     LOGGER.debug(f"  transform position: {transform_pos}")
-    LOGGER.debug(f"  transform scale: {transform_scale}")
 
     # Get color from shape attributes
     color = RGBColor(
@@ -552,65 +462,22 @@ def get_boxy_data(node: str) -> BoxyData:
         cmds.getAttr(f"{shape}.sizeZ")
     )
     LOGGER.debug(f"  size (from shape attributes): {size}")
-    # NOTE: This size does NOT account for transform scale!
-    # If transform has scale, the world-space size would be:
-    scaled_size = Point3(
-        size.x * transform_scale.x,
-        size.y * transform_scale.y,
-        size.z * transform_scale.z
-    )
-    LOGGER.debug(f"  scaled_size (world-space size): {scaled_size}")
-    if transform_scale.x != 1.0 or transform_scale.y != 1.0 or transform_scale.z != 1.0:
-        LOGGER.debug(f"  NOTE: Transform has non-identity scale. Using scaled_size for center calculation.")
 
     pivot = get_boxy_pivot(node=node)
     LOGGER.debug(f"  pivot: {pivot}")
 
-    # Calculate center from transform position based on pivot
-    # Offset from pivot to center in local space
     rotation = node_utils.get_rotation(node)
     LOGGER.debug(f"  transform rotation: {rotation}")
 
-    # Use SCALED size for pivot offset calculation since we need world-space center position
-    # The offset from pivot to center is in local space, but scale affects this offset in world space
-    pivot_offsets = {
-        Side.bottom: Point3(0.0, scaled_size.y / 2.0, 0.0),    # pivot at bottom, center is up
-        Side.top: Point3(0.0, -scaled_size.y / 2.0, 0.0),      # pivot at top, center is down
-        Side.left: Point3(scaled_size.x / 2.0, 0.0, 0.0),      # pivot at left (min X), center is +X
-        Side.right: Point3(-scaled_size.x / 2.0, 0.0, 0.0),    # pivot at right (max X), center is -X
-        Side.front: Point3(0.0, 0.0, -scaled_size.z / 2.0),    # pivot at front (max Z), center is -Z
-        Side.back: Point3(0.0, 0.0, scaled_size.z / 2.0),      # pivot at back (min Z), center is +Z
-        Side.center: Point3(0.0, 0.0, 0.0),
-    }
-    local_offset = pivot_offsets.get(pivot, Point3(0.0, 0.0, 0.0))
-    LOGGER.debug(f"  local_offset (from pivot to center, using scaled size): {local_offset}")
-
-    if local_offset.x != 0.0 or local_offset.y != 0.0 or local_offset.z != 0.0:
-        rotated_offset = math_utils.apply_euler_xyz_rotation(local_offset, rotation)
-        LOGGER.debug(f"  rotated_offset (after applying rotation): {rotated_offset}")
-        center = Point3(
-            transform_pos.x + rotated_offset.x,
-            transform_pos.y + rotated_offset.y,
-            transform_pos.z + rotated_offset.z
-        )
-        LOGGER.debug(f"  center calculated as: transform_pos + rotated_offset = {center}")
-    else:
-        # Transform is at center
-        center = transform_pos
-        LOGGER.debug(f"  center = transform_pos (pivot is center): {center}")
-
-    bounds = Bounds(size=size, position=center, rotation=rotation)
-    LOGGER.debug(f"  center: {center}")
-    LOGGER.debug(f"  bounds.size: {bounds.size}")
-    LOGGER.debug(f"  bounds.rotation: {bounds.rotation}")
-
     boxy_data = BoxyData(
-        bounds=bounds,
-        pivot=pivot,
+        size=size,
+        translation=transform_pos,
+        rotation=rotation,
+        pivot_side=pivot,
         color=color,
-        name=node
     )
-    LOGGER.debug(f"  boxy_data.pivot_position: {boxy_data.pivot_position}")
+    LOGGER.debug(f"  boxy_data.translation: {boxy_data.translation}")
+    LOGGER.debug(f"  boxy_data.center: {boxy_data.center}")
     LOGGER.debug(f"=== end get_boxy_data ===")
     return boxy_data
 
@@ -640,9 +507,9 @@ def get_position_from_bounds(bounds: Point3Pair, pivot: Side) -> Point3:
     assert pivot in valid_pivots, f"Invalid pivot: {pivot}"
 
     if pivot == Side.bottom:
-        return bounds.base_center
+        return bounds.bottom
     elif pivot == Side.top:
-        return bounds.top_center
+        return bounds.top
     elif pivot == Side.left:
         return Point3(bounds.minimum.x, bounds.center.y, bounds.center.z)
     elif pivot == Side.right:
@@ -658,6 +525,10 @@ def get_position_from_bounds(bounds: Point3Pair, pivot: Side) -> Point3:
 def get_selected_boxy_nodes() -> list[str]:
     """Get a list of all boxy nodes selected."""
     return [x for x in node_utils.get_selected_transforms(full_path=True) if node_utils.is_boxy(x)]
+
+
+def get_selected_boxy_positions() -> list[Point3]:
+    return [node_utils.get_translation(x, absolute=True) for x in get_selected_boxy_nodes()]
 
 
 def find_poly_cube_in_history(node: str) -> str | None:
@@ -735,30 +606,36 @@ def rebuild(node: str, pivot: Side | None = None, color: RGBColor | None = None)
     # Check if scale is non-identity - if so, bake it into the size
     # This prevents position jumping when changing pivot on scaled transforms
     has_scale = scale.x != 1.0 or scale.y != 1.0 or scale.z != 1.0
+    size = bounds.size
     if has_scale:
         LOGGER.debug(f"  Non-identity scale detected, baking scale into size")
-        scaled_size = Point3(
+        size = Point3(
             bounds.size.x * scale.x,
             bounds.size.y * scale.y,
             bounds.size.z * scale.z
         )
-        bounds = Bounds(size=scaled_size, position=bounds.position, rotation=bounds.rotation)
-        LOGGER.debug(f"  Bounds after baking scale:")
-        LOGGER.debug(f"    size (scaled): {bounds.size}")
+        # Recreate bounds with scaled size for pivot calculation
+        bounds = Bounds(size=size, position=bounds.position, rotation=bounds.rotation)
+        LOGGER.debug(f"  Size after baking scale: {size}")
         # Scale will not be restored since it's now baked into size
         scale = Point3(1.0, 1.0, 1.0)
 
+    # Calculate translation (pivot position) from bounds center
+    translation = bounds.get_pivot(pivot)
+    LOGGER.debug(f"  Translation (pivot position): {translation}")
+
     cmds.delete(node)
     boxy_data = BoxyData(
-        bounds=bounds,
-        pivot=pivot,
+        size=size,
+        translation=translation,
+        rotation=bounds.rotation,
+        pivot_side=pivot,
         color=color if color else color_classes.DEEP_GREEN,
-        name=node
     )
     LOGGER.debug(f"  BoxyData created:")
-    LOGGER.debug(f"    bounds.position: {boxy_data.bounds.position}")
-    LOGGER.debug(f"    pivot: {boxy_data.pivot}")
-    LOGGER.debug(f"    pivot_position (where transform will be placed): {boxy_data.pivot_position}")
+    LOGGER.debug(f"    size: {boxy_data.size}")
+    LOGGER.debug(f"    translation: {boxy_data.translation}")
+    LOGGER.debug(f"    pivot: {boxy_data.pivot_side}")
 
     boxy_object = build(boxy_data=boxy_data)
     # Restore scale after building (will be identity if scale was baked)

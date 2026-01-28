@@ -772,15 +772,13 @@ def _ensure_plugin_loaded():
         cmds.loadPlugin(plugin_path)
 
 
-def build(boxy_data) -> str:
+def build(boxy_data, name: str = "boxy") -> str:
     """
     Build a custom boxy node from BoxyData.
 
-    This function mirrors the signature of boxy_utils.build() but creates
-    a custom MPxLocatorNode instead of a polyCube-based boxy.
-
     Args:
-        boxy_data: BoxyData instance with bounds, pivot, color, and name
+        boxy_data: BoxyData instance with size, translation, rotation, pivot_side, color
+        name: Name for the created node (default: "boxy")
 
     Returns:
         str: The name of the created transform node
@@ -790,19 +788,17 @@ def build(boxy_data) -> str:
     from core.core_enums import Side
     from core.logging_utils import get_logger
 
-    LOGGER = get_logger(__name__, level=logging.DEBUG)
+    LOGGER = get_logger(__name__, level=logging.INFO)
     LOGGER.debug(f"=== boxy_node.build() ===")
-    LOGGER.debug(f"  boxy_data.name: {boxy_data.name}")
-    LOGGER.debug(f"  boxy_data.pivot: {boxy_data.pivot}")
-    LOGGER.debug(f"  boxy_data.bounds.position (center): {boxy_data.bounds.position}")
-    LOGGER.debug(f"  boxy_data.bounds.size: {boxy_data.bounds.size}")
-    LOGGER.debug(f"  boxy_data.bounds.rotation: {boxy_data.bounds.rotation}")
-    LOGGER.debug(f"  boxy_data.pivot_position: {boxy_data.pivot_position}")
+    LOGGER.debug(f"  name: {name}")
+    LOGGER.debug(f"  boxy_data.pivot_side: {boxy_data.pivot_side}")
+    LOGGER.debug(f"  boxy_data.size: {boxy_data.size}")
+    LOGGER.debug(f"  boxy_data.translation: {boxy_data.translation}")
+    LOGGER.debug(f"  boxy_data.rotation: {boxy_data.rotation}")
 
     _ensure_plugin_loaded()
 
     # Create the shape node
-    name = boxy_data.name or "boxy"
     shape = cmds.createNode('boxyShape', name=f'{name}Shape')
     transform = cmds.listRelatives(shape, parent=True)[0]
     transform = cmds.rename(transform, name)
@@ -810,40 +806,36 @@ def build(boxy_data) -> str:
     # Get the updated shape name after transform rename (Maya renames shape too)
     shape = cmds.listRelatives(transform, shapes=True)[0]
 
-    # Set size from bounds
-    size = boxy_data.bounds.size
-    cmds.setAttr(f'{shape}.sizeX', size.x)
-    cmds.setAttr(f'{shape}.sizeY', size.y)
-    cmds.setAttr(f'{shape}.sizeZ', size.z)
+    # Set size
+    cmds.setAttr(f'{shape}.sizeX', boxy_data.size.x)
+    cmds.setAttr(f'{shape}.sizeY', boxy_data.size.y)
+    cmds.setAttr(f'{shape}.sizeZ', boxy_data.size.z)
 
     # Set pivot
     pivot_map = {
         Side.bottom: 0, Side.center: 1, Side.top: 2,
         Side.left: 3, Side.right: 4, Side.front: 5, Side.back: 6
     }
-    pivot_value = pivot_map.get(boxy_data.pivot, 1)
+    pivot_value = pivot_map.get(boxy_data.pivot_side, 1)
     cmds.setAttr(f'{shape}.previousPivot', pivot_value)
     cmds.setAttr(f'{shape}.pivot', pivot_value)
 
     # Set wireframe color (normalize 0-255 to 0-1)
-    color = boxy_data.color
-    r, g, b = color.normalized
+    r, g, b = boxy_data.color.normalized
     cmds.setAttr(f'{shape}.wireframeColorR', r)
     cmds.setAttr(f'{shape}.wireframeColorG', g)
     cmds.setAttr(f'{shape}.wireframeColorB', b)
 
-    # Set position from pivot_position
-    pos = boxy_data.pivot_position
-    LOGGER.debug(f"  Setting transform position to pivot_position: {pos}")
-    cmds.setAttr(f'{transform}.translateX', pos.x)
-    cmds.setAttr(f'{transform}.translateY', pos.y)
-    cmds.setAttr(f'{transform}.translateZ', pos.z)
+    # Set translation (where the pivot is placed)
+    LOGGER.debug(f"  Setting transform position to: {boxy_data.translation}")
+    cmds.setAttr(f'{transform}.translateX', boxy_data.translation.x)
+    cmds.setAttr(f'{transform}.translateY', boxy_data.translation.y)
+    cmds.setAttr(f'{transform}.translateZ', boxy_data.translation.z)
 
-    # Set rotation from bounds
-    rot = boxy_data.bounds.rotation
-    cmds.setAttr(f'{transform}.rotateX', rot.x)
-    cmds.setAttr(f'{transform}.rotateY', rot.y)
-    cmds.setAttr(f'{transform}.rotateZ', rot.z)
+    # Set rotation
+    cmds.setAttr(f'{transform}.rotateX', boxy_data.rotation.x)
+    cmds.setAttr(f'{transform}.rotateY', boxy_data.rotation.y)
+    cmds.setAttr(f'{transform}.rotateZ', boxy_data.rotation.z)
 
     # Enable selection handle
     cmds.toggle(transform, selectHandle=True)

@@ -28,7 +28,9 @@ class LogHandler(ABC):
 class StreamHandler(LogHandler):
     """Stream handler."""
 
-    def __init__(self, level: Enum=logging.DEBUG, log_format: str="%(levelname)s: %(message)s"):
+    def __init__(self, level: Enum=logging.DEBUG, log_format: str | None = None):
+        if log_format is None:
+            log_format = "%(levelname)s: %(funcName)s: %(message)s" if level <= logging.DEBUG else "%(levelname)s: %(message)s"
         super().__init__(level=level, log_format=log_format)
 
     @property
@@ -55,8 +57,10 @@ class FileHandler(LogHandler):
 
 
 def get_logger(name: str | None = None, level=logging.INFO,
-               handlers: Sequence[LogHandler] | LogHandler = StreamHandler()) -> logging.Logger:
+               handlers: Sequence[LogHandler] | LogHandler | None = None) -> logging.Logger:
     """Create a logger."""
+    if handlers is None:
+        handlers = StreamHandler(level=level)
     logger = logging.getLogger(name if name else __name__)
     logger.setLevel(level)
     logger.propagate = False

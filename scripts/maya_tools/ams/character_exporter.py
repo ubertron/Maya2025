@@ -16,7 +16,6 @@ from maya_tools.ams.project_definition import ProjectDefinition
 from maya_tools.ams.resource import Resource
 from maya_tools.ams.validation.test_result import TestResult
 from maya_tools.ams.validation.asset_test import AssetTest
-from maya_tools.maya_enums import LayerDisplayType
 from widgets.clickable_label import ClickableLabel
 from widgets.generic_widget import GenericWidget
 from widgets.grid_widget import GridWidget
@@ -60,6 +59,7 @@ class CharacterExporter(GenericWidget):
     def characters_folder(self) -> Path or None:
         if self.project:
             return self.project.source_art_root.joinpath('Characters')
+        return None
 
     @property
     def character_asset_folders(self) -> list[str]:
@@ -323,7 +323,7 @@ class CharacterExportWidget(GenericWidget):
 
     def set_info(self, text: str):
         """
-        Conenience method to set info
+        Convenience method to set info
         :param text:
         """
         self.parent_widget.parent_widget.info = text

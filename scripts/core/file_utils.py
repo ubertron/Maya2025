@@ -5,7 +5,7 @@ import logging
 import subprocess
 from pathlib import Path
 from core import environment_utils
-from core.core_paths import SHELVES_CONFIG
+from core.core_paths import SHELF_DATA
 from core import logging_utils
 
 
@@ -14,7 +14,7 @@ LOGGER = logging.getLogger(__name__)
 
 def edit_shelves_data():
     """Edit the Maya shelves in IDE."""
-    open_in_pycharm(path=SHELVES_CONFIG)
+    open_in_pycharm(path=SHELF_DATA)
 
 
 def open_in_vs_code(path: Path):

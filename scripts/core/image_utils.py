@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import math
 
 from pathlib import Path
@@ -68,9 +70,11 @@ def resize_image(path: Path, output_path: Path, resolution: tuple[int, int], sho
         resized_img.show()
 
 
-def tint_image(path: Path, output_path: Path, rgb: tuple[int, int, int]):
+def tint_image(path: Path, output_path: Path, rgb: tuple[int, int, int] | RGBColor, show: bool = False) -> None:
     """Tint an image preserving the transparency."""
     try:
+        if isinstance(rgb, RGBColor):
+            rgb = rgb.values
         img = Image.open(path).convert("RGBA")
         pixels = img.load()
         width, height = img.size
@@ -92,7 +96,7 @@ if __name__ == "__main__":
     # my_path = image_path("open.png")
     # resize_image(path=image_path("maya_large.png"), output_path=IMAGE_DIR / "maya.png", width=128, height=128, show=True)
     # tint_image(path=image_path("browse_og.png"), output_path=IMAGE_DIR / "browse.png", rgb=color_classes.LIGHT_GREY)
-    tint_image(path=image_path("arch.png"), output_path=image_path("arch.png"), rgb=color_classes.LIGHT_GREY)
+    tint_image(path=image_path("toggle_layer_shading.png"), output_path=image_path("toggle_layer_shading.png"), rgb=color_classes.LIGHT_GREY)
     # tint_image(path=Path("/Users/andrewdavis/Dropbox/Technology/Python3/Projects/Maya2025/images/icons/eye.png"), output_path=ICON_DIR / "format.png", rgb=color_classes.LIGHT_GREY)
     # tint_image(path=image_path("fingerprint.png"), output_path=ICON_DIR / "uuid.png", rgb=color_classes.LIGHT_GREY)
     # create_checker(path=Path("/Users/andrewdavis/Dropbox/Projects/Unity/Archive/SeventhStreet/Assets/Textures/checker.png"))

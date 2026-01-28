@@ -9,7 +9,7 @@ from maya import cmds
 
 from core import logging_utils
 from core.core_enums import Language, ModifierKey
-from core.core_paths import CONFIG_DIR, HOTKEYS_CONFIG, STARTUP_DIR
+from core.core_paths import CONFIG_DIR, HOTKEYS_DATA, STARTUP_DIR
 
 LOGGER = logging_utils.get_logger(name=__name__, level=logging.DEBUG)
 
@@ -126,11 +126,11 @@ class HotkeyManager:
 
     def _load_config(self) -> None:
         """Load config."""
-        if HOTKEYS_CONFIG.exists():
-            with HOTKEYS_CONFIG.open(mode="r") as f:
+        if HOTKEYS_DATA.exists():
+            with HOTKEYS_DATA.open(mode="r") as f:
                 data = json.load(f)
         else:
-            LOGGER.exception(f"{HOTKEYS_CONFIG} does not exist")
+            LOGGER.exception(f"{HOTKEYS_DATA} does not exist")
         for name, hotkey_data in data.items():
             hotkeys = []
             for hotkey, keys in hotkey_data.items():

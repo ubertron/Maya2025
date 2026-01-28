@@ -1,12 +1,19 @@
 from __future__ import annotations
 
+import logging
+
 from PySide6.QtWidgets import QDoubleSpinBox
 
 from maya import cmds
 
 from core.core_enums import CustomType
+from core.logging_utils import get_logger
+from maya_tools import node_utils
 from maya_tools.utilities.architools import window_creator
 from maya_tools.utilities.architools.widgets.arch_widget import ArchWidget
+from maya_tools.utilities.boxy import boxy_utils
+
+LOGGER = get_logger(__name__, level=logging.DEBUG)
 
 
 class WindowWidget(ArchWidget):
@@ -56,6 +63,10 @@ class WindowWidget(ArchWidget):
 
     def convert_boxy(self) -> str | False:
         try:
+            position = None
+            boxy_node = next((iter(boxy_utils.get_selected_boxy_nodes())), None)
+            if boxy_node:
+                position = node_utils.get_translation(boxy_node, absolute=True)
             creator = window_creator.WindowCreator(
                 sill_depth=self.sill_depth,
                 sill_thickness=self.sill_thickness,
@@ -63,7 +74,10 @@ class WindowWidget(ArchWidget):
                 skirt=self.skirt,
                 auto_texture=self.parent_widget.auto_texture
             )
-            return creator.create()
-        except ValueError as e:
+            result = creator.create()
+            LOGGER.debug(f">>> setting position to {position}")
+            node_utils.set_translation(result, value=position, absolute=True)
+            return result
+        except (ValueError, AssertionError) as e:
             LOGGER.debug(e)
             return False

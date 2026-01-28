@@ -11,7 +11,7 @@
                 "icon": "refresh_grey.png",
                 "language": "python",
                 "tool_tip": "Rebuild the shelves",
-                "script": "from maya_tools import shelf_utils\nshelf_utils.ShelfManager().build()"
+                "script": "from maya_tools.ui import shelf_utils\nshelf_utils.ShelfManager().build()"
             },
             "Path Tool": {
                 "icon": "path_tool.png",
@@ -35,7 +35,7 @@
                 "icon": "arch.png",
                 "language": "python",
                 "tool_tip": "Architools",
-                "script": "from maya_tools.utilities.architools import UI_SCRIPT, architools\narchitools.Architools().show_workspace_control(ui_script=UI_SCRIPT)"
+                "script": "from maya_tools.utilities.architools import architools\narchitools.launch()"
             },
             "Create Vertex Locators": {
                 "icon": "locators.png",
@@ -108,6 +108,12 @@
                 "language": "python",
                 "tool_tip": "Toggle camera visibility",
                 "script": "from maya_tools import display_utils\ndisplay_utils.toggle_camera_visibility()"
+            },
+            "Toggle Lights": {
+                "icon": "toggle_lights.png",
+                "language": "python",
+                "tool_tip": "Toggle lights visibility",
+                "script": "from maya_tools import display_utils\ndisplay_utils.toggle_lights_visibility()"
             },
             "Toggle Layer Shading": {
                 "icon": "toggle_layer_shading.png",
@@ -263,7 +269,7 @@
                 "icon": "refresh_grey.png",
                 "language": "python",
                 "tool_tip": "Rebuild the shelves",
-                "script": "from maya_tools import shelf_utils\nshelf_utils.ShelfManager().build()"
+                "script": "from maya_tools.ui import shelf_utils\nshelf_utils.ShelfManager().build()"
             },
             "Test2": {
                 "icon": "test.png",

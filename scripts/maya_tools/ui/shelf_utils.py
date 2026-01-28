@@ -18,7 +18,7 @@ from shiboken6 import wrapInstance
 from core.version_info import VersionInfo
 from core.core_enums import Language
 from core import core_paths; reload(core_paths)
-from core.core_paths import image_path, CONFIG_DIR
+from core.core_paths import image_path, SHELF_DATA
 from core import logging_utils, DEVELOPER
 from maya_tools import display_utils
 
@@ -34,7 +34,6 @@ VERSION = (
                 info="New version which builds the shelf from a json data file")
 )
 LOGGER = logging_utils.get_logger(__name__, level=logging.DEBUG)
-SHELF_DATA = CONFIG_DIR / "shelves.json"
 SHELF_LAYOUT = mel.eval("$tmpVar=$gShelfTopLevel")
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 
 from dataclasses import dataclass
+from core.core_enums import Side
 
 
 @dataclass
@@ -122,7 +123,11 @@ class Point3Pair:
         )
 
     @property
-    def base_center(self) -> Point3:
+    def back(self) -> Point3:
+        return Point3(self.center.x, self.center.y, self.minimum.z)
+
+    @property
+    def bottom(self) -> Point3:
         return Point3(self.center.x, self.minimum.y, self.center.z)
 
     @property
@@ -150,6 +155,14 @@ class Point3Pair:
         return sum(self.a.values[i] * self.b.values[i] for i in range(3))
 
     @property
+    def front(self) -> Point3:
+        return Point3(self.center.x, self.center.y, self.maximum.z)
+
+    @property
+    def left(self) -> Point3:
+        return Point3(self.minimum.x, self.center.y, self.center.z)
+
+    @property
     def length(self) -> float:
         delta_x = self.b.x - self.a.x
         delta_y = self.b.y - self.a.y
@@ -171,16 +184,34 @@ class Point3Pair:
         return Point3(*[min(self.a.values[i], self.b.values[i]) for i in range(3)])
 
     @property
+    def right(self) -> Point3:
+        return Point3(self.maximum.x, self.center.y, self.center.z)
+
+    @property
     def size(self) -> float:
         return Point3(*[abs(x) for x in self.delta.values])
 
     @property
     def sum(self) -> Point3:
+        """Sum of the two vectors."""
         return Point3(self.a.x + self.b.x, self.a.y + self.b.y, self.a.z + self.b.z)
 
     @property
-    def top_center(self) -> Point3:
+    def top(self) -> Point3:
+        """Position of the top pivot."""
         return Point3(self.center.x, self.maximum.y, self.center.z)
+
+    def get_pivot(self, side: Side) -> Point3:
+        """Position of the pivot given by side."""
+        return {
+            Side.bottom: self.bottom,
+            Side.center: self.center,
+            Side.top: self.top,
+            Side.left: self.left,
+            Side.right: self.right,
+            Side.front: self.front,
+            Side.back: self.back,
+        }[side]
 
     def interpolate(self, value: float):
         """

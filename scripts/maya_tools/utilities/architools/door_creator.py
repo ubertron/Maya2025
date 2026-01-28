@@ -32,6 +32,7 @@ class DoorCreator(ArchCreator):
         self.door_depth = door_depth
         self.hinge_side = hinge_side
         self.opening_side = opening_side
+        LOGGER.debug(f"frame: {frame}, skirt: {skirt}, door_depth: {door_depth}, hinge_side: {hinge_side}")
 
     def initialize_arch_data(self):
         """Initialize the data from selected boxy."""

@@ -49,7 +49,7 @@ from maya_tools.utilities.architools.data.arch_data import ArchData
 from maya_tools.utilities.architools import arch_utils
 from maya_tools.utilities.boxy import boxy_utils
 
-LOGGER = get_logger(name=__name__, level=logging.INFO)
+LOGGER = get_logger(name=__name__, level=logging.DEBUG)
 
 
 class ArchCreator(ABC):
@@ -60,15 +60,19 @@ class ArchCreator(ABC):
         self.auto_texture = auto_texture
         self.data = None
         self.boxy_node = None
+        LOGGER.debug(">>> LIONS: ArchCreator")
         self._get_boxy_node()
 
     def _get_boxy_node(self):
         """Get the boxy data."""
-        selection = arch_utils.get_custom_type(custom_type=CustomType.boxy, selected=True)
-        assert len(selection) == 1, "Select a boxy item"
-        self.boxy_node = boxy.Boxy().create(pivot=Side.bottom, inherit_rotations=True)[0]
-        LOGGER.debug(f"Size: {self.size}")
-        LOGGER.debug(f"Rotation: {self.rotation}")
+        LOGGER.debug(">>> CATS: _get_boxy_node")
+        selection = boxy_utils.get_selected_boxy_nodes()
+        assert len(selection) == 1, "Select a single boxy item"
+        LOGGER.debug(">>> STINKY FLIES: _get_boxy_node")
+        boxy_nodes, exceptions = boxy_utils.Boxy().create(pivot=Side.bottom)
+        LOGGER.debug(f">>> RESULT: {boxy_nodes} {exceptions}")
+        self.boxy_node = boxy_nodes[0]
+        LOGGER.debug(f">>> APES: boxy node: {self.boxy_node}")
 
     @property
     def data(self) -> ArchData | None:

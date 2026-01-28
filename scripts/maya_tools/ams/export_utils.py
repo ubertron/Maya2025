@@ -6,10 +6,8 @@ from typing import Optional
 
 from maya_tools.maya_enums import LayerDisplayType
 from maya_tools.ams.asset import Asset
-from maya_tools.ams.validation.test_result import TestResult
 from maya_tools.ams.asset_metadata import AssetMetadata, load_asset_metadata
 from maya_tools.ams.rig_utils import generate_rig_hash
-from maya_tools.ams.validation.tests import asset_structure
 from maya_tools.ams.resource import Resource
 from maya_tools.animation_utils import get_keyframe_range
 from maya_tools.io.fbx_utils import export_fbx

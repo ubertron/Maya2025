@@ -6,11 +6,12 @@ from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QDoubleSpinBox, QTabWidget
 
 from core import DEVELOPER
-from core.core_enums import Axis, Side
+from core.core_enums import Axis, ComponentType, Side
 from core.point_classes import Point3Pair, X_AXIS, Z_AXIS
 from core.core_paths import image_path
 from core.version_info import VersionInfo, Versions
 from maya_tools.utilities.architools import TOOL_NAME
+from maya_tools import maya_widget_utils
 from maya_tools.utilities.architools.widgets.door_widget import DoorWidget
 from maya_tools.utilities.architools.widgets.staircase_widget import StaircaseWidget
 from maya_tools.utilities.architools.widgets.window_widget import WindowWidget
@@ -53,8 +54,8 @@ class Architools(GenericWidget):
             label="Auto-texture", tool_tip="Apply checker texture")
         self.tab_widget: QTabWidget = self.add_widget(QTabWidget())
         self.tab_widget.addTab(DoorWidget(parent=self), DoorWidget().windowTitle())
-        self.tab_widget.addTab(StaircaseWidget(parent=self), StaircaseWidget().windowTitle())
         self.tab_widget.addTab(WindowWidget(parent=self), WindowWidget().windowTitle())
+        self.tab_widget.addTab(StaircaseWidget(parent=self), StaircaseWidget().windowTitle())
         self.info_label = self.add_label("Ready...", side=Side.left)
         self._setup_ui()
 
@@ -94,13 +95,33 @@ class Architools(GenericWidget):
 
         Compare the min-max vector of the bounds to the X/Z axes to determine orientation
         """
-        for x in boxy.Boxy().create(
-                pivot=Side.bottom, inherit_rotations=True, default_size=self.default_size):
-            bounds: Point3Pair = node_utils.get_min_max_points(node=x, inherit_rotations=True)
-            dot_x = abs(Point3Pair(bounds.min_max_vector, X_AXIS).dot_product)
-            dot_z = abs(Point3Pair(bounds.min_max_vector, Z_AXIS).dot_product)
-            if dot_z > dot_x:
-                boxy.edit_boxy_orientation(node=x, rotation=-90, axis=Axis.y)
+        selection = cmds.ls(selection=True)
+        creator: boxy_utils.Boxy = boxy_utils.Boxy()
+        boxy_items, exceptions = creator.create(
+            pivot=Side.bottom, default_size=self.default_size)
+        if len(exceptions) > 0:
+            exception_string = ", ".join(ex.message for ex in exceptions)
+            self.info = f"Issues found: {exception_string}"
+        elif len(boxy_items) == 0:
+            self.info = "No boxy objects created."
+            cmds.select(selection)
+        else:
+            if len(boxy_items) == 1:
+                self.info = f"Boxy object created: {boxy_items[0]}"
+            else:
+                self.info = f"Boxy objects created: {', '.join(boxy_items)}"
+            cmds.select(boxy_items)
+            node_utils.set_component_mode(ComponentType.object)
+
+
+def launch():
+    """Launch Boxy Tool."""
+    maya_widget_utils.launch_tool(
+        tool_module="maya_tools.utilities.architools.architools",
+        tool_class="Architools",
+        use_workspace_control=True,
+        ui_script="from maya_tools.utilities.architools import architools; architools.Architools().restore()",
+    )
 
 
 if __name__ == "__main__":

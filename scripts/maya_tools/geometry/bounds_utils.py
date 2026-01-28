@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import logging
 from itertools import combinations
-from os import abort
 
 import math
 from maya import cmds
@@ -15,14 +14,14 @@ from core.math_utils import (
     radians_to_degrees, are_orthogonal, points_match, normalize_angle
 )
 from core.point_classes import Point3, Point3Pair, X_AXIS, Y_AXIS, Z_AXIS, ZERO3
-from maya_tools import attribute_utils, node_utils
-from maya_tools.geometry.bounds import Bounds
+from maya_tools import node_utils
+from core.bounds import Bounds
 from maya_tools.geometry.component_utils import (
     Component, EdgeComponent, FaceComponent, LocatorComponent, VertexComponent,
     components_from_selection
 )
 
-LOGGER = logging_utils.get_logger(name=__name__, level=logging.DEBUG)
+LOGGER = logging_utils.get_logger(name=__name__, level=logging.INFO)
 
 
 class CuboidFinder:
@@ -865,8 +864,10 @@ def get_cuboid(
 
     if isinstance(geometry, str):
         if node_utils.is_boxy(node=geometry):
+            # For boxy nodes, get center from BoxyData
             from maya_tools.utilities.boxy.boxy_utils import get_boxy_data
-            return get_boxy_data(node=geometry).bounds
+            boxy_data = get_boxy_data(node=geometry)
+            return Bounds(size=boxy_data.size, position=boxy_data.center, rotation=boxy_data.rotation)
         transform = geometry
     elif isinstance(geometry, list) and geometry:
         # Check if list contains strings - convert via components_from_selection

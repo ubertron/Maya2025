@@ -5,10 +5,8 @@ import shutil
 
 from maya import cmds
 from pathlib import Path
-from PySide6.QtWidgets import QLabel
 
 from ams import ams_paths
-from ams.asset import Asset
 from core.core_enums import AssetType, Side
 from core.core_paths import image_path
 from core import date_time_utils, file_utils
@@ -18,8 +16,6 @@ from maya_tools.io import fbx_utils, fbx_presets
 from widgets.button_bar import ButtonBar
 from widgets.form_widget import FormWidget
 from widgets.generic_widget import GenericWidget
-from widgets.group_box import GroupBox
-
 
 TOOL_NAME = "Exporter"
 UI_SCRIPT = "from ams import exporter; exporter.Exporter().restore()"

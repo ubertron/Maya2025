@@ -49,7 +49,7 @@ class StaircaseCreator(ArchCreator):
     def data(self, value: StaircaseData):
         self._data = value
 
-    def create(self):
+    def create(self) -> str:
         """Create the staircase geometry."""
         # 1) initialize arch data
         self.initialize_arch_data()

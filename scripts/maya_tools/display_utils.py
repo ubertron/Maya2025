@@ -167,6 +167,17 @@ def toggle_camera_visibility():
         cmds.warning("No active model panel found.")
 
 
+def toggle_lights_visibility():
+    """Toggle cameras in current viewport."""
+    current_panel = cmds.getPanel(withFocus=True)
+    if current_panel in cmds.getPanel(type='modelPanel'):
+        visible = cmds.modelEditor(current_panel, query=True, lights=True)
+        cmds.modelEditor(current_panel, edit=True, lights=not visible)
+        info_message(f"Lights visibility switched to {not visible}")
+    else:
+        cmds.warning("No active model panel found.")
+
+
 def toggle_shade_selected(warning=False):
     """Toggle between shade selected and shade all."""
     current_panel = cmds.getPanel(withFocus=True)

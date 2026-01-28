@@ -60,7 +60,7 @@ class BoxyTool(GenericWidget):
         grid: GridWidget = self.add_group_box(GridWidget(title="Boxy Parameters", spacing=8))
         grid.add_label(text="Pivot Position", row=0, column=0, alignment=left_alignment)
         self.pivot_combo_box: QComboBox = grid.add_combo_box(items=["bottom", "center", "top", "left", "right", "front", "back"], default_index=1, row=0, column=1)
-        grid.add_label(text="Wirefame Color", row=1, column=0, alignment=left_alignment)
+        grid.add_label(text="Wireframe Color", row=1, column=0, alignment=left_alignment)
         self.color_picker: ClickableLabel = grid.add_widget(widget=ClickableLabel(""), row=1, column=1)
         grid.add_label(text="Default Size", row=2, column=0, alignment=left_alignment)
         self.size_field: QDoubleSpinBox = grid.add_widget(widget=QDoubleSpinBox(), row=2, column=1)
@@ -167,20 +167,20 @@ class BoxyTool(GenericWidget):
         """Event for create button."""
         selection = cmds.ls(selection=True)
         creator = boxy_utils.Boxy(color=self.wireframe_color)
-        boxy_items, exceptions = creator.create(
+        boxy_nodes, exceptions = creator.create(
             pivot=self.pivot, inherit_rotations=self.inherit_rotations, default_size=self.default_size)
         if len(exceptions) > 0:
             exception_string = ", ".join(ex.message for ex in exceptions)
             self.info = f"Issues found: {exception_string}"
-        elif len(boxy_items) == 0:
+        elif len(boxy_nodes) == 0:
             self.info = "No boxy objects created."
             cmds.select(selection)
         else:
-            if len(boxy_items) == 1:
-                self.info = f"Boxy object created: {boxy_items[0]}"
+            if len(boxy_nodes) == 1:
+                self.info = f"Boxy object created: {boxy_nodes[0]}"
             else:
-                self.info = f"Boxy objects created: {', '.join(boxy_items)}"
-            cmds.select(boxy_items)
+                self.info = f"Boxy objects created: {', '.join(boxy_nodes)}"
+            cmds.select(boxy_nodes)
             node_utils.set_component_mode(ComponentType.object)
 
     def help_button_clicked(self):
