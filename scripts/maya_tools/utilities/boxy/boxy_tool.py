@@ -15,7 +15,6 @@ from core.color_classes import RGBColor
 from core.core_enums import ComponentType, Side, SurfaceDirection
 from core.core_paths import image_path
 from core.version_info import VersionInfo, Versions
-from maya_tools import maya_widget_utils, node_utils
 from maya_tools.utilities.boxy import boxy_utils
 from widgets.button_bar import ButtonBar
 from widgets.clickable_label import ClickableLabel
@@ -25,6 +24,7 @@ from widgets.image_label import ImageLabel
 
 with contextlib.suppress(ImportError):
     from maya import cmds
+    from maya_tools import maya_widget_utils, node_utils
     from maya_tools.geometry import face_finder
     from maya_tools.geometry.component_utils import FaceComponent, components_from_selection
     from maya_tools.utilities.boxy import BoxyException
@@ -37,12 +37,15 @@ VERSIONS = Versions(
         VersionInfo(name=TOOL_NAME, version="1.0.2", codename="newt", info="Issue fixed for nodes with children"),
         VersionInfo(name=TOOL_NAME, version="1.0.3", codename="panther", info="Button functions added"),
         VersionInfo(name=TOOL_NAME, version="1.0.4", codename="dumb animals", info="Boxy v2 node implemented"),
+        VersionInfo(name=TOOL_NAME, version="1.0.5", codename="treefingers", info="inherit scale"),
     ]
 )
 
 class BoxyTool(GenericWidget):
     """Boxy UI Class."""
     color_key = "color"
+    inherit_rotation_key = "inherit_rotation"
+    inherit_scale_key = "inherit_scale"
     pivot_index = "pivot_index"
     size_key = "size"
 
@@ -65,7 +68,9 @@ class BoxyTool(GenericWidget):
         grid.add_label(text="Default Size", row=2, column=0, alignment=left_alignment)
         self.size_field: QDoubleSpinBox = grid.add_widget(widget=QDoubleSpinBox(), row=2, column=1)
         grid.add_label(text="Inherit Rotation", row=3, column=0, alignment=left_alignment)
-        self.rotation_check_box = grid.add_widget(widget=QCheckBox(), row=3, column=1)
+        self.rotation_check_box: QCheckBox = grid.add_widget(widget=QCheckBox(), row=3, column=1)
+        grid.add_label(text="Inherit Scale", row=4, column=0, alignment=left_alignment)
+        self.scale_check_box: QCheckBox = grid.add_widget(widget=QCheckBox(), row=4, column=1)
         self.info_label = self.add_label(text="Ready...", side=Side.left)
         default_color = self.settings.value(self.color_key, color_classes.DEEP_GREEN.values)
         self.wireframe_color = RGBColor(*default_color)
@@ -101,7 +106,10 @@ class BoxyTool(GenericWidget):
     def _setup_ui(self):
         """Set up ui."""
         self.color_picker.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
-        self.rotation_check_box.setChecked(True)
+        self.rotation_check_box.setChecked(self.settings.value(self.inherit_rotation_key, True))
+        self.rotation_check_box.stateChanged.connect(self.rotation_check_box_state_changed)
+        self.scale_check_box.setChecked(self.settings.value(self.inherit_scale_key, True))
+        self.scale_check_box.stateChanged.connect(self.scale_check_box_state_changed)
         self.color_picker.clicked.connect(self.color_picker_clicked)
         self.pivot_combo_box.setCurrentIndex(self.settings.value(self.pivot_index, 1))
         self.pivot_combo_box.currentIndexChanged.connect(self.pivot_combo_box_index_changed)
@@ -128,9 +136,14 @@ class BoxyTool(GenericWidget):
         self.info_label.setText(text)
 
     @property
-    def inherit_rotations(self) -> bool:
+    def inherit_rotation(self) -> bool:
         """Value of the rotation check box."""
         return self.rotation_check_box.isChecked()
+
+    @property
+    def inherit_scale(self) -> bool:
+        """Value of the rotation check box."""
+        return self.scale_check_box.isChecked()
 
     @property
     def pivot(self) -> Side:
@@ -168,7 +181,8 @@ class BoxyTool(GenericWidget):
         selection = cmds.ls(selection=True)
         creator = boxy_utils.Boxy(color=self.wireframe_color)
         boxy_nodes, exceptions = creator.create(
-            pivot=self.pivot, inherit_rotations=self.inherit_rotations, default_size=self.default_size)
+            pivot=self.pivot, inherit_rotations=self.inherit_rotation,
+            inherit_scale=self.inherit_scale, default_size=self.default_size)
         if len(exceptions) > 0:
             exception_string = ", ".join(ex.message for ex in exceptions)
             self.info = f"Issues found: {exception_string}"
@@ -220,6 +234,14 @@ class BoxyTool(GenericWidget):
             cmds.select(selection_list)
         else:
             self.info = "No valid selection for toggle."
+
+    def rotation_check_box_state_changed(self):
+        """Event for scale checkbox state change."""
+        self.settings.setValue(self.inherit_rotation_key, self.inherit_rotation)
+
+    def scale_check_box_state_changed(self):
+        """Event for scale checkbox state change."""
+        self.settings.setValue(self.inherit_scale_key, self.inherit_scale)
 
     def size_field_value_changed(self, arg):
         """Event for size field."""

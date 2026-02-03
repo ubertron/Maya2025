@@ -30,10 +30,11 @@ def run_test_case(*nodes):
         cmds.select(clear=True)
         return
     cmds.select(nodes)
-    creator = boxy_utils.Boxy(color=color_classes.MAGENTA)
+    creator = boxy_utils.Boxy(color=color_classes.RED)
     boxy_nodes, exceptions = creator.create(
-        pivot=core_enums.Side.bottom,
+        pivot=core_enums.Side.center,
         inherit_rotations=True,
+        inherit_scale=True,
         default_size=100)
     LOGGER.debug(f"Boxy nodes: {', '.join(boxy_nodes)}")
     LOGGER.debug(f"Exceptions: {exceptions}")
@@ -85,10 +86,10 @@ def run_test_cases(load: bool = False):
 
     # case 13: grouped mesh
     run_test_case("pCube3")
-
-    # case 14: doorway
+    
+    # case 14: scaled doorway
     run_test_case("doorway.f[2]", "doorway.f[10]")
-
+    
     # case 15: angled doorway
     run_test_case("doorway1.f[2]", "doorway1.f[10]")
     
@@ -98,8 +99,8 @@ def run_test_cases(load: bool = False):
     # case 17: edited boxy
     run_test_case("boxy1")
 
-    # case 18: FREE CASE
-    #run_test_case("boxy2")
+    # case 18: rotated + scaled
+    run_test_case("scaled_sphere")
 
     # case 19: boxy and mesh
     run_test_case("boxy3", "pCube4")
@@ -111,7 +112,7 @@ def run_test_cases(load: bool = False):
     run_test_case("external_walls0Shape.vtx[5:6]")
     
     # case 22: nothing
-    run_test_case()
+    #run_test_case("sphere_scaled")
     
     # case 23: multiple boxys
     run_test_case("boxy4", "boxy5", "boxy6")

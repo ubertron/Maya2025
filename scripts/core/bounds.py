@@ -13,6 +13,11 @@ class Bounds:
     size: Point3
     position: Point3
     rotation: Point3
+    scale: Point3 = None
+
+    def __post_init__(self):
+        if self.scale is None:
+            self.scale = Point3(1.0, 1.0, 1.0)
 
     @property
     def back(self) -> Point3:

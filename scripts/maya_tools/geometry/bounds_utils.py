@@ -46,7 +46,8 @@ class CuboidFinder:
                  faces: list[FaceComponent] | None = None,
                  edges: list[EdgeComponent] | None = None,
                  vertices: list[VertexComponent] | None = None,
-                 locators: list[LocatorComponent] | None = None):
+                 locators: list[LocatorComponent] | None = None,
+                 inherit_scale: bool = False):
         """
         Initialize BoundsFinder.
 
@@ -56,6 +57,7 @@ class CuboidFinder:
             edges: List of EdgeComponents (3-12 edges).
             vertices: List of VertexComponents (5-8 vertices).
             locators: List of LocatorComponents (5-8 locators).
+            inherit_scale: If True, calculate bounds from prescaled geometry and store scale separately.
 
         If no arguments provided, uses the current Maya selection.
         Partial inputs are accepted if they can uniquely define a cuboid.
@@ -63,9 +65,12 @@ class CuboidFinder:
         self.size: Point3 | None = None
         self.center: Point3 | None = None
         self.rotation: Point3 | None = None
+        self.scale: Point3 = Point3(1.0, 1.0, 1.0)
         self.is_valid: bool = False
         self.transform: str | None = None
         self.vertices: list[Point3] = []  # The 8 cuboid vertices
+        self.inherit_scale = inherit_scale
+        self._original_scale: Point3 | None = None
 
         # Store original selection state
         state = node_utils.State()
@@ -125,14 +130,30 @@ class CuboidFinder:
             return None
 
         self.transform = transform
+
+        # Handle inherit_scale: store and reset scale before getting vertices
+        if self.inherit_scale:
+            self._original_scale = node_utils.get_scale(transform)
+            self.scale = self._original_scale
+            node_utils.scale(nodes=transform, value=Point3(1.0, 1.0, 1.0), absolute=True)
+
         vertex_count = cmds.polyEvaluate(transform, vertex=True)
 
         if vertex_count != 8:
             LOGGER.debug(f"Transform must have exactly 8 vertices, got {vertex_count}.")
+            # Restore scale if we changed it
+            if self.inherit_scale and self._original_scale:
+                node_utils.scale(nodes=transform, value=self._original_scale, absolute=True)
             return None
 
-        return [Point3(*cmds.pointPosition(f'{transform}.vtx[{i}]', world=True))
-                for i in range(8)]
+        vertices = [Point3(*cmds.pointPosition(f'{transform}.vtx[{i}]', world=True))
+                    for i in range(8)]
+
+        # Restore scale after getting vertices
+        if self.inherit_scale and self._original_scale:
+            node_utils.scale(nodes=transform, value=self._original_scale, absolute=True)
+
+        return vertices
 
     def _vertices_from_faces(self, faces: list[FaceComponent]) -> list[Point3] | None:
         """Get vertices from face components."""
@@ -141,6 +162,13 @@ class CuboidFinder:
             return None
 
         self.transform = faces[0].transform
+
+        # Handle inherit_scale: store and reset scale before getting vertices
+        if self.inherit_scale:
+            self._original_scale = node_utils.get_scale(self.transform)
+            self.scale = self._original_scale
+            node_utils.scale(nodes=self.transform, value=Point3(1.0, 1.0, 1.0), absolute=True)
+
         vertex_indices = set()
 
         for face in faces:
@@ -152,6 +180,11 @@ class CuboidFinder:
 
         result = [Point3(*cmds.pointPosition(f'{self.transform}.vtx[{i}]', world=True))
                 for i in sorted(vertex_indices)]
+
+        # Restore scale after getting vertices
+        if self.inherit_scale and self._original_scale:
+            node_utils.scale(nodes=self.transform, value=self._original_scale, absolute=True)
+
         LOGGER.debug(f"CuboidFinder._vertices_from_faces:")
         LOGGER.debug(f"  faces: {[(f.transform, f.idx) for f in faces]}")
         LOGGER.debug(f"  vertex_indices: {sorted(vertex_indices)}")
@@ -165,6 +198,13 @@ class CuboidFinder:
             return None
 
         self.transform = edges[0].transform
+
+        # Handle inherit_scale: store and reset scale before getting vertices
+        if self.inherit_scale:
+            self._original_scale = node_utils.get_scale(self.transform)
+            self.scale = self._original_scale
+            node_utils.scale(nodes=self.transform, value=Point3(1.0, 1.0, 1.0), absolute=True)
+
         vertex_indices = set()
 
         for edge in edges:
@@ -176,6 +216,11 @@ class CuboidFinder:
 
         result = [Point3(*cmds.pointPosition(f'{self.transform}.vtx[{i}]', world=True))
                 for i in sorted(vertex_indices)]
+
+        # Restore scale after getting vertices
+        if self.inherit_scale and self._original_scale:
+            node_utils.scale(nodes=self.transform, value=self._original_scale, absolute=True)
+
         LOGGER.debug(f"CuboidFinder._vertices_from_edges:")
         LOGGER.debug(f"  edges: {[(e.transform, e.idx) for e in edges]}")
         LOGGER.debug(f"  vertex_indices: {sorted(vertex_indices)}")
@@ -189,8 +234,21 @@ class CuboidFinder:
             return None
 
         self.transform = vertices[0].transform
-        return [Point3(*cmds.pointPosition(f'{v.transform}.vtx[{v.idx}]', world=True))
-                for v in vertices]
+
+        # Handle inherit_scale: store and reset scale before getting vertices
+        if self.inherit_scale:
+            self._original_scale = node_utils.get_scale(self.transform)
+            self.scale = self._original_scale
+            node_utils.scale(nodes=self.transform, value=Point3(1.0, 1.0, 1.0), absolute=True)
+
+        result = [Point3(*cmds.pointPosition(f'{v.transform}.vtx[{v.idx}]', world=True))
+                  for v in vertices]
+
+        # Restore scale after getting vertices
+        if self.inherit_scale and self._original_scale:
+            node_utils.scale(nodes=self.transform, value=self._original_scale, absolute=True)
+
+        return result
 
     def _vertices_from_locators(self, locators: list[LocatorComponent]) -> list[Point3] | None:
         """Get vertex positions from locator world positions."""
@@ -388,7 +446,30 @@ class CuboidFinder:
         LOGGER.debug(f"DEBUG CuboidFinder._validate_and_calculate:")
         LOGGER.debug(f"  vertex_positions count: {num_verts}")
         LOGGER.debug(f"  vertex_positions: {vertex_positions}")
-        LOGGER.debug(f"  center (centroid): {self.center}")
+        LOGGER.debug(f"  center (centroid, unscaled): {self.center}")
+
+        # Transform center from unscaled space to world space if inherit_scale is True
+        if self.inherit_scale and self.transform and self._original_scale:
+            pivot_position = node_utils.get_translation(node=self.transform, absolute=True)
+            LOGGER.debug(f"  pivot_position: {pivot_position}")
+            LOGGER.debug(f"  original_scale: {self._original_scale}")
+            # Scale the offset from pivot
+            offset = Point3(
+                self.center.x - pivot_position.x,
+                self.center.y - pivot_position.y,
+                self.center.z - pivot_position.z
+            )
+            scaled_offset = Point3(
+                offset.x * self._original_scale.x,
+                offset.y * self._original_scale.y,
+                offset.z * self._original_scale.z
+            )
+            self.center = Point3(
+                round(pivot_position.x + scaled_offset.x, self.DECIMAL_PLACES),
+                round(pivot_position.y + scaled_offset.y, self.DECIMAL_PLACES),
+                round(pivot_position.z + scaled_offset.z, self.DECIMAL_PLACES)
+            )
+            LOGGER.debug(f"  center (after scale transform): {self.center}")
 
         # Collect all valid rotation results from corners
         valid_results = []
@@ -839,13 +920,16 @@ class CuboidFinder:
 
 
 def get_cuboid(
-        geometry: str | list[Component] | list[str] | None = None
+        geometry: str | list[Component] | list[str] | None = None,
+        inherit_scale: bool = False
 ) -> Bounds | None:
     """Get the bounds of the input geometry.
 
     Args:
         geometry: A transform name, list of Component objects, list of strings
                   (locator names or component ranges like 'mesh.vtx[0:5]'), or None to use selection.
+        inherit_scale: If True, bounds are calculated from the prescaled geometry and the
+                      transform's scale is returned separately. If False (default), scale is baked.
 
     Returns:
         Bounds | None if invalid.
@@ -867,7 +951,8 @@ def get_cuboid(
             # For boxy nodes, get center from BoxyData
             from maya_tools.utilities.boxy.boxy_utils import get_boxy_data
             boxy_data = get_boxy_data(node=geometry)
-            return Bounds(size=boxy_data.size, position=boxy_data.center, rotation=boxy_data.rotation)
+            scale = node_utils.get_scale(geometry) if inherit_scale else Point3(1.0, 1.0, 1.0)
+            return Bounds(size=boxy_data.size, position=boxy_data.center, rotation=boxy_data.rotation, scale=scale)
         transform = geometry
     elif isinstance(geometry, list) and geometry:
         # Check if list contains strings - convert via components_from_selection
@@ -890,7 +975,8 @@ def get_cuboid(
         elif component_type == ComponentType.locator:
             locators = geometry
 
-    finder = CuboidFinder(transform=transform, faces=faces, edges=edges, vertices=vertices, locators=locators)
+    finder = CuboidFinder(transform=transform, faces=faces, edges=edges, vertices=vertices, locators=locators,
+                          inherit_scale=inherit_scale)
 
     if not finder.is_valid:
         LOGGER.debug(f"DEBUG get_cuboid: CuboidFinder is_valid=False, returning None")
@@ -900,12 +986,14 @@ def get_cuboid(
     LOGGER.debug(f"  size: {finder.size}")
     LOGGER.debug(f"  center: {finder.center}")
     LOGGER.debug(f"  rotation: {finder.rotation}")
-    return Bounds(size=finder.size, position=finder.center, rotation=finder.rotation)
+    LOGGER.debug(f"  scale: {finder.scale}")
+    return Bounds(size=finder.size, position=finder.center, rotation=finder.rotation, scale=finder.scale)
 
 
 def get_bounds(
         geometry: str | list[Component] | list[str] | None = None,
-        inherit_rotations: bool = False
+        inherit_rotations: bool = False,
+        inherit_scale: bool = False
 ) -> Bounds | None:
     """Get the axis-aligned bounding box of the input geometry.
 
@@ -916,9 +1004,12 @@ def get_bounds(
                           bounds are calculated in object-space and the transform's rotation
                           is inherited. If False (default) or multiple transforms, bounds are
                           calculated in world-space with zero rotation.
+        inherit_scale: If True and all geometry originates from a single transform,
+                      bounds are calculated from the prescaled geometry and the transform's
+                      scale is returned separately. If False (default), scale is baked into size.
 
     Returns:
-        Bounds with size, center position, and rotation. None if invalid.
+        Bounds with size, center position, rotation, and scale. None if invalid.
     """
     if geometry is None:
         geometry = components_from_selection()
@@ -932,7 +1023,10 @@ def get_bounds(
     # Case 1: Single transform string
     if isinstance(geometry, str):
         node = geometry
-        if inherit_rotations:
+        scale = Point3(1.0, 1.0, 1.0)
+        original_scale = None
+
+        if inherit_rotations or inherit_scale:
             # Get the original center position before any modifications
             orig_bbox = cmds.exactWorldBoundingBox(geometry)
             position = Point3(
@@ -941,22 +1035,36 @@ def get_bounds(
                 (orig_bbox[2] + orig_bbox[5]) / 2
             )
 
-            # Store and reset rotation for object-space size calculation
-            # Use bounding box center as pivot so geometry doesn't shift when rotation is zeroed
+            # Store original values
             pivot_position = node_utils.get_translation(node=node, absolute=True)
-            rotation = node_utils.get_rotation(node=node)
-            node_utils.set_pivot(nodes=node, value=position, reset=False)
-            node_utils.set_rotation(nodes=node, value=ZERO3)
+            rotation = node_utils.get_rotation(node=node) if inherit_rotations else Point3(0.0, 0.0, 0.0)
+            original_rotation = node_utils.get_rotation(node=node)
+
+            if inherit_scale:
+                original_scale = node_utils.get_scale(node=node)
+                scale = original_scale
+
+            # Reset rotation first (order: rotation then scale)
+            if inherit_rotations:
+                node_utils.set_pivot(nodes=node, value=position, reset=False)
+                node_utils.set_rotation(nodes=node, value=ZERO3)
+
+            # Reset scale after rotation
+            if inherit_scale:
+                node_utils.scale(nodes=node, value=Point3(1.0, 1.0, 1.0), absolute=True)
 
             # Get object-space size
             min_x, min_y, min_z, max_x, max_y, max_z = cmds.exactWorldBoundingBox(geometry)
             size = Point3(max_x - min_x, max_y - min_y, max_z - min_z)
 
-            # Restore
-            node_utils.set_rotation(nodes=node, value=rotation)
-            node_utils.set_pivot(nodes=node, value=pivot_position, reset=False)
+            # Restore (reverse order: scale then rotation)
+            if inherit_scale:
+                node_utils.scale(nodes=node, value=original_scale, absolute=True)
+            if inherit_rotations:
+                node_utils.set_rotation(nodes=node, value=original_rotation)
+                node_utils.set_pivot(nodes=node, value=pivot_position, reset=False)
 
-            return Bounds(size=size, position=position, rotation=rotation)
+            return Bounds(size=size, position=position, rotation=rotation, scale=scale)
         else:
             min_x, min_y, min_z, max_x, max_y, max_z = cmds.exactWorldBoundingBox(geometry)
             size = Point3(max_x - min_x, max_y - min_y, max_z - min_z)
@@ -971,8 +1079,8 @@ def get_bounds(
             # Try as transforms first
             if cmds.objExists(geometry[0]) and cmds.ls(geometry[0], transforms=True):
                 if len(geometry) == 1:
-                    # Single transform - pass through inherit_rotations
-                    return get_bounds(geometry[0], inherit_rotations=inherit_rotations)
+                    # Single transform - pass through inherit_rotations and inherit_scale
+                    return get_bounds(geometry[0], inherit_rotations=inherit_rotations, inherit_scale=inherit_scale)
                 else:
                     # Multiple transforms - always world-space
                     return get_bounds_from_bounding_box(geometry=geometry)
@@ -989,7 +1097,7 @@ def get_bounds(
         if component_type == ComponentType.object:
             transforms_list = [c.transform for c in geometry]
             if len(transforms_list) == 1:
-                return get_bounds(transforms_list[0], inherit_rotations=inherit_rotations)
+                return get_bounds(transforms_list[0], inherit_rotations=inherit_rotations, inherit_scale=inherit_scale)
             return get_bounds_from_bounding_box(geometry=transforms_list)
 
         elif component_type == ComponentType.locator:
@@ -1025,16 +1133,35 @@ def get_bounds(
                             collected.append(Point3(*pos))
                 return collected
 
-            if inherit_rotations and single_transform:
+            if (inherit_rotations or inherit_scale) and single_transform:
                 # Store transform's pivot position and rotation
                 pivot_position = node_utils.get_translation(node=node, absolute=True)
-                rotation = node_utils.get_rotation(node=node)
+                original_rotation = node_utils.get_rotation(node=node)
+                rotation = original_rotation if inherit_rotations else Point3(0.0, 0.0, 0.0)
+                scale = Point3(1.0, 1.0, 1.0)
+                original_scale = None
 
-                # Zero the rotation to calculate object-space bounds
-                node_utils.set_rotation(nodes=node, value=ZERO3)
+                LOGGER.debug(f"get_bounds (component): node={node}")
+                LOGGER.debug(f"  pivot_position={pivot_position}")
+                LOGGER.debug(f"  original_rotation={original_rotation}")
+                LOGGER.debug(f"  inherit_rotations={inherit_rotations}, inherit_scale={inherit_scale}")
 
-                # Collect positions with zeroed rotation
+                if inherit_scale:
+                    original_scale = node_utils.get_scale(node=node)
+                    scale = original_scale
+                    LOGGER.debug(f"  original_scale={original_scale}")
+
+                # Zero rotation first (order: rotation then scale)
+                if inherit_rotations:
+                    node_utils.set_rotation(nodes=node, value=ZERO3)
+
+                # Zero scale after rotation
+                if inherit_scale:
+                    node_utils.scale(nodes=node, value=Point3(1.0, 1.0, 1.0), absolute=True)
+
+                # Collect positions with zeroed rotation/scale
                 positions = collect_positions()
+                LOGGER.debug(f"  collected positions (unscaled): {positions}")
 
                 # Calculate bounds center in zeroed-rotation space
                 min_x = min(p.x for p in positions)
@@ -1050,18 +1177,45 @@ def get_bounds(
                     (min_y + max_y) / 2,
                     (min_z + max_z) / 2
                 )
+                LOGGER.debug(f"  size={size}")
+                LOGGER.debug(f"  bounds_position (unscaled)={bounds_position}")
 
-                # Restore rotation
-                node_utils.set_rotation(nodes=node, value=rotation)
+                # Restore (reverse order: scale then rotation)
+                if inherit_scale:
+                    node_utils.scale(nodes=node, value=original_scale, absolute=True)
+                if inherit_rotations:
+                    node_utils.set_rotation(nodes=node, value=original_rotation)
 
-                # Rotate bounds_position back to world space
+                # Transform bounds_position back to world space
+                # First apply scale (relative to pivot), then rotation
+                if inherit_scale:
+                    # Scale the offset from pivot
+                    offset = Point3(
+                        bounds_position.x - pivot_position.x,
+                        bounds_position.y - pivot_position.y,
+                        bounds_position.z - pivot_position.z
+                    )
+                    scaled_offset = Point3(
+                        offset.x * scale.x,
+                        offset.y * scale.y,
+                        offset.z * scale.z
+                    )
+                    bounds_position = Point3(
+                        pivot_position.x + scaled_offset.x,
+                        pivot_position.y + scaled_offset.y,
+                        pivot_position.z + scaled_offset.z
+                    )
+                    LOGGER.debug(f"  bounds_position (after scale)={bounds_position}")
+
+                # Then apply rotation
                 position = math_utils.apply_euler_xyz_rotation(
                     point=bounds_position,
                     rotation=rotation,
                     pivot=pivot_position
                 )
+                LOGGER.debug(f"  final position={position}")
 
-                return Bounds(size=size, position=position, rotation=rotation)
+                return Bounds(size=size, position=position, rotation=rotation, scale=scale)
             else:
                 # World-space calculation
                 positions = collect_positions()

@@ -1,24 +1,27 @@
 """Boxy helper object."""
 from __future__ import annotations
 
+import contextlib
 import logging
+
 from enum import Enum, auto
 
-from maya import cmds
-
 from core import color_classes, math_utils
+from core.bounds import Bounds
 from core.color_classes import RGBColor
 from core.core_enums import Side, Axis
 from core.logging_utils import get_logger
-from core.point_classes import Point3, ZERO3, Point3Pair
-from maya_tools import node_utils
-from core.bounds import Bounds
-from maya_tools.geometry import geometry_utils, component_utils, bounds_utils
-from maya_tools.node_utils import get_translation
-from maya_tools.utilities.boxy import BoxyException
-from maya_tools.utilities.boxy import boxy_node
-from maya_tools.utilities.boxy.boxy_data import BoxyData
-from tests.validators import boxy_validator
+from core.point_classes import Point3, Point3Pair, UNIT3, ZERO3
+
+with contextlib.suppress(ImportError):
+    from maya import cmds
+    from maya_tools import node_utils
+    from maya_tools.geometry import geometry_utils, component_utils, bounds_utils
+    from maya_tools.node_utils import get_translation
+    from maya_tools.utilities.boxy import BoxyException
+    from maya_tools.utilities.boxy import boxy_node
+    from maya_tools.utilities.boxy.boxy_data import BoxyData
+    from tests.validators import boxy_validator
 
 DEBUG_MODE = False
 DEFAULT_SIZE: float = 100.0
@@ -66,39 +69,46 @@ class Boxy:
             f"Size: {self.size}\n"
         )
 
-    def _build(self, inherit_rotations: bool = True):
+    def _build(self, inherit_rotation: bool = True, inherit_scale: bool = True):
         """Build boxy box."""
         component_selection = self.component_selection
         LOGGER.debug(f"DEBUG Boxy._build:")
-        LOGGER.debug(f"  inherit_rotations: {inherit_rotations}")
+        LOGGER.debug(f"  inherit_rotations: {inherit_rotation}")
+        LOGGER.debug(f"  inherit_scale: {inherit_scale}")
         LOGGER.debug(f"  component_selection: {component_selection}")
-        if inherit_rotations and component_selection:
+        if inherit_rotation and component_selection:
             # Look for a cuboid
-            bounds = bounds_utils.get_cuboid(geometry=component_selection)
+            bounds = bounds_utils.get_cuboid(geometry=component_selection, inherit_scale=inherit_scale)
             LOGGER.debug(f"  get_cuboid returned: {bounds}")
             # If no cuboid, get the bounds using the rotation
             if not bounds:
-                bounds = bounds_utils.get_bounds(geometry=self.component_selection, inherit_rotations=True)
+                bounds = bounds_utils.get_bounds(geometry=self.component_selection, inherit_rotations=True,
+                                                  inherit_scale=inherit_scale)
                 LOGGER.debug(f"  get_bounds returned: {bounds}")
             # Calculate translation (pivot position) from bounds center
             translation = bounds.get_pivot(self.pivot_side)
             size = bounds.size
             rotation = bounds.rotation
+            scale = bounds.scale if inherit_scale else UNIT3
         else:
             # Creating from scratch
             translation = self.position
             size = self.size
             rotation = self.rotation
+            # Use inherited_scale if set during evaluation
+            scale = getattr(self, 'inherited_scale', UNIT3)
         LOGGER.debug(f"  FINAL values for boxy_data:")
         LOGGER.debug(f"    size: {size}")
         LOGGER.debug(f"    translation: {translation}")
         LOGGER.debug(f"    rotation: {rotation}")
+        LOGGER.debug(f"    scale: {scale}")
         boxy_data = BoxyData(
             size=size,
             translation=translation,
             rotation=rotation,
             pivot_side=self.pivot_side,
             color=self.color,
+            scale=scale,
         )
         return build(boxy_data=boxy_data)
 
@@ -108,11 +118,18 @@ class Boxy:
         self.position = min_max.get_pivot(self.pivot_side)
         self.size = min_max.size
 
-    def _evaluate_for_single_selection(self, inherit_rotations: bool):
+    def _evaluate_for_single_selection(self, inherit_rotations: bool, inherit_scale: bool = False):
         """Set up boxy attributes for a single node."""
         LOGGER.debug(f">>> {self.selected_transforms[0]}")
         self.rotation_y = node_utils.get_rotation(self.selected_transforms[0]).y
         position = get_translation(self.selected_transforms[0])
+
+        # Store inherited scale if requested
+        if inherit_scale:
+            self.inherited_scale = node_utils.get_scale(self.selected_transforms[0])
+        else:
+            self.inherited_scale = UNIT3
+
         # work out the size compensating for rotation
         if self.components_only:
             # get the bounds of locators/verts/cvs
@@ -183,7 +200,7 @@ class Boxy:
         return len(self.selection) == 2 and len(self.element_type_dict.get(ElementType.locator, [])) == 2
 
     def create(self, pivot: Side = Side.center, inherit_rotations: bool = True,
-               default_size: float = 10.0) -> tuple[list[str], list[BoxyException]]:
+               inherit_scale: bool = False, default_size: float = 10.0) -> tuple[list[str], list[BoxyException]]:
         """Evaluate selection."""
         valid_pivots = (Side.bottom, Side.center, Side.top, Side.left, Side.right, Side.front, Side.back)
         assert pivot in valid_pivots, f"Invalid pivot position: {pivot.name}"
@@ -200,13 +217,13 @@ class Boxy:
         if len(self.selected_transforms) > 1:
             self._evaluate_for_multiple_selection()
         elif len(self.selected_transforms) == 1:
-            self._evaluate_for_single_selection(inherit_rotations=inherit_rotations)
+            self._evaluate_for_single_selection(inherit_rotations=inherit_rotations, inherit_scale=inherit_scale)
 
         # if only boxy items are selected, don't build because we've handled them already
         boxy_items = self.element_type_dict.get(ElementType.boxy, [])
         num_boxy_items = len(boxy_items)
         if not (num_boxy_items and num_boxy_items == len(self.all_selected_transforms)):
-            boxy_items.append(self._build(inherit_rotations=inherit_rotations))
+            boxy_items.append(self._build(inherit_rotation=inherit_rotations, inherit_scale=inherit_scale))
 
         return boxy_items, exceptions
 

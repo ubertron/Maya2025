@@ -795,6 +795,7 @@ def build(boxy_data, name: str = "boxy") -> str:
     LOGGER.debug(f"  boxy_data.size: {boxy_data.size}")
     LOGGER.debug(f"  boxy_data.translation: {boxy_data.translation}")
     LOGGER.debug(f"  boxy_data.rotation: {boxy_data.rotation}")
+    LOGGER.debug(f"  boxy_data.scale: {boxy_data.scale}")
 
     _ensure_plugin_loaded()
 
@@ -836,6 +837,15 @@ def build(boxy_data, name: str = "boxy") -> str:
     cmds.setAttr(f'{transform}.rotateX', boxy_data.rotation.x)
     cmds.setAttr(f'{transform}.rotateY', boxy_data.rotation.y)
     cmds.setAttr(f'{transform}.rotateZ', boxy_data.rotation.z)
+
+    # Set scale if non-identity
+    if boxy_data.scale and (boxy_data.scale.x != 1.0 or
+                            boxy_data.scale.y != 1.0 or
+                            boxy_data.scale.z != 1.0):
+        LOGGER.debug(f"  Setting transform scale to: {boxy_data.scale}")
+        cmds.setAttr(f'{transform}.scaleX', boxy_data.scale.x)
+        cmds.setAttr(f'{transform}.scaleY', boxy_data.scale.y)
+        cmds.setAttr(f'{transform}.scaleZ', boxy_data.scale.z)
 
     # Enable selection handle
     cmds.toggle(transform, selectHandle=True)

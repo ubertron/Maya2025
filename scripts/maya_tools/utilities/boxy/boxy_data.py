@@ -18,15 +18,21 @@ class BoxyData:
         rotation: Euler XYZ rotation in degrees.
         pivot_side: Which side of the box the pivot is on.
         color: Wireframe color.
+        scale: Optional scale to apply to the transform.
     """
     size: Point3
     translation: Point3
     rotation: Point3
     pivot_side: Side
     color: RGBColor
+    scale: Point3 = None
+
+    def __post_init__(self):
+        if self.scale is None:
+            self.scale = Point3(1.0, 1.0, 1.0)
 
     def __repr__(self) -> str:
-        return f"BoxyData(size={self.size}, translation={self.translation}, rotation={self.rotation}, pivot={self.pivot_side}, color={self.color})"
+        return f"BoxyData(size={self.size}, translation={self.translation}, rotation={self.rotation}, pivot={self.pivot_side}, color={self.color}, scale={self.scale})"
 
     @property
     def dictionary(self) -> dict:
@@ -37,6 +43,7 @@ class BoxyData:
             "pivot_side": self.pivot_side.name,
             "center": self.center.values,
             "color": self.color.values,
+            "scale": self.scale.values,
         }
 
     @property

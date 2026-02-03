@@ -232,6 +232,8 @@ class Point3Pair:
 
 ZERO2: Point2 = Point2(0.0, 0.0)
 ZERO3: Point3 = Point3(0.0, 0.0, 0.0)
+UNIT2: Point2 = Point2(1.0, 1.0)
+UNIT3: Point3 = Point3(1.0, 1.0, 1.0)
 X_AXIS: Point3 = Point3(1.0, 0.0, 0.0)
 Y_AXIS: Point3 = Point3(0.0, 1.0, 0.0)
 Z_AXIS: Point3 = Point3(0.0, 0.0, 1.0)
