@@ -135,6 +135,6 @@ def test_boxy_build():
 
 
 if __name__ == "__main__":
-    run_test_cases(load=True)
-    # boxy_tool.launch()
+    # run_test_cases(load=True)
+    boxy_tool.launch()
     # test_boxy_build()

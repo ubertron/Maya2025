@@ -1,4 +1,37 @@
-"""Boxy helper object."""
+"""
+ROBOTOOLS PROPRIETARY SOFTWARE LICENSE
+
+Copyright (c) 2026 Andrew Davis / Robotools. All Rights Reserved.
+
+1. OWNERSHIP
+   This software is the proprietary property of Andrew Davis / Robotools.
+   All intellectual property rights remain with the copyright holder.
+
+2. RESTRICTIONS
+   Without explicit written permission, you may NOT:
+   - Copy, reproduce, or distribute this software
+   - Modify, adapt, or create derivative works
+   - Reverse engineer, decompile, or disassemble this software
+   - Remove or alter any proprietary notices
+   - Use this software in production environments without pre-arranged
+     agreement with Andrew Davis / Robotools
+   - Sublicense, rent, lease, or lend this software
+
+3. LICENSING
+   Individual and commercial licenses are available.
+   For licensing inquiries: andy_j_davis@yahoo.com
+
+4. DISCLAIMER
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+   IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM,
+   DAMAGES, OR OTHER LIABILITY ARISING FROM THE USE OF THIS SOFTWARE.
+
+5. PROTECTED TECHNOLOGIES
+   - Boxy Plugin and BoxyShape custom node
+   - Bounds calculation utilities
+   - Related tools and plugins
+"""
+# Boxy helper object.
 from __future__ import annotations
 
 import contextlib

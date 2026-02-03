@@ -1,23 +1,54 @@
 """
-Boxy Node - Custom Maya DAG node rendering as a wireframe cube.
+ROBOTOOLS PROPRIETARY SOFTWARE LICENSE
 
-This plugin provides:
-- BoxyShape: MPxLocatorNode subclass for the wireframe cube shape
-- BoxyDrawOverride: Viewport 2.0 draw override for rendering
-- create_boxy(): Python function for creating boxy nodes
+Copyright (c) 2026 Andrew Davis / Robotools. All Rights Reserved.
 
-Usage:
-    import maya.cmds as cmds
-    cmds.loadPlugin('boxy_node.py')
+1. OWNERSHIP
+   This software is the proprietary property of Andrew Davis / Robotools.
+   All intellectual property rights remain with the copyright holder.
 
-    # Option 1: Use cmds.createNode directly
-    cmds.createNode('boxyShape')
+2. RESTRICTIONS
+   Without explicit written permission, you may NOT:
+   - Copy, reproduce, or distribute this software
+   - Modify, adapt, or create derivative works
+   - Reverse engineer, decompile, or disassemble this software
+   - Remove or alter any proprietary notices
+   - Use this software in production environments without pre-arranged
+     agreement with Andrew Davis / Robotools
+   - Sublicense, rent, lease, or lend this software
 
-    # Option 2: Use the helper function (after importing)
-    from maya_tools.utilities.boxy import boxy_node
-    boxy_node.create_boxy()
-    boxy_node.create_boxy(size=(10, 20, 10), pivot='bottom', color=(0, 1, 0))
+3. LICENSING
+   Individual and commercial licenses are available.
+   For licensing inquiries: andy_j_davis@yahoo.com
+
+4. DISCLAIMER
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+   IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM,
+   DAMAGES, OR OTHER LIABILITY ARISING FROM THE USE OF THIS SOFTWARE.
+
+5. PROTECTED TECHNOLOGIES
+   - Boxy Plugin and BoxyShape custom node
+   - Bounds calculation utilities
+   - Related tools and plugins
 """
+# Boxy Node - Custom Maya DAG node rendering as a wireframe cube.
+#
+# This plugin provides:
+# - BoxyShape: MPxLocatorNode subclass for the wireframe cube shape
+# - BoxyDrawOverride: Viewport 2.0 draw override for rendering
+# - create_boxy(): Python function for creating boxy nodes
+#
+# Usage:
+#     import maya.cmds as cmds
+#     cmds.loadPlugin('boxy_node.py')
+#
+#     # Option 1: Use cmds.createNode directly
+#     cmds.createNode('boxyShape')
+#
+#     # Option 2: Use the helper function (after importing)
+#     from maya_tools.utilities.boxy import boxy_node
+#     boxy_node.create_boxy()
+#     boxy_node.create_boxy(size=(10, 20, 10), pivot='bottom', color=(0, 1, 0))
 
 import math
 from pathlib import Path
