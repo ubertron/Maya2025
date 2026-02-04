@@ -1,14 +1,9 @@
 """Resizable image label widget."""
 from pathlib import Path
 
-try:
-    from PySide6.QtCore import QPoint, Qt
-    from PySide6.QtGui import QPainter, QPixmap, QTransform
-    from PySide6.QtWidgets import QFrame, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
-except ImportError:
-    from PySide2.QtCore import QPoint, Qt
-    from PySide2.QtGui import QPainter, QPixmap, QTransform
-    from PySide2.QtWidgets import QFrame, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
+from qtpy.QtCore import QPoint, Qt
+from qtpy.QtGui import QPainter, QPixmap, QTransform
+from qtpy.QtWidgets import QFrame, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
 
 DALEK: Path = Path.home() / "Dropbox/Technology/Python3/Projects/Maya2025/images/dalek.png"
@@ -77,10 +72,7 @@ class TestWidget(QWidget):
 
 
 if __name__ == "__main__":
-    try:
-        from PySide6.QtWidgets import QApplication
-    except ImportError:
-        from PySide2.QtWidgets import QApplication
+    from qtpy.QtWidgets import QApplication
 
     app = QApplication()
     widget = TestWidget(path=DALEK)

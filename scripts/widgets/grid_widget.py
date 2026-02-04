@@ -5,14 +5,9 @@ import contextlib
 import enum
 import platform
 
-try:
-    from PySide6.QtCore import Qt
-    from PySide6.QtWidgets import QWidget, QGridLayout, QLabel, QPushButton, QSpacerItem, QMainWindow, QComboBox
-    import shiboken6 as shiboken
-except ImportError:
-    from PySide2.QtCore import Qt
-    from PySide2.QtWidgets import QWidget, QGridLayout, QLabel, QPushButton, QSpacerItem, QMainWindow, QComboBox
-    import shiboken2 as shiboken
+from qtpy.QtCore import Qt
+from qtpy.QtWidgets import QWidget, QGridLayout, QLabel, QPushButton, QSpacerItem, QMainWindow, QComboBox
+from qtpy import shiboken
 from typing import Callable, Optional
 
 from core import DARWIN_STR
@@ -265,10 +260,7 @@ class GridWidgetTest(GridWidget):
 
 
 if __name__ == '__main__':
-    try:
-        from PySide6.QtWidgets import QApplication
-    except ImportError:
-        from PySide2.QtWidgets import QApplication
+    from qtpy.QtWidgets import QApplication
 
     app = QApplication()
     test_widget = GridWidgetTest()

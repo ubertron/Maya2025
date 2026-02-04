@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import partial
-from PySide6.QtWidgets import QFormLayout, QWidget, QPushButton, QLabel, QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, \
+from qtpy.QtWidgets import QFormLayout, QWidget, QPushButton, QLabel, QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, \
     QCheckBox
 from typing import Callable, Union
 
@@ -140,7 +140,7 @@ class ExampleFormWidget(FormWidget):
 
 
 if __name__ == "__main__":
-    from PySide6.QtWidgets import QApplication
+    from qtpy.QtWidgets import QApplication
     app = QApplication()
     example_form_widget = ExampleFormWidget()
     example_form_widget.show()

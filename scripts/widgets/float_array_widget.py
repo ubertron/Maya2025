@@ -1,8 +1,8 @@
 from __future__ import annotations
 import sys
 
-from PySide6.QtWidgets import QWidget, QDoubleSpinBox, QHBoxLayout, QLabel
-from PySide6.QtCore import Signal
+from qtpy.QtWidgets import QWidget, QDoubleSpinBox, QHBoxLayout, QLabel
+from qtpy.QtCore import Signal
 from scipy.interpolate.dfitpack import splint
 
 
@@ -37,7 +37,7 @@ class FloatArrayWidget(QWidget):
 
 
 if __name__ == "__main__":
-    from PySide6.QtWidgets import QApplication
+    from qtpy.QtWidgets import QApplication
     app = QApplication(sys.argv)
     widget = FloatArrayWidget()
     widget.show()

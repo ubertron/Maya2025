@@ -1,6 +1,6 @@
 from functools import partial
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QSizePolicy, QWidget
+from qtpy.QtCore import Qt, Signal
+from qtpy.QtWidgets import QSizePolicy, QWidget
 from typing import Optional
 
 from core.core_enums import Alignment
@@ -44,7 +44,7 @@ class DialogTestWidget(GenericWidget):
 
 
 if __name__ == '__main__':
-    from PySide6.QtWidgets import QApplication
+    from qtpy.QtWidgets import QApplication
     app = QApplication()
     widget = DialogTestWidget()
     widget.show()

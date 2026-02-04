@@ -1,5 +1,5 @@
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QScrollArea, QSizePolicy, QPushButton, QLabel, QWidget
+from qtpy.QtCore import Qt
+from qtpy.QtWidgets import QScrollArea, QSizePolicy, QPushButton, QLabel, QWidget
 from typing import Optional, Callable
 
 from widgets.generic_widget import GenericWidget
@@ -71,7 +71,7 @@ class TestScrollWidget(ScrollWidget):
 
 
 if __name__ == '__main__':
-    from PySide6.QtWidgets import QApplication
+    from qtpy.QtWidgets import QApplication
     import sys
 
     app = QApplication(sys.argv)

@@ -1,5 +1,5 @@
-from PySide6.QtWidgets import QDialog, QHBoxLayout, QPushButton, QLabel, QWidget
-from PySide6.QtCore import QPoint, Qt
+from qtpy.QtWidgets import QDialog, QHBoxLayout, QPushButton, QLabel, QWidget
+from qtpy.QtCore import QPoint, Qt
 
 from typing import Optional, Callable
 
@@ -66,7 +66,7 @@ class TestDialog(GenericDialog):
 if __name__ == '__main__':
     import sys
 
-    from PySide6.QtWidgets import QApplication
+    from qtpy.QtWidgets import QApplication
 
     app = QApplication(sys.argv)
     dialog = TestDialog()

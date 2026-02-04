@@ -1,6 +1,6 @@
 from functools import partial
-from PySide6.QtWidgets import QRadioButton, QButtonGroup, QWidget, QApplication, QVBoxLayout, QHBoxLayout, QGroupBox
-from PySide6.QtCore import Signal
+from qtpy.QtWidgets import QRadioButton, QButtonGroup, QWidget, QApplication, QVBoxLayout, QHBoxLayout, QGroupBox
+from qtpy.QtCore import Signal
 from typing import Sequence
 
 from core.core_enums import Alignment
@@ -46,7 +46,7 @@ class RadioButtonWidget(QWidget):
 
 
 if __name__ == '__main__':
-    from PySide6.QtWidgets import QApplication
+    from qtpy.QtWidgets import QApplication
 
     app = QApplication()
     radio_button_widget = RadioButtonWidget(title='ABC', button_text_list=['a', 'b', 'c'])

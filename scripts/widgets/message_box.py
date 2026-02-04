@@ -14,7 +14,7 @@ class MessageBox(GenericDialog):
 
 
 if __name__ == '__main__':
-    from PySide6.QtWidgets import QApplication
+    from qtpy.QtWidgets import QApplication
 
     app = QApplication()
     dialog = MessageBox(title='Test Message Box', text='Do you understand?', fixed_width=220)

@@ -3,14 +3,9 @@ import os
 import sys
 from pathlib import Path
 
-try:
-    from PySide6.QtWidgets import QApplication, QPushButton
-    from PySide6.QtCore import QSize, Signal
-    from PySide6.QtGui import QPixmap, QIcon
-except ImportError:
-    from PySide2.QtWidgets import QApplication, QPushButton
-    from PySide2.QtCore import QSize, Signal
-    from PySide2.QtGui import QPixmap, QIcon
+from qtpy.QtWidgets import QApplication, QPushButton
+from qtpy.QtCore import QSize, Signal
+from qtpy.QtGui import QPixmap, QIcon
 from typing import Callable
 
 from core.core_paths import image_path
@@ -49,11 +44,7 @@ class IconButton(QPushButton):
 
 
 if __name__ == "__main__":
-    try:
-        from PySide6.QtWidgets import QApplication
-    except ImportError:
-        from PySide2.QtWidgets import QApplication
-
+    from qtpy.QtWidgets import QApplication
     from core.core_paths import image_path
 
     import qdarktheme

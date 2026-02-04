@@ -1,11 +1,7 @@
 import sys
 
-try:
-    from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout
-    from PySide6.QtCore import QMargins
-except ImportError:
-    from PySide2.QtWidgets import QVBoxLayout, QHBoxLayout
-    from PySide2.QtCore import QMargins
+from qtpy.QtWidgets import QVBoxLayout, QHBoxLayout
+from qtpy.QtCore import QMargins
 
 
 class VBoxLayout(QVBoxLayout):
@@ -23,10 +19,7 @@ class HBoxLayout(QHBoxLayout):
 
 
 if __name__ == '__main__':
-    try:
-        from PySide6.QtWidgets import QApplication, QWidget, QLabel
-    except ImportError:
-        from PySide2.QtWidgets import QApplication, QWidget, QLabel
+    from qtpy.QtWidgets import QApplication, QWidget, QLabel
 
     app = QApplication(sys.argv)
     widget = QWidget()

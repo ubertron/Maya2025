@@ -1,7 +1,4 @@
-try:
-    from PySide6.QtWidgets import QGroupBox, QWidget, QVBoxLayout
-except ImportError:
-    from PySide2.QtWidgets import QGroupBox, QWidget, QVBoxLayout
+from qtpy.QtWidgets import QGroupBox, QWidget, QVBoxLayout
 
 
 class GroupBox(QGroupBox):

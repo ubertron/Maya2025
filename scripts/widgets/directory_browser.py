@@ -1,8 +1,8 @@
 import os
 
 from pathlib import Path
-from PySide6.QtWidgets import QFileDialog, QLineEdit
-from PySide6.QtCore import Signal
+from qtpy.QtWidgets import QFileDialog, QLineEdit
+from qtpy.QtCore import Signal
 from typing import Optional
 
 from core.core_enums import Alignment
@@ -33,7 +33,7 @@ class DirectoryBrowser(GenericDialog):
 
 if __name__ == '__main__':
     import sys
-    from PySide6.QtWidgets import QApplication
+    from qtpy.QtWidgets import QApplication
 
     app = QApplication(sys.argv)
     browser = DirectoryBrowser()

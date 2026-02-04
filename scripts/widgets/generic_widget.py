@@ -2,14 +2,9 @@ from __future__ import annotations
 
 import contextlib
 
-try:
-    from PySide6.QtWidgets import QWidget, QPushButton, QLabel, QLayout, QSizePolicy, QSpacerItem, QGroupBox
-    from PySide6.QtCore import Qt
-    import shiboken6 as shiboken
-except ImportError:
-    from PySide2.QtWidgets import QWidget, QPushButton, QLabel, QLayout, QSizePolicy, QSpacerItem, QGroupBox
-    from PySide2.QtCore import Qt
-    import shiboken2 as shiboken
+from qtpy.QtWidgets import QWidget, QPushButton, QLabel, QLayout, QSizePolicy, QSpacerItem, QGroupBox
+from qtpy.QtCore import Qt
+from qtpy import shiboken
 
 from core.core_enums import Alignment, Side
 from core.core_paths import image_path
@@ -183,11 +178,9 @@ class GenericWidget(QWidget):
 class ExampleGenericWidget(GenericWidget):
     def __init__(self):
         super().__init__(title="Date Time Widget")
-        # self.add_stretch()
         self.label = self.add_label("Well what are you waiting for? Click it!")
-        # self.add_stretch()
         self.button: QPushButton = self.add_button(text="Click me", tool_tip="Get time", clicked=self.get_time)
-        # self.resize(320, 120)
+        self.setFixedSize(320, 120)
 
     def get_time(self):
         """
@@ -207,10 +200,7 @@ widget.show_workspace_control(ui_script=ui_script)
 
 
 if __name__ == "__main__":
-    try:
-        from PySide6.QtWidgets import QApplication
-    except ImportError:
-        from PySide2.QtWidgets import QApplication
+    from qtpy.QtWidgets import QApplication
 
     app = QApplication()
     tool = ExampleGenericWidget()

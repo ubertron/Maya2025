@@ -1,15 +1,9 @@
 import enum
 
-try:
-    from PySide6.QtWidgets import QLabel
-    from PySide6.QtCore import QPoint, Qt, Signal
-    from PySide6.QtGui import QMouseEvent
-    PYSIDE_VERSION = 6
-except ImportError:
-    from PySide2.QtWidgets import QLabel
-    from PySide2.QtCore import QPoint, Qt, Signal
-    from PySide2.QtGui import QMouseEvent
-    PYSIDE_VERSION = 2
+from qtpy import PYSIDE6
+from qtpy.QtWidgets import QLabel
+from qtpy.QtCore import QPoint, Qt, Signal
+from qtpy.QtGui import QMouseEvent
 from widgets.generic_widget import GenericWidget
 
 
@@ -25,7 +19,7 @@ class ClickableLabel(QLabel):
 
     def mousePressEvent(self, event):
         # PySide2/6 compatibility: globalPos() vs globalPosition()
-        if PYSIDE_VERSION == 6:
+        if PYSIDE6:
             global_position = event.globalPosition().toPoint()
         else:
             global_position = event.globalPos()
@@ -52,10 +46,7 @@ class TestWidget(GenericWidget):
 
 
 if __name__ == '__main__':
-    try:
-        from PySide6.QtWidgets import QApplication
-    except ImportError:
-        from PySide2.QtWidgets import QApplication
+    from qtpy.QtWidgets import QApplication
 
     app = QApplication()
     widget = TestWidget()

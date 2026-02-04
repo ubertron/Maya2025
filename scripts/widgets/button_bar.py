@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import sys
 
-try:
-    from PySide6.QtWidgets import QSizePolicy
-except ImportError:
-    from PySide2.QtWidgets import QSizePolicy
+from qtpy.QtWidgets import QSizePolicy
 
 from core.core_enums import Alignment
 from core.core_paths import image_path
@@ -32,12 +29,9 @@ class ButtonBar(GenericWidget):
 
 
 if __name__ == "__main__":
-    try:
-        from PySide6.QtWidgets import QApplication
-    except ImportError:
-        from PySide2.QtWidgets import QApplication
-
+    from qtpy.QtWidgets import QApplication
     from pathlib import Path
+
     app = QApplication(sys.argv)
     widget = ButtonBar("Test Button Bar")
     widget.add_icon_button(Path.home().joinpath("Dropbox/Technology/Python3/Projects/Maya2025/images/icons/add.png"))

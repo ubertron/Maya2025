@@ -1,7 +1,7 @@
 import sys
 
-from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QDoubleSpinBox, QCheckBox
+from qtpy.QtCore import Signal
+from qtpy.QtWidgets import QDoubleSpinBox, QCheckBox
 
 from widgets.float_array_widget import FloatArrayWidget
 from widgets.generic_widget import GenericWidget
@@ -37,7 +37,7 @@ class VectorInputWidget(GenericWidget):
 
 
 if __name__ == "__main__":
-    from PySide6.QtWidgets import QApplication
+    from qtpy.QtWidgets import QApplication
     app = QApplication(sys.argv)
     widget = VectorInputWidget("Vector Input", count=5)
     widget.show()

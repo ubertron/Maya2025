@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QWidget, QSizePolicy, QLabel
+from qtpy.QtWidgets import QWidget, QSizePolicy, QLabel
 from widgets.layouts import VBoxLayout
 from widgets.clickable_label import ClickableLabel
 from widgets.generic_widget import GenericWidget
@@ -92,7 +92,7 @@ class PanelWidgetTest(GenericWidget):
 
 
 if __name__ == '__main__':
-    from PySide6.QtWidgets import QApplication, QLabel
+    from qtpy.QtWidgets import QApplication, QLabel
     app = QApplication()
     panel_widget = PanelWidgetTest()
     panel_widget.show()

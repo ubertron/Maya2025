@@ -1,5 +1,5 @@
-from PySide6.QtGui import QDoubleValidator
-from PySide6.QtWidgets import QLineEdit
+from qtpy.QtGui import QDoubleValidator
+from qtpy.QtWidgets import QLineEdit
 
 
 class FloatInputWidget(QLineEdit):

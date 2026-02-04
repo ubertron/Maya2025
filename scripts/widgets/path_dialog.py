@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtWidgets import QFileDialog, QLineEdit
+from qtpy.QtWidgets import QFileDialog, QLineEdit
 from core.core_enums import Alignment
 from core.core_paths import image_path
 from widgets.generic_dialog import GenericDialog
@@ -72,7 +72,7 @@ class PathDialog(GenericDialog):
 
 if __name__ == "__main__":
     import sys
-    from PySide6.QtWidgets import QApplication
+    from qtpy.QtWidgets import QApplication
     app = QApplication(sys.argv)
     window = PathDialog()
     window.show()

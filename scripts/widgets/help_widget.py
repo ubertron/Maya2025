@@ -1,10 +1,7 @@
 """Widget to use for help documentation."""
 from __future__ import annotations
 
-try:
-    from PySide6.QtWidgets import QLabel, QWidget
-except ImportError:
-    from PySide2.QtWidgets import QLabel, QWidget
+from qtpy.QtWidgets import QLabel, QWidget
 
 from core.core_enums import Side
 from widgets.generic_widget import GenericWidget
@@ -49,10 +46,7 @@ class HelpWidget(GenericWidget):
 
 
 if __name__ == "__main__":
-    try:
-        from PySide6.QtWidgets import QApplication
-    except ImportError:
-        from PySide2.QtWidgets import QApplication
+    from qtpy.QtWidgets import QApplication
 
     app = QApplication()
     widget = HelpWidget(title="Test Help", parent_widget=None)

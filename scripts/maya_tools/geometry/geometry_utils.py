@@ -52,7 +52,7 @@ def create_cube(name: Optional[str] = None, size: float | Point3 = 1, position: 
     :param divisions: Number of subdivisions
     :param baseline: Height baseline (0=bottom, 0.5=center, 1=top) - handled manually for compatibility
     """
-    if type(size) is Point3:
+    if isinstance(size, Point3):
         width = size.x
         height = size.y
         depth = size.z
