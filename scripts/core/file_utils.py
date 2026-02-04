@@ -4,12 +4,16 @@ from __future__ import annotations
 import logging
 import subprocess
 from pathlib import Path
-from core import environment_utils
-from core.core_paths import SHELF_DATA
-from core import logging_utils
 
+from core import environment_utils
+from core.core_paths import SHELF_DATA, HOTKEYS_DATA
 
 LOGGER = logging.getLogger(__name__)
+
+
+def edit_hotkeys_data():
+    """Edit the Maya shelves in IDE."""
+    open_in_pycharm(path=HOTKEYS_DATA)
 
 
 def edit_shelves_data():

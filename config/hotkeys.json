@@ -114,6 +114,16 @@
       ],
       "language": "python",
       "category": "Novo Hotkeys"
+    },
+    "targetWeld": {
+      "annotation": "Target Weld Tool",
+      "command": "dR_targetWeldTool",
+      "hotkey": "w",
+      "modifiers": [
+        "alt"
+      ],
+      "language": "mel",
+      "category": "Novo Hotkeys"
     }
   }
 }

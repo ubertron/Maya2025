@@ -7,11 +7,17 @@
                 "tool_tip": "Edit the shelf data",
                 "script": "from core import file_utils\nfile_utils.edit_shelves_data()"
             },
-            "Rebuild Shelves": {
+            "Edit Hotkeys": {
+                "icon": "edit_hotkeys.png",
+                "language": "python",
+                "tool_tip": "Edit the hotkeys",
+                "script": "from core import file_utils\nfile_utils.edit_hotkeys_data()"
+            },
+            "Rebuild UI": {
                 "icon": "refresh_grey.png",
                 "language": "python",
-                "tool_tip": "Rebuild the shelves",
-                "script": "from maya_tools.ui import shelf_utils\nshelf_utils.ShelfManager().build()"
+                "tool_tip": "Update the UI",
+                "script": "from maya_tools.ui import shelf_utils\nfrom maya_tools.ui import hotkey_manager\nshelf_utils.ShelfManager().build()\nhotkey_manager.HotkeyManager().apply(force=True)"
             },
             "Path Tool": {
                 "icon": "path_tool.png",

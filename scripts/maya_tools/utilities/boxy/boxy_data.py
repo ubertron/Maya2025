@@ -65,7 +65,10 @@ class BoxyData:
             self.scale = Point3(1.0, 1.0, 1.0)
 
     def __repr__(self) -> str:
-        return f"BoxyData(size={self.size}, translation={self.translation}, rotation={self.rotation}, pivot={self.pivot_side}, color={self.color}, scale={self.scale})"
+        return (
+            f"BoxyData(size={self.size}, translation={self.translation}, rotation={self.rotation}, "
+            f"pivot={self.pivot_side}, color={self.color}, scale={self.scale})"
+        )
 
     @property
     def dictionary(self) -> dict:

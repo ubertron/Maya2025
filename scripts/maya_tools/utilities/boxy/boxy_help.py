@@ -1,10 +1,7 @@
 """Help widget for Boxy Tool."""
-try:
-    from PySide6.QtWidgets import QWidget
-except ImportError:
-    from PySide2.QtWidgets import QWidget
+from qtpy.QtWidgets import QWidget
 
-from maya_tools.utilities.boxy.boxy_tool import VERSIONS
+from maya_tools.utilities.boxy import TOOL_NAME, VERSIONS
 from widgets.help_widget import HelpWidget
 
 DESCRIPTION = (
@@ -40,7 +37,7 @@ class BoxyHelp(HelpWidget):
 
     def __init__(self, parent_widget: QWidget):
         """Initialize the help widget."""
-        super().__init__(title="Boxy Tool Help", parent_widget=parent_widget)
+        super().__init__(title=f"{TOOL_NAME} Help", parent_widget=parent_widget)
         self._build_content()
         self.resize(WIDTH, self.sizeHint().height())
 
@@ -60,10 +57,7 @@ class BoxyHelp(HelpWidget):
 
 
 if __name__ == "__main__":
-    try:
-        from PySide6.QtWidgets import QApplication
-    except ImportError:
-        from PySide2.QtWidgets import QApplication
+    from qtpy.QtWidgets import QApplication
 
     app = QApplication()
     widget = BoxyHelp(parent_widget=None)

@@ -18,6 +18,11 @@ from maya_tools.maya_environment_utils import MAYA_MAIN_WINDOW
 from tests.validators import widget_validator
 
 
+def get_widget_instances(tool_class: str) -> list[QWidget]:
+    """Find instances of a widget class under the MAYA_MAIN_WINDOW."""
+    return [x for x in MAYA_MAIN_WINDOW.findChildren(QWidget) if type(x).__name__ == tool_class]
+
+
 def launch_tool(
     tool_module: str,
     tool_class: str,

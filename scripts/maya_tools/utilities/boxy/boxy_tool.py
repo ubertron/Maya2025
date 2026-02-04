@@ -34,21 +34,15 @@ Copyright (c) 2026 Andrew Davis / Robotools. All Rights Reserved.
 # UI for Boxy.
 import contextlib
 
-try:
-    from PySide6.QtCore import Qt, QSettings
-    from PySide6.QtGui import QColor
-    from PySide6.QtWidgets import QCheckBox, QComboBox, QColorDialog, QDoubleSpinBox, QLineEdit, QSizePolicy
-except ImportError:
-    from PySide2.QtCore import Qt, QSettings
-    from PySide2.QtGui import QColor
-    from PySide2.QtWidgets import QCheckBox, QComboBox, QColorDialog, QDoubleSpinBox, QLineEdit, QSizePolicy
+from qtpy.QtCore import Qt, QSettings
+from qtpy.QtGui import QColor
+from qtpy.QtWidgets import QCheckBox, QComboBox, QColorDialog, QDoubleSpinBox, QSizePolicy
 
 from core import color_classes, DEVELOPER
 from core.color_classes import RGBColor
 from core.core_enums import ComponentType, Side, SurfaceDirection
 from core.core_paths import image_path
-from core.version_info import VersionInfo, Versions
-from maya_tools.utilities.boxy import boxy_utils
+from maya_tools.utilities.boxy import boxy_utils, VERSIONS, TOOL_NAME
 from widgets.button_bar import ButtonBar
 from widgets.clickable_label import ClickableLabel
 from widgets.generic_widget import GenericWidget
@@ -62,17 +56,6 @@ with contextlib.suppress(ImportError):
     from maya_tools.geometry.component_utils import FaceComponent, components_from_selection
     from maya_tools.utilities.boxy import BoxyException
 
-TOOL_NAME = "Boxy Tool"
-VERSIONS = Versions(
-    versions=[
-        VersionInfo(name=TOOL_NAME, version="1.0", codename="cobra", info="Initial release"),
-        VersionInfo(name=TOOL_NAME, version="1.0.1", codename="banshee", info="Size field added"),
-        VersionInfo(name=TOOL_NAME, version="1.0.2", codename="newt", info="Issue fixed for nodes with children"),
-        VersionInfo(name=TOOL_NAME, version="1.0.3", codename="panther", info="Button functions added"),
-        VersionInfo(name=TOOL_NAME, version="1.0.4", codename="dumb animals", info="Boxy v2 node implemented"),
-        VersionInfo(name=TOOL_NAME, version="1.0.5", codename="treefingers", info="inherit scale"),
-    ]
-)
 
 class BoxyTool(GenericWidget):
     """Boxy UI Class."""
@@ -233,8 +216,9 @@ class BoxyTool(GenericWidget):
     def help_button_clicked(self):
         """Event for help button."""
         from maya_tools.utilities.boxy.boxy_help import BoxyHelp
-        help_widget = BoxyHelp(parent_widget=self)
-        help_widget.setWindowModality(Qt.WindowModality.ApplicationModal)
+        help_widgets = maya_widget_utils.get_widget_instances(tool_class="BoxyHelp")
+        help_widget = help_widgets[-1] if help_widgets else BoxyHelp(parent_widget=self)
+        # help_widget.setWindowModality(Qt.WindowModality.ApplicationModal)
         help_widget.show()
 
     def pivot_combo_box_index_changed(self, arg):
@@ -291,10 +275,7 @@ def launch():
     )
 
 if __name__ == "__main__":
-    try:
-        from PySide6.QtWidgets import QApplication
-    except ImportError:
-        from PySide2.QtWidgets import QApplication
+    from qtpy.QtWidgets import QApplication
 
     app = QApplication()
     window = BoxyTool()

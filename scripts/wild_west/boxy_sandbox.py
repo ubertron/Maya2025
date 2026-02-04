@@ -18,6 +18,7 @@ from maya_tools.geometry import bounds_utils; reload(bounds_utils)
 from maya_tools.utilities.boxy import boxy_tool; reload(boxy_tool)
 from maya_tools.utilities.boxy import boxy_utils; reload(boxy_utils)
 from maya_tools.utilities.boxy.boxy_data import BoxyData
+from maya_tools import maya_widget_utils; reload(maya_widget_utils)
 
 LOGGER = get_logger(name=__name__, level=logging.DEBUG)
 TEST_SCENE = Path("/Users/andrewdavis/Dropbox/Technology/Python3/Projects/Maya2025/scenes/boxy_test_scene.ma")
@@ -134,7 +135,14 @@ def test_boxy_build():
     print(node_utils.get_translation(result))
 
 
+def test_maya_widget_utils():
+    result = maya_widget_utils.get_widget_instances(tool_class="BoxyTool")
+    print(f"Instances: {', '.join(str(x) for x in result)}")
+     
+
+
 if __name__ == "__main__":
     # run_test_cases(load=True)
     boxy_tool.launch()
     # test_boxy_build()
+    #test_maya_widget_utils()
