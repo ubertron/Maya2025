@@ -6,12 +6,10 @@ from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QDoubleSpinBox, QTabWidget
 
 from core import DEVELOPER
-from core.core_enums import Axis, ComponentType, Side
-from core.point_classes import Point3Pair, X_AXIS, Z_AXIS
+from core.core_enums import ComponentType, Side, SurfaceDirection
 from core.core_paths import image_path
-from core.version_info import VersionInfo, Versions
-from maya_tools.utilities.architools import TOOL_NAME
 from maya_tools import maya_widget_utils
+from maya_tools.utilities.architools import TOOL_NAME, VERSIONS, ARCHITOOLS_COLOR
 from maya_tools.utilities.architools.widgets.door_widget import DoorWidget
 from maya_tools.utilities.architools.widgets.staircase_widget import StaircaseWidget
 from maya_tools.utilities.architools.widgets.window_widget import WindowWidget
@@ -22,16 +20,9 @@ from widgets.generic_widget import GenericWidget
 with contextlib.suppress(ImportError):
     from maya import cmds
     from maya_tools import node_utils
+    from maya_tools.geometry import face_finder
+    from maya_tools.geometry.component_utils import FaceComponent, components_from_selection
     from maya_tools.utilities.boxy import boxy_utils
-
-VERSIONS = Versions(versions=[
-    VersionInfo(name=TOOL_NAME, version="0.0.1", codename="hawk", info="first_release"),
-    VersionInfo(name=TOOL_NAME, version="0.0.2", codename="funky chicken", info="generics added"),
-    VersionInfo(name=TOOL_NAME, version="0.0.3", codename="funky pigeon", info="tabs added"),
-    VersionInfo(name=TOOL_NAME, version="0.0.4", codename="leopard", info="boxy integration"),
-    VersionInfo(name=TOOL_NAME, version="0.0.5", codename="banshee", info="boxy-based staircase"),
-    VersionInfo(name=TOOL_NAME, version="0.0.6", codename="squirrel", info="window added"),
-])
 
 
 class Architools(GenericWidget):
@@ -43,10 +34,16 @@ class Architools(GenericWidget):
     def __init__(self):
         super().__init__(title=VERSIONS.title)
         self.settings = QSettings(DEVELOPER, TOOL_NAME)
-        buttons: ButtonBar = self.add_widget(ButtonBar())
-        buttons.add_icon_button(
+        button_bar: ButtonBar = self.add_widget(ButtonBar())
+        button_bar.add_icon_button(
             icon_path=image_path("boxy.png"), tool_tip="Create Base-Pivot Boxy", clicked=self.boxy_clicked)
-        buttons.add_stretch()
+        button_bar.add_icon_button(icon_path=image_path("boxy_to_cube.png"), tool_tip="Toggle Boxy/Poly-Cube", clicked=self.boxy_cube_toggle_clicked)
+        button_bar.add_icon_button(icon_path=image_path("boxy_face_concave.png"), tool_tip="Concave boxy from face",
+                                   clicked=self.concave_face_button_clicked)
+        button_bar.add_icon_button(icon_path=image_path("boxy_face_convex.png"), tool_tip="Convex boxy from face",
+                                   clicked=self.convex_face_button_clicked)
+        button_bar.add_stretch()
+        button_bar.add_icon_button(icon_path=image_path("help.png"), tool_tip="Help", clicked=self.help_button_clicked)
         general_form: FormWidget = self.add_group_box(FormWidget(title="General Attributes"))
         self.skirt_thickness_input: QDoubleSpinBox = general_form.add_float_field(
             label="Skirt Thickness", default_value=2.0, minimum=0.5, maximum=5.0, step=0.1)
@@ -58,6 +55,33 @@ class Architools(GenericWidget):
         self.tab_widget.addTab(StaircaseWidget(parent=self), StaircaseWidget().windowTitle())
         self.info_label = self.add_label("Ready...", side=Side.left)
         self._setup_ui()
+
+    def _create_boxy_from_face(self, surface_direction: SurfaceDirection):
+        """Create a Boxy from a selected face and its opposite face."""
+        components = components_from_selection()
+
+        # Validate single face selection
+        if len(components) != 1 or not isinstance(components[0], FaceComponent):
+            self.info = "Select a single face"
+            return
+
+        face = components[0]
+
+        # Find opposite face
+        opposite = face_finder.get_opposite_face(
+            component=face,
+            surface_direction=surface_direction,
+            select=False
+        )
+
+        if opposite is None:
+            self.info = "No matching face found"
+            return
+
+        # Select both faces and create Boxy
+        cmds.select([face.name, opposite.name], replace=True)
+        cmds.hilite(face.transform)
+        self.boxy_clicked()
 
     def _setup_ui(self):
         auto_texture_check_box_state = self.settings.value(self.auto_texture_check_box_state, True)
@@ -96,7 +120,7 @@ class Architools(GenericWidget):
         Compare the min-max vector of the bounds to the X/Z axes to determine orientation
         """
         selection = cmds.ls(selection=True)
-        creator: boxy_utils.Boxy = boxy_utils.Boxy()
+        creator: boxy_utils.Boxy = boxy_utils.Boxy(color=ARCHITOOLS_COLOR)
         boxy_items, exceptions = creator.create(
             pivot=Side.bottom, default_size=self.default_size)
         if len(exceptions) > 0:
@@ -113,6 +137,34 @@ class Architools(GenericWidget):
             cmds.select(boxy_items)
             node_utils.set_component_mode(ComponentType.object)
 
+    def boxy_cube_toggle_clicked(self):
+        """Event for boxy cube toggle button."""
+        selection_list, exceptions = boxy_utils.boxy_cube_toggle(wireframe_color=ARCHITOOLS_COLOR)
+        if exceptions:
+            exception_string = ", ".join(ex.message for ex in exceptions)
+            self.info = f"Issues found: {exception_string}"
+        elif selection_list:
+            self.info = f"Toggled: {', '.join(selection_list)}"
+            cmds.select(selection_list)
+        else:
+            self.info = "No valid selection for toggle."
+
+    def concave_face_button_clicked(self):
+        """Event for concave face button."""
+        self._create_boxy_from_face(surface_direction=SurfaceDirection.concave)
+
+    def convex_face_button_clicked(self):
+        """Event for convex face button."""
+        self._create_boxy_from_face(surface_direction=SurfaceDirection.convex)
+
+    def help_button_clicked(self):
+        """Event for help button."""
+        # from maya_tools.utilities.architools.architools_help import ArchitoolsHelp
+        # help_widgets = maya_widget_utils.get_widget_instances(tool_class="ArchitoolsHelp")
+        # help_widget = help_widgets[-1] if help_widgets else ArchitoolsHelp(parent_widget=self)
+        # help_widget.show()
+        self.info = "Help button clicked"
+
 
 def launch():
     """Launch Boxy Tool."""
@@ -126,6 +178,7 @@ def launch():
 
 if __name__ == "__main__":
     from PySide6.QtWidgets import QApplication
+
     app = QApplication()
     tool = Architools()
     tool.show()

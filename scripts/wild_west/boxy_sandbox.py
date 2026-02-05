@@ -14,6 +14,7 @@ from core import color_classes, core_enums
 from core import point_classes; reload(point_classes)
 from core.logging_utils import get_logger
 from maya_tools import display_utils, node_utils, scene_utils
+from maya_tools.geometry import geometry_utils; reload(geometry_utils)
 from maya_tools.geometry import bounds_utils; reload(bounds_utils)
 from maya_tools.utilities.boxy import boxy_tool; reload(boxy_tool)
 from maya_tools.utilities.boxy import boxy_utils; reload(boxy_utils)
@@ -142,7 +143,7 @@ def test_maya_widget_utils():
 
 
 if __name__ == "__main__":
-    # run_test_cases(load=True)
-    boxy_tool.launch()
+    run_test_cases(load=True)
+    # boxy_tool.launch()
     # test_boxy_build()
     #test_maya_widget_utils()

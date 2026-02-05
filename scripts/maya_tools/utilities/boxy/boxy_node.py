@@ -1,10 +1,10 @@
 """
-ROBOTOOLS PROPRIETARY SOFTWARE LICENSE
+ROBOTOOLS STUDIO PROPRIETARY SOFTWARE LICENSE
 
-Copyright (c) 2026 Andrew Davis / Robotools. All Rights Reserved.
+Copyright (c) 2026 Andrew Davis / Robotools Studio. All Rights Reserved.
 
 1. OWNERSHIP
-   This software is the proprietary property of Andrew Davis / Robotools.
+   This software is the proprietary property of Andrew Davis / Robotools Studio.
    All intellectual property rights remain with the copyright holder.
 
 2. RESTRICTIONS
@@ -14,7 +14,7 @@ Copyright (c) 2026 Andrew Davis / Robotools. All Rights Reserved.
    - Reverse engineer, decompile, or disassemble this software
    - Remove or alter any proprietary notices
    - Use this software in production environments without pre-arranged
-     agreement with Andrew Davis / Robotools
+     agreement with Andrew Davis / Robotools Studio
    - Sublicense, rent, lease, or lend this software
 
 3. LICENSING

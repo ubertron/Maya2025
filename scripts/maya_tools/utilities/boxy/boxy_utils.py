@@ -1,10 +1,10 @@
 """
-ROBOTOOLS PROPRIETARY SOFTWARE LICENSE
+ROBOTOOLS STUDIO PROPRIETARY SOFTWARE LICENSE
 
-Copyright (c) 2026 Andrew Davis / Robotools. All Rights Reserved.
+Copyright (c) 2026 Andrew Davis / Robotools Studio. All Rights Reserved.
 
 1. OWNERSHIP
-   This software is the proprietary property of Andrew Davis / Robotools.
+   This software is the proprietary property of Andrew Davis / Robotools Studio.
    All intellectual property rights remain with the copyright holder.
 
 2. RESTRICTIONS
@@ -14,7 +14,7 @@ Copyright (c) 2026 Andrew Davis / Robotools. All Rights Reserved.
    - Reverse engineer, decompile, or disassemble this software
    - Remove or alter any proprietary notices
    - Use this software in production environments without pre-arranged
-     agreement with Andrew Davis / Robotools
+     agreement with Andrew Davis / Robotools Studio
    - Sublicense, rent, lease, or lend this software
 
 3. LICENSING
@@ -289,6 +289,27 @@ class Boxy:
                 else:
                     self.append_dict_list(_dict=element_type_dict, key=ElementType.invalid, value=x)
         self._element_type_dict = element_type_dict
+
+
+def boxy_cube_toggle(wireframe_color: RGBColor) -> tuple[list[str], list[BoxyException]]:
+    """Toggle between boxy and poly-cube."""
+    selection_list = []
+    exceptions = []
+    boxy_nodes = get_selected_boxy_nodes()
+    poly_cubes = get_selected_poly_cubes()
+    for node in boxy_nodes:
+        result = convert_boxy_to_poly_cube(node=node)
+        if isinstance(result, BoxyException):
+            exceptions.append(result)
+        else:
+            selection_list.append(result)
+    for poly_cube in poly_cubes:
+        result = convert_poly_cube_to_boxy(node=poly_cube, color=wireframe_color)
+        if isinstance(result, BoxyException):
+            exceptions.append(result)
+        else:
+            selection_list.append(result)
+    return selection_list, exceptions
 
 
 def build(boxy_data: BoxyData) -> str:

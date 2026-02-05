@@ -1,10 +1,10 @@
 """
-ROBOTOOLS PROPRIETARY SOFTWARE LICENSE
+ROBOTOOLS STUDIO PROPRIETARY SOFTWARE LICENSE
 
-Copyright (c) 2026 Andrew Davis / Robotools. All Rights Reserved.
+Copyright (c) 2026 Andrew Davis / Robotools Studio. All Rights Reserved.
 
 1. OWNERSHIP
-   This software is the proprietary property of Andrew Davis / Robotools.
+   This software is the proprietary property of Andrew Davis / Robotools Studio.
    All intellectual property rights remain with the copyright holder.
 
 2. RESTRICTIONS
@@ -14,7 +14,7 @@ Copyright (c) 2026 Andrew Davis / Robotools. All Rights Reserved.
    - Reverse engineer, decompile, or disassemble this software
    - Remove or alter any proprietary notices
    - Use this software in production environments without pre-arranged
-     agreement with Andrew Davis / Robotools
+     agreement with Andrew Davis / Robotools Studio
    - Sublicense, rent, lease, or lend this software
 
 3. LICENSING
@@ -218,7 +218,6 @@ class BoxyTool(GenericWidget):
         from maya_tools.utilities.boxy.boxy_help import BoxyHelp
         help_widgets = maya_widget_utils.get_widget_instances(tool_class="BoxyHelp")
         help_widget = help_widgets[-1] if help_widgets else BoxyHelp(parent_widget=self)
-        # help_widget.setWindowModality(Qt.WindowModality.ApplicationModal)
         help_widget.show()
 
     def pivot_combo_box_index_changed(self, arg):
@@ -227,22 +226,7 @@ class BoxyTool(GenericWidget):
 
     def boxy_cube_toggle_clicked(self):
         """Event for boxy cube toggle button."""
-        selection_list = []
-        exceptions = []
-        boxy_nodes = boxy_utils.get_selected_boxy_nodes()
-        poly_cubes = boxy_utils.get_selected_poly_cubes()
-        for boxy_node in boxy_nodes:
-            result = boxy_utils.convert_boxy_to_poly_cube(node=boxy_node)
-            if isinstance(result, BoxyException):
-                exceptions.append(result)
-            else:
-                selection_list.append(result)
-        for poly_cube in poly_cubes:
-            result = boxy_utils.convert_poly_cube_to_boxy(node=poly_cube, color=self.wireframe_color)
-            if isinstance(result, BoxyException):
-                exceptions.append(result)
-            else:
-                selection_list.append(result)
+        selection_list, exceptions = boxy_utils.boxy_cube_toggle(wireframe_color=self.wireframe_color)
         if exceptions:
             exception_string = ", ".join(ex.message for ex in exceptions)
             self.info = f"Issues found: {exception_string}"

@@ -10,7 +10,9 @@ from core.core_enums import CustomType, Side
 from core.logging_utils import get_logger
 from core.point_classes import Point3
 from maya_tools import node_utils
+from maya_tools.utilities.architools import ARCHITOOLS_COLOR
 from maya_tools.utilities.boxy import boxy_utils
+from maya_tools.utilities.boxy.boxy_data import BoxyData
 from core.bounds import Bounds
 
 LOGGER = get_logger(name=__name__, level=logging.DEBUG)
@@ -27,11 +29,12 @@ def convert_node_to_boxy(node: str, delete: bool = False) -> any:
             position=position,
             rotation=node_utils.get_rotation(node=node)
         )
-        data = maya_tools.utilities.boxy.boxy_data.BoxyData(
-            bounds=bounds,
+        data = BoxyData(
+            size=bounds.size,
+            translation=position,
+            rotation=node_utils.get_rotation(node=node),
             pivot_side=Side.bottom,
-            color=color_classes.DEEP_GREEN,
-            name='boxy'
+            color=ARCHITOOLS_COLOR
         )
         LOGGER.debug(f">>> convert_node_to_boxy - data: {data}")
         if delete:

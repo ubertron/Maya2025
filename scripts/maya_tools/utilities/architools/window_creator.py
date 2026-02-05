@@ -92,7 +92,7 @@ class WindowCreator(ArchCreator):
             node=geometry, attr="sill_depth", data_type=DataType.float, lock=True, default_value=self.sill_depth)
 
         # 5) texture/wireframe color
-        geometry_utils.set_wireframe_color(node=geometry, color=color_classes.DEEP_GREEN)
+        geometry_utils.set_wireframe_color(node=geometry, color=self.color)
         if self.auto_texture:
             material_utils.auto_texture(transform=geometry)
 

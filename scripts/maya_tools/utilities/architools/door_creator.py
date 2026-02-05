@@ -92,7 +92,7 @@ class DoorCreator(ArchCreator):
             default_value=self.opening_side.name)
 
         # 5) texture/wireframe color
-        geometry_utils.set_wireframe_color(node=geometry, color=color_classes.DEEP_GREEN)
+        geometry_utils.set_wireframe_color(node=geometry, color=self.color)
         if self.auto_texture:
             material_utils.auto_texture(transform=geometry)
 
