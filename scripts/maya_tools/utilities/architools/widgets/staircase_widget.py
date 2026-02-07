@@ -34,7 +34,7 @@ class StaircaseWidget(ArchWidget):
     def target_rise(self) -> float:
         return self.rise_input.value()
 
-    def convert_boxy(self) -> str | False:
+    def generate_architype(self) -> str | False:
         try:
             position = None
             boxy_node = next((iter(boxy_utils.get_selected_boxy_nodes())), None)

@@ -37,12 +37,6 @@
                 "tool_tip": "Mesh Quantizer",
                 "script": "from maya_tools.utilities.mesh_quantizer import UI_SCRIPT, mesh_quantizer_tool\nmesh_quantizer_tool.MeshQuantizerTool().show_workspace_control(ui_script=UI_SCRIPT)"
             },
-            "Arch Tools": {
-                "icon": "arch.png",
-                "language": "python",
-                "tool_tip": "Architools",
-                "script": "from maya_tools.utilities.architools import architools\narchitools.launch()"
-            },
             "Create Vertex Locators": {
                 "icon": "locators.png",
                 "language": "python",
@@ -60,6 +54,12 @@
                 "language": "python",
                 "tool_tip": "Boxy Box",
                 "script": "from maya_tools.utilities.boxy import boxy_tool\nboxy_tool.launch()"
+            },
+            "Arch Tools": {
+                "icon": "architools_logo.png",
+                "language": "python",
+                "tool_tip": "Architools",
+                "script": "from maya_tools.utilities.architools import architools\narchitools.launch()"
             },
             "Test Boxy": {
                 "icon": "test.png",
@@ -137,7 +137,7 @@
                 "icon": "toggle_xray.png",
                 "language": "python",
                 "tool_tip": "Toggle xray",
-                "script": "from maya_tools import geometry_utils\ngeometry_utils.toggle_xray()"
+                "script": "from maya_tools.geometry import geometry_utils\ngeometry_utils.toggle_xray()"
             }
         },
         "Geometry": {
@@ -181,7 +181,7 @@
                 "icon": "combine.png",
                 "language": "python",
                 "tool tip": "Combine geometry",
-                "script": "from maya_tools import geometry_utils\ngeometry_utils.combine(cmds.ls(sl=True))"
+                "script": "from maya_tools.geometry import geometry_utils\ngeometry_utils.combine(cmds.ls(sl=True))"
             }
         },
         "Materials": {

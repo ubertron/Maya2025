@@ -6,16 +6,20 @@ from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QDoubleSpinBox, QTabWidget
 
 from core import DEVELOPER
-from core.core_enums import ComponentType, Side, SurfaceDirection
+from core.core_enums import ComponentType, CustomType, Side, SurfaceDirection
 from core.core_paths import image_path
 from maya_tools import maya_widget_utils
-from maya_tools.utilities.architools import TOOL_NAME, VERSIONS, ARCHITOOLS_COLOR
+from maya_tools.utilities.architools import TOOL_NAME, VERSIONS, ARCHITOOLS_COLOR, arch_utils
 from maya_tools.utilities.architools.widgets.door_widget import DoorWidget
 from maya_tools.utilities.architools.widgets.staircase_widget import StaircaseWidget
 from maya_tools.utilities.architools.widgets.window_widget import WindowWidget
 from widgets.button_bar import ButtonBar
 from widgets.form_widget import FormWidget
 from widgets.generic_widget import GenericWidget
+from widgets.image_label import ImageLabel
+
+# All architypes that can be converted
+ARCHITYPES = (CustomType.window, CustomType.door, CustomType.staircase)
 
 with contextlib.suppress(ImportError):
     from maya import cmds
@@ -27,21 +31,24 @@ with contextlib.suppress(ImportError):
 
 class Architools(GenericWidget):
     auto_texture_check_box_state = "auto_texture_check_box_state"
-    default_size = 100.0
+    default_cube_size_key = "default_cube_size"
     skirt_thickness_key = "skirt_thickness"
     tab_index_key = "tab_index"
+    xray_mode_key = "xray_mode"
 
     def __init__(self):
         super().__init__(title=VERSIONS.title)
         self.settings = QSettings(DEVELOPER, TOOL_NAME)
+        self.logo = self.add_widget(ImageLabel(image_path("architools_logo.png")))
         button_bar: ButtonBar = self.add_widget(ButtonBar())
         button_bar.add_icon_button(
-            icon_path=image_path("boxy.png"), tool_tip="Create Base-Pivot Boxy", clicked=self.boxy_clicked)
-        button_bar.add_icon_button(icon_path=image_path("boxy_to_cube.png"), tool_tip="Toggle Boxy/Poly-Cube", clicked=self.boxy_cube_toggle_clicked)
-        button_bar.add_icon_button(icon_path=image_path("boxy_face_concave.png"), tool_tip="Concave boxy from face",
+            icon_path=image_path("boxy_architools.png"), tool_tip="Create Boxy", clicked=self.boxy_clicked)
+        button_bar.add_icon_button(icon_path=image_path("boxy_to_cube.png"), tool_tip="Create Cube", clicked=self.cube_button_clicked)
+        button_bar.add_icon_button(icon_path=image_path("boxy_face_concave_architools.png"), tool_tip="Concave boxy from face",
                                    clicked=self.concave_face_button_clicked)
-        button_bar.add_icon_button(icon_path=image_path("boxy_face_convex.png"), tool_tip="Convex boxy from face",
+        button_bar.add_icon_button(icon_path=image_path("boxy_face_convex_architools.png"), tool_tip="Convex boxy from face",
                                    clicked=self.convex_face_button_clicked)
+        button_bar.add_icon_button(icon_path=image_path("rotate_90.png"), tool_tip="Change Orientation 90°", clicked=self.rotate_button_clicked)
         button_bar.add_stretch()
         button_bar.add_icon_button(icon_path=image_path("help.png"), tool_tip="Help", clicked=self.help_button_clicked)
         general_form: FormWidget = self.add_group_box(FormWidget(title="General Attributes"))
@@ -49,6 +56,9 @@ class Architools(GenericWidget):
             label="Skirt Thickness", default_value=2.0, minimum=0.5, maximum=5.0, step=0.1)
         self.auto_texture_check_box = general_form.add_check_box(
             label="Auto-texture", tool_tip="Apply checker texture")
+        self.default_cube_size_input:  QDoubleSpinBox = general_form.add_float_field(
+            label="Default Cube Size", default_value=50.0, minimum=1.0, maximum=1000.0, step=1.0)
+        self.xray_mode_check_box = general_form.add_check_box(label="Ghost Cube Mode", checked=False, tool_tip="Set the xray mode on cubes")
         self.tab_widget: QTabWidget = self.add_widget(QTabWidget())
         self.tab_widget.addTab(DoorWidget(parent=self), DoorWidget().windowTitle())
         self.tab_widget.addTab(WindowWidget(parent=self), WindowWidget().windowTitle())
@@ -87,12 +97,19 @@ class Architools(GenericWidget):
         auto_texture_check_box_state = self.settings.value(self.auto_texture_check_box_state, True)
         self.auto_texture_check_box.setChecked(auto_texture_check_box_state)
         self.auto_texture_check_box.stateChanged.connect(self.auto_texture_check_box_state_changed)
+        self.default_cube_size_input.setValue(self.settings.value(self.default_cube_size_key, 50.0))
+        self.default_cube_size_input.valueChanged.connect(
+            lambda: self.settings.setValue(self.default_cube_size_key, self.default_cube_size))
         self.skirt_thickness_input.setValue(self.settings.value(self.skirt_thickness_key, 2.0))
         self.skirt_thickness_input.valueChanged.connect(
             lambda: self.settings.setValue(self.skirt_thickness_key, self.skirt_thickness))
+        self.xray_mode_check_box.setChecked(self.settings.value(self.xray_mode_key, False))
+        self.xray_mode_check_box.stateChanged.connect(
+            lambda: self.settings.setValue(self.xray_mode_key, self.xray_mode))
         self.tab_widget.setCurrentIndex(self.settings.value(self.tab_index_key, 0))
         self.tab_widget.currentChanged.connect(lambda: self.settings.setValue(
             self.tab_index_key, self.tab_widget.currentIndex()))
+        self.logo.setFixedHeight(80)
 
     @property
     def info(self) -> str:
@@ -107,8 +124,18 @@ class Architools(GenericWidget):
         self.info_label.setText(value)
 
     @property
+    def default_cube_size(self) -> float:
+        return self.default_cube_size_input.value()
+
+    @property
     def skirt_thickness(self) -> float:
+        """Value of the skirt_thickness_input."""
         return self.skirt_thickness_input.value()
+
+    @property
+    def xray_mode(self) -> bool:
+        """Value of the xray_mode_check box."""
+        return self.xray_mode_check_box.isChecked()
 
     def auto_texture_check_box_state_changed(self):
         """Event for auto_texture_check_box."""
@@ -117,18 +144,83 @@ class Architools(GenericWidget):
     def boxy_clicked(self):
         """Event for main boxy button.
 
-        Compare the min-max vector of the bounds to the X/Z axes to determine orientation
+        Context-sensitive boxy conversion:
+        - Nothing selected: create default size boxy at origin
+        - Boxy nodes: rebuild as ARCHITOOLS_COLOR bottom pivot boxy
+        - Architype nodes (window, door, staircase): convert to boxy
+        - Polycube nodes: convert to boxy
+        - Other selection (vertices, faces, etc.): create new boxy from bounds
         """
-        selection = cmds.ls(selection=True)
-        creator: boxy_utils.Boxy = boxy_utils.Boxy(color=ARCHITOOLS_COLOR)
-        boxy_items, exceptions = creator.create(
-            pivot=Side.bottom, default_size=self.default_size)
+        # Capture selected transforms before any conversions
+        selected_transforms = list(node_utils.get_selected_transforms(full_path=True))
+        original_selection = cmds.ls(selection=True)
+        boxy_items = []
+        exceptions = []
+
+        # If nothing selected, create default boxy at origin
+        if not selected_transforms:
+            from core.point_classes import Point3
+            from maya_tools.utilities.boxy.boxy_data import BoxyData
+            size = self.default_cube_size
+            boxy_data = BoxyData(
+                size=Point3(size, size, size),
+                translation=Point3(0, 0, 0),
+                rotation=Point3(0, 0, 0),
+                pivot_side=Side.bottom,
+                color=ARCHITOOLS_COLOR
+            )
+            result = boxy_utils.build(boxy_data=boxy_data)
+            self.info = f"Boxy object created: {result}"
+            cmds.select(result)
+            return
+
+        has_convertible_nodes = False
+
+        # Check for convertible nodes first
+        for node in selected_transforms:
+            if node_utils.is_boxy(node):
+                has_convertible_nodes = True
+            elif any(node_utils.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
+                has_convertible_nodes = True
+            elif boxy_utils.find_poly_cube_in_history(node):
+                has_convertible_nodes = True
+
+        if has_convertible_nodes:
+            # Process each node individually for conversion
+            for node in selected_transforms:
+                # Skip if node no longer exists (may have been affected by previous conversion)
+                if not cmds.objExists(node):
+                    continue
+                if node_utils.is_boxy(node):
+                    # Rebuild boxy with ARCHITOOLS_COLOR and bottom pivot
+                    cmds.select(node)
+                    rebuilt_nodes, rebuild_exceptions = boxy_utils.Boxy(color=ARCHITOOLS_COLOR).create(
+                        pivot=Side.bottom)
+                    boxy_items.extend(rebuilt_nodes)
+                    exceptions.extend(rebuild_exceptions)
+                elif any(node_utils.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
+                    # Convert architype to boxy
+                    result = arch_utils.convert_node_to_boxy(node=node, delete=True)
+                    if result:
+                        boxy_items.append(result)
+                elif boxy_utils.find_poly_cube_in_history(node):
+                    # Convert polycube to boxy
+                    result = boxy_utils.convert_poly_cube_to_boxy(node=node, color=ARCHITOOLS_COLOR)
+                    if result:
+                        boxy_items.append(result)
+        else:
+            # No convertible nodes - use original behavior to create boxy from selection
+            creator: boxy_utils.Boxy = boxy_utils.Boxy(color=ARCHITOOLS_COLOR)
+            boxy_items, exceptions = creator.create(
+                pivot=Side.bottom, default_size=self.default_cube_size)
+
+        # Report results
         if len(exceptions) > 0:
             exception_string = ", ".join(ex.message for ex in exceptions)
             self.info = f"Issues found: {exception_string}"
         elif len(boxy_items) == 0:
             self.info = "No boxy objects created."
-            cmds.select(selection)
+            cmds.select(original_selection)
         else:
             if len(boxy_items) == 1:
                 self.info = f"Boxy object created: {boxy_items[0]}"
@@ -137,17 +229,77 @@ class Architools(GenericWidget):
             cmds.select(boxy_items)
             node_utils.set_component_mode(ComponentType.object)
 
-    def boxy_cube_toggle_clicked(self):
-        """Event for boxy cube toggle button."""
-        selection_list, exceptions = boxy_utils.boxy_cube_toggle(wireframe_color=ARCHITOOLS_COLOR)
-        if exceptions:
-            exception_string = ", ".join(ex.message for ex in exceptions)
-            self.info = f"Issues found: {exception_string}"
-        elif selection_list:
-            self.info = f"Toggled: {', '.join(selection_list)}"
-            cmds.select(selection_list)
+    def cube_button_clicked(self):
+        """Event for Create Polycube button.
+
+        Context-sensitive polycube conversion:
+        - Nothing selected: create default size polycube at origin with bottom pivot
+        - Boxy nodes: convert to polycube
+        - Architype nodes: convert to polycube (same size as if converted to boxy first)
+        - Polycube nodes: recalculate (reset transforms, pivot to bottom center)
+        - Other: no action (only handles architools-related nodes)
+        """
+        from maya_tools.geometry import geometry_utils
+
+        # Capture selected transforms before any conversions
+        selected_transforms = list(node_utils.get_selected_transforms(full_path=True))
+        polycube_items = []
+
+        # If nothing selected, create default polycube at origin
+        if not selected_transforms:
+            from core.point_classes import Point3
+            size = self.default_cube_size
+            cube = geometry_utils.create_cube(
+                size=Point3(size, size, size),
+                position=Point3(0, 0, 0),
+                baseline=0  # Bottom pivot
+            )
+            # TODO: xray mode disabled due to Maya viewport refresh bug
+            # if self.xray_mode:
+            #     geometry_utils.toggle_xray()
+            self.info = f"Polycube created: {cube}"
+            cmds.select(cube)
+            return
+
+        # Process each selected node
+        for node in selected_transforms:
+            # Skip if node no longer exists (may have been affected by previous conversion)
+            if not cmds.objExists(node):
+                continue
+            if node_utils.is_boxy(node):
+                # Convert boxy to polycube
+                result = boxy_utils.convert_boxy_to_poly_cube(node=node)
+                if result and not isinstance(result, boxy_utils.BoxyException):
+                    polycube_items.append(result)
+            elif any(node_utils.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
+                # Convert architype to boxy first, then to polycube
+                boxy_node = arch_utils.convert_node_to_boxy(node=node, delete=True)
+                if boxy_node:
+                    result = boxy_utils.convert_boxy_to_poly_cube(node=boxy_node)
+                    if result and not isinstance(result, boxy_utils.BoxyException):
+                        polycube_items.append(result)
+            elif boxy_utils.find_poly_cube_in_history(node):
+                # Recalculate polycube: convert to boxy then back to polycube
+                # This resets transforms and puts pivot to bottom center
+                boxy_node = boxy_utils.convert_poly_cube_to_boxy(node=node, color=ARCHITOOLS_COLOR)
+                if boxy_node:
+                    result = boxy_utils.convert_boxy_to_poly_cube(node=boxy_node)
+                    if result and not isinstance(result, boxy_utils.BoxyException):
+                        polycube_items.append(result)
+            # Other node types: no action
+
+        # Report results and select
+        if polycube_items:
+            if len(polycube_items) == 1:
+                self.info = f"Polycube created: {polycube_items[0]}"
+            else:
+                self.info = f"Polycubes created: {', '.join(polycube_items)}"
+            cmds.select(polycube_items)
+            # TODO: xray mode disabled due to Maya viewport refresh bug
+            # if self.xray_mode:
+            #     geometry_utils.toggle_xray()
         else:
-            self.info = "No valid selection for toggle."
+            self.info = "No polycubes created."
 
     def concave_face_button_clicked(self):
         """Event for concave face button."""
@@ -159,11 +311,74 @@ class Architools(GenericWidget):
 
     def help_button_clicked(self):
         """Event for help button."""
-        # from maya_tools.utilities.architools.architools_help import ArchitoolsHelp
-        # help_widgets = maya_widget_utils.get_widget_instances(tool_class="ArchitoolsHelp")
-        # help_widget = help_widgets[-1] if help_widgets else ArchitoolsHelp(parent_widget=self)
-        # help_widget.show()
-        self.info = "Help button clicked"
+        from maya_tools.utilities.architools.architools_help import ArchitoolsHelp
+        help_widgets = maya_widget_utils.get_widget_instances(tool_class="ArchitoolsHelp")
+        help_widget = help_widgets[-1] if help_widgets else ArchitoolsHelp(parent_widget=self)
+        help_widget.show()
+        self.info = "Help displayed"
+
+    def rotate_button_clicked(self):
+        """Event for rotate button.
+
+        Rotates orientation (not regular rotation) by -90 degrees on Y axis.
+        - Architype nodes: convert to boxy, rotate orientation, convert back to same architype
+        - Boxy nodes: rotate orientation
+        - Polycube nodes: convert to boxy, rotate orientation, convert back to polycube
+        - Other nodes: no action
+        """
+        from core.core_enums import Axis
+
+        rotated_items = []
+        selected_transforms = node_utils.get_selected_transforms(full_path=True)
+
+        if not selected_transforms:
+            self.info = "No valid item selected for rotation"
+            return
+
+        for node in selected_transforms:
+            # Check for architype nodes
+            detected_type = None
+            for ct in ARCHITYPES:
+                if node_utils.is_custom_type(node=node, custom_type=ct):
+                    detected_type = ct
+                    break
+
+            if detected_type:
+                # Architype: convert to boxy, rotate, convert back to same architype
+                temp_boxy = arch_utils.convert_node_to_boxy(node=node, delete=True)
+                if temp_boxy:
+                    rotated_boxy = boxy_utils.edit_boxy_orientation(node=temp_boxy, rotation=-90, axis=Axis.y)
+                    if rotated_boxy:
+                        # Get the appropriate widget to generate the architype
+                        cmds.select(rotated_boxy)
+                        widget_index = {CustomType.door: 0, CustomType.window: 1, CustomType.staircase: 2}[detected_type]
+                        widget = self.tab_widget.widget(widget_index)
+                        result = widget.generate_architype()
+                        if result:
+                            rotated_items.append(result)
+            elif node_utils.is_boxy(node):
+                # Boxy: just rotate orientation
+                result = boxy_utils.edit_boxy_orientation(node=node, rotation=-90, axis=Axis.y)
+                if result:
+                    rotated_items.append(result)
+            elif boxy_utils.find_poly_cube_in_history(node):
+                # Polycube: convert to boxy, rotate, convert back to polycube
+                temp_boxy = boxy_utils.convert_poly_cube_to_boxy(node=node, color=ARCHITOOLS_COLOR)
+                if temp_boxy:
+                    rotated_boxy = boxy_utils.edit_boxy_orientation(node=temp_boxy, rotation=-90, axis=Axis.y)
+                    if rotated_boxy:
+                        result = boxy_utils.convert_boxy_to_poly_cube(node=rotated_boxy)
+                        if result and not isinstance(result, boxy_utils.BoxyException):
+                            rotated_items.append(result)
+
+        if rotated_items:
+            if len(rotated_items) == 1:
+                self.info = f"Rotated: {rotated_items[0]}"
+            else:
+                self.info = f"Rotated {len(rotated_items)} items"
+            cmds.select(rotated_items)
+        else:
+            self.info = "No valid item selected for rotation"
 
 
 def launch():

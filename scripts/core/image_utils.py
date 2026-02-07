@@ -8,6 +8,7 @@ from PIL import Image, ImageDraw
 from core import color_classes
 from core.color_classes import RGBColor
 from core.logging_utils import get_logger
+from maya_tools.utilities.architools import ARCHITOOLS_COLOR
 
 LOGGER = get_logger(__name__)
 
@@ -92,11 +93,11 @@ def tint_image(path: Path, output_path: Path, rgb: tuple[int, int, int] | RGBCol
 
 if __name__ == "__main__":
     from core_paths import image_path
-
     # my_path = image_path("open.png")
     # resize_image(path=image_path("maya_large.png"), output_path=IMAGE_DIR / "maya.png", width=128, height=128, show=True)
     # tint_image(path=image_path("browse_og.png"), output_path=IMAGE_DIR / "browse.png", rgb=color_classes.LIGHT_GREY)
-    tint_image(path=image_path("toggle_layer_shading.png"), output_path=image_path("toggle_layer_shading.png"), rgb=color_classes.LIGHT_GREY)
+    tint_image(path=image_path("boxy.png"), output_path=Path("/Users/andrewdavis/Dropbox/Technology/Python3/Projects/Maya2025/images/icons/boxy_architools.png"), rgb=ARCHITOOLS_COLOR)
+    # tint_image(path=image_path("toggle_layer_shading.png"), output_path=image_path("toggle_layer_shading.png"), rgb=color_classes.LIGHT_GREY)
     # tint_image(path=Path("/Users/andrewdavis/Dropbox/Technology/Python3/Projects/Maya2025/images/icons/eye.png"), output_path=ICON_DIR / "format.png", rgb=color_classes.LIGHT_GREY)
     # tint_image(path=image_path("fingerprint.png"), output_path=ICON_DIR / "uuid.png", rgb=color_classes.LIGHT_GREY)
     # create_checker(path=Path("/Users/andrewdavis/Dropbox/Projects/Unity/Archive/SeventhStreet/Assets/Textures/checker.png"))

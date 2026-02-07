@@ -63,19 +63,14 @@ class ArchCreator(ABC):
         self.auto_texture = auto_texture
         self.data = None
         self.boxy_node = None
-        LOGGER.debug(">>> LIONS: ArchCreator")
         self._get_boxy_node()
 
     def _get_boxy_node(self):
         """Get the boxy data."""
-        LOGGER.debug(">>> CATS: _get_boxy_node")
         selection = boxy_utils.get_selected_boxy_nodes()
-        assert len(selection) == 1, "Select a single boxy item"
-        LOGGER.debug(">>> STINKY FLIES: _get_boxy_node")
+        assert len(selection) == 1, f"Select a single boxy item (got {len(selection)})"
         boxy_nodes, exceptions = boxy_utils.Boxy().create(pivot=Side.bottom)
-        LOGGER.debug(f">>> RESULT: {boxy_nodes} {exceptions}")
         self.boxy_node = boxy_nodes[0]
-        LOGGER.debug(f">>> APES: boxy node: {self.boxy_node}")
 
     @property
     def data(self) -> ArchData | None:

@@ -72,9 +72,10 @@ class StaircaseCreator(ArchCreator):
         if dot_product < 0.0:
             cmds.polyNormal(geometry, normalMode=0, userNormalMode=0)
 
-        # 4) add the attributes
+        # 4) add the attributes (custom_type on shape node for consistency)
+        shape = node_utils.get_shape_from_transform(geometry)
         attribute_utils.add_attribute(
-            node=geometry, attr="custom_type", data_type=DataType.string, lock=True,
+            node=shape, attr="custom_type", data_type=DataType.string, lock=True,
             default_value=self.custom_type.name)
         attribute_utils.add_compound_attribute(
             node=geometry, parent_attr="size", data_type=DataType.float3, attrs=["x", "y", "z"], lock=True,

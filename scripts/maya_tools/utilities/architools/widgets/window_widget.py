@@ -61,7 +61,7 @@ class WindowWidget(ArchWidget):
     def skirt(self) -> float:
         return self.skirt_input.value()
 
-    def convert_boxy(self) -> str | False:
+    def generate_architype(self) -> str | False:
         try:
             position = None
             boxy_node = next((iter(boxy_utils.get_selected_boxy_nodes())), None)
@@ -70,12 +70,11 @@ class WindowWidget(ArchWidget):
             creator = window_creator.WindowCreator(
                 sill_depth=self.sill_depth,
                 sill_thickness=self.sill_thickness,
-                frame=self. frame,
+                frame=self.frame,
                 skirt=self.skirt,
                 auto_texture=self.parent_widget.auto_texture
             )
             result = creator.create()
-            LOGGER.debug(f">>> setting position to {position}")
             node_utils.set_translation(result, value=position, absolute=True)
             return result
         except (ValueError, AssertionError) as e:

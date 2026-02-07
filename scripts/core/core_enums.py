@@ -50,6 +50,11 @@ class Axis(Enum):
         return Axis(key)
 
 
+class CreationMode(Enum):
+    pivot_origin = auto()
+    center_origin = auto()
+
+
 class ComponentType(Enum):
     cv = 'control vertex'
     edge = 'edge'
@@ -64,6 +69,7 @@ class ComponentType(Enum):
 
 class CustomType(Enum):
     boxy = auto()
+    cube = auto()
     door = auto()
     staircase = auto()
     window = auto()

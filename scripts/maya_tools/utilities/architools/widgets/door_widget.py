@@ -64,7 +64,7 @@ class DoorWidget(ArchWidget):
     def skirt_thickness(self) -> float:
         return self.parent_widget.skirt_thickness_input.value()
 
-    def convert_boxy(self) -> str | False:
+    def generate_architype(self) -> str | False:
         try:
             position = None
             boxy_node = next((iter(boxy_utils.get_selected_boxy_nodes())), None)

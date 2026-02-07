@@ -6,7 +6,7 @@ from maya import cmds
 from PySide6.QtCore import QSettings
 
 from core import DEVELOPER
-from core.core_enums import CustomType, Axis
+from core.core_enums import CustomType
 from core import logging_utils
 from widgets.form_widget import FormWidget
 from widgets.generic_widget import GenericWidget
@@ -14,6 +14,8 @@ from maya_tools import node_utils
 from maya_tools.utilities.architools import arch_utils, TOOL_NAME
 from maya_tools.utilities.boxy import boxy_utils
 
+# All architypes that can be converted
+ARCHITYPES = (CustomType.window, CustomType.door, CustomType.staircase)
 
 LOGGER = logging_utils.get_logger(name=__name__, level=logging.DEBUG)
 
@@ -26,12 +28,8 @@ class ArchWidget(GenericWidget):
         self._info = None
         self.parent_widget = parent if parent else None
         self.form: FormWidget = self.add_widget(FormWidget(title=f"{self.title} Creator"))
-        self.add_button(text=f"Generate {self.title}", clicked=self.create_button_clicked,
+        self.add_button(text=f"Generate {self.title}", clicked=self.generate_button_clicked,
                         tool_tip=f"Generate {self.title}")
-        self.add_button(text=f"Rotate {self.title} 90°", clicked=self.rotate_button_clicked,
-                        tool_tip=f"Rotate {self.title}")
-        self.add_button(text=f"Convert {self.title} To Boxy", clicked=self.convert_to_boxy_clicked,
-                        tool_tip=f"Convert {self.title} To Boxy")
 
     @property
     def title(self):
@@ -48,43 +46,56 @@ class ArchWidget(GenericWidget):
         else:
             self._info = value
 
-    def convert_to_boxy_clicked(self):
-        """Event for convert boxy button."""
-        self.info = "Convert To Boxy clicked"
-        for node in arch_utils.get_custom_type(custom_type=self.custom_type, selected=True):
-            arch_utils.convert_node_to_boxy(node=node, delete=True)
-
-    def convert_boxy(self):
+    def generate_architype(self):
         """Convert boxy to CustomType geometry.
 
         - Override with construction logic.
         """
         pass
 
-    def create_button_clicked(self):
-        """Event for create button."""
-        LOGGER.debug(f"arch_widget.py > create_button_clicked()")
+    def generate_button_clicked(self):
+        """Event for create button.
+
+        Processes all selected nodes:
+        - Boxy nodes: convert directly to architype
+        - Architype nodes (window, door, staircase): convert to boxy, then to target architype
+        - Polycubes: convert to boxy, then to architype
+        """
         new_objects = []
+        boxy_nodes = []
+
         try:
-            for node in arch_utils.get_custom_type(custom_type=self.custom_type, selected=True):
-                arch_utils.convert_node_to_boxy(node=node, delete=True)
-            node = self.convert_boxy()
-            self.info = f"{self.title} created: {node}"
-            if node:
-                new_objects.append(node)
+            # Phase 1: Pre-convert all selected nodes to boxy nodes
+            for node in node_utils.get_selected_transforms(full_path=True):
+                if node_utils.is_boxy(node):
+                    boxy_nodes.append(node)
+                elif any(node_utils.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
+                    boxy_node = arch_utils.convert_node_to_boxy(node=node, delete=True)
+                    if boxy_node:
+                        boxy_nodes.append(boxy_node)
+                elif boxy_utils.find_poly_cube_in_history(node):
+                    boxy_node = boxy_utils.convert_poly_cube_to_boxy(node=node)
+                    if boxy_node:
+                        boxy_nodes.append(boxy_node)
+
+            # Phase 2: Convert each boxy node to the target architype
+            for boxy_node in boxy_nodes:
+                if not cmds.objExists(boxy_node):
+                    continue
+                cmds.select(boxy_node)
+                result = self.generate_architype()
+                if result:
+                    new_objects.append(result)
+
+            if new_objects:
+                self.info = f"{self.title}(s) created: {len(new_objects)}"
+            else:
+                self.info = f"No {self.title}s created"
+
         except AssertionError as e:
             self.info = str(e)
 
         if new_objects:
-            cmds.select(new_objects)
-
-    def rotate_button_clicked(self):
-        """Event for rotate button."""
-        self.info = "Rotate button clicked"
-        for x in node_utils.get_selected_transforms(full_path=True):
-            if node_utils.is_custom_type(node=x, custom_type=self.custom_type):
-                temp_boxy = arch_utils.convert_node_to_boxy(node=x, delete=True)
-                boxy_utils.edit_boxy_orientation(node=temp_boxy, rotation=-90, axis=Axis.y)
-                self.convert_boxy()
-            elif node_utils.is_boxy(x):
-                boxy_utils.edit_boxy_orientation(node=x, rotation=-90, axis=Axis.y)
+            existing_objects = [obj for obj in new_objects if cmds.objExists(obj)]
+            if existing_objects:
+                cmds.select(existing_objects)

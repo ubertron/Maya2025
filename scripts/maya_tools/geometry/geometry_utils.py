@@ -42,7 +42,7 @@ def combine(transforms: list[str] | None = None, name: str = '', position: Optio
 
 
 def create_cube(name: Optional[str] = None, size: float | Point3 = 1, position: Point3 = Point3(0, 0, 0),
-                divisions: int = 1, baseline: float = 0) -> str:
+                divisions: int = 1, baseline: float = 0, construction_history: bool = True) -> str:
     """
     Create a polygon cube with manual pivot positioning for Maya 2022/2026 compatibility.
 
@@ -51,6 +51,7 @@ def create_cube(name: Optional[str] = None, size: float | Point3 = 1, position: 
     :param position: Position for the cube
     :param divisions: Number of subdivisions
     :param baseline: Height baseline (0=bottom, 0.5=center, 1=top) - handled manually for compatibility
+    :param construction_history:
     """
     if isinstance(size, Point3):
         width = size.x
@@ -62,10 +63,12 @@ def create_cube(name: Optional[str] = None, size: float | Point3 = 1, position: 
         depth = size
 
     # Create cube without heightBaseline (Maya 2022 compatibility)
-    cube, _ = cmds.polyCube(
+    result = cmds.polyCube(
         name=name if name else 'cube',
         width=width, height=height, depth=depth,
-        sx=divisions, sy=divisions, sz=divisions)
+        sx=divisions, sy=divisions, sz=divisions,
+        constructionHistory=construction_history)
+    cube = result[0] if construction_history else result
 
     # Manually adjust position based on baseline
     # baseline: 0=bottom at position, 0.5=center at position (default), 1=top at position
@@ -646,6 +649,9 @@ def toggle_xray(transform: Optional[Sequence[str]] = None):
         display_utils.warning_message(f'No geometry selected')
         return
 
+    state = node_utils.State()
+    cmds.select(geometry_list)
+
     def toggle_xray_recursive(geometry: str):
         state = cmds.displaySurface(geometry, xRay=True, query=True)[0]
         cmds.displaySurface(geometry, xRay=not state)
@@ -654,6 +660,31 @@ def toggle_xray(transform: Optional[Sequence[str]] = None):
 
     for x in geometry_list:
         toggle_xray_recursive(geometry=x)
+
+    state.restore()
+
+
+def set_xray(transform: Optional[Sequence[str]] = None, state: bool = True):
+    """
+    Set xray on passed or selected objects
+    :param transform:
+    :param state:
+    """
+    geometry_list = cmds.ls(transform) if transform else node_utils.get_selected_geometry()
+    if not geometry_list:
+        display_utils.warning_message(f'No geometry selected')
+        return
+
+    selection_state = node_utils.State()
+
+    def set_xray_recursive(geometry: str):
+        shape = node_utils.get_shape_from_transform(node=geometry)
+        cmds.select(geometry)
+        cmds.displaySurface(shape, xRay=state)
+        [set_xray_recursive(child, xray_state=state) for child in node_utils.get_child_geometry(node=geometry)]
+
+    [set_xray_recursive(geometry=x) for x in geometry_list]
+    selection_state.restore()
 
 
 def get_faces_by_axis(transform: str, axis: Point3, tolerance_angle: float = 0.05) -> list[int]:

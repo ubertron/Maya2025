@@ -269,8 +269,15 @@ def get_component_mode() -> ComponentType or False:
 
 
 def get_custom_type(node: str) -> CustomType | None:
-    """Get the custom type of a node."""
-    return CustomType[cmds.getAttr(f"{node}.custom_type")] if is_custom_type_node(node=node) else None
+    """Get the custom type of a node (checks shape node first, then transform for legacy)."""
+    shape = get_shape_from_transform(node=node)
+    # Check shape first (new standard)
+    if shape and cmds.attributeQuery("custom_type", node=shape, exists=True):
+        return CustomType[cmds.getAttr(f"{shape}.custom_type")]
+    # Fallback to transform (legacy)
+    if cmds.attributeQuery("custom_type", node=node, exists=True):
+        return CustomType[cmds.getAttr(f"{node}.custom_type")]
+    return None
 
 
 def get_cv_position(node: str, cv_id: int) -> Point3:
@@ -632,13 +639,24 @@ def is_boxy(node: str) -> bool:
 
 
 def is_custom_type(node: str, custom_type: CustomType) -> bool:
-    """Is node a custom type (legacy polyCube-based)."""
-    return cmds.attributeQuery("custom_type", node=node, exists=True) and \
-        cmds.getAttr(f"{node}.custom_type") == custom_type.name
+    """Is node a custom type (checks shape node first, then transform for legacy)."""
+    shape = get_shape_from_transform(node=node)
+    # Check shape first (new standard)
+    if shape and cmds.attributeQuery("custom_type", node=shape, exists=True):
+        return cmds.getAttr(f"{shape}.custom_type") == custom_type.name
+    # Fallback to transform (legacy)
+    if cmds.attributeQuery("custom_type", node=node, exists=True):
+        return cmds.getAttr(f"{node}.custom_type") == custom_type.name
+    return False
 
 
 def is_custom_type_node(node: str) -> bool:
-    """Is node a custom type node."""
+    """Is node a custom type node (checks shape first, then transform for legacy)."""
+    shape = get_shape_from_transform(node=node)
+    # Check shape first (new standard)
+    if shape and attribute_utils.has_attribute(node=shape, attr="custom_type"):
+        return True
+    # Fallback to transform (legacy)
     return attribute_utils.has_attribute(node=node, attr="custom_type")
 
 
