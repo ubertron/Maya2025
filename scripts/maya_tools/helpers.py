@@ -5,7 +5,7 @@ import pyperclip
 from maya import cmds
 
 from core.point_classes import Point3, Point3Pair
-from core.color_classes import RGBColor
+from core.color_classes import ColorRGB
 from core.core_enums import Axis
 from maya_tools import display_utils, node_utils
 from maya_tools.geometry.geometry_utils import get_selected_vertices, get_vertex_position
@@ -27,7 +27,7 @@ def auto_parent_locators():
             cmds.parent(locators[i], locators[i + 1])
 
 
-def create_locator(position: Point3, name: str = "locator", size: float=DEFAULT_SIZE, color: RGBColor | None = None) -> str:
+def create_locator(position: Point3, name: str = "locator", size: float=DEFAULT_SIZE, color: ColorRGB | None = None) -> str:
     """Create a locator."""
     result = cmds.spaceLocator()
     locator = result[0]

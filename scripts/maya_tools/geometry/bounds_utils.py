@@ -982,7 +982,7 @@ def get_cuboid(
     if isinstance(geometry, str):
         if node_utils.is_boxy(node=geometry):
             # For boxy nodes, get center from BoxyData
-            from maya_tools.utilities.boxy.boxy_utils import get_boxy_data
+            from robotools.boxy.boxy_utils import get_boxy_data
             boxy_data = get_boxy_data(node=geometry)
             scale = node_utils.get_scale(geometry) if inherit_scale else Point3(1.0, 1.0, 1.0)
             return Bounds(size=boxy_data.size, position=boxy_data.center, rotation=boxy_data.rotation, scale=scale)
@@ -995,17 +995,18 @@ def get_cuboid(
                 return None
 
         # Use component_type property to determine type
+        # Use .name string comparisons to avoid module reload issues with enum identity
         component_type = geometry[0].component_type
-        if component_type == ComponentType.face:
+        if component_type.name == ComponentType.face.name:
             faces = geometry
-        elif component_type == ComponentType.edge:
+        elif component_type.name == ComponentType.edge.name:
             edges = geometry
-        elif component_type == ComponentType.vertex:
+        elif component_type.name == ComponentType.vertex.name:
             vertices = geometry
-        elif component_type == ComponentType.object:
+        elif component_type.name == ComponentType.object.name:
             # For object components, use the transform name
             transform = geometry[0].transform
-        elif component_type == ComponentType.locator:
+        elif component_type.name == ComponentType.locator.name:
             locators = geometry
 
     finder = CuboidFinder(transform=transform, faces=faces, edges=edges, vertices=vertices, locators=locators,
@@ -1127,13 +1128,14 @@ def get_bounds(
         single_transform = len(transforms) == 1
         component_type = geometry[0].component_type
 
-        if component_type == ComponentType.object:
+        # Use .name string comparisons to avoid module reload issues with enum identity
+        if component_type.name == ComponentType.object.name:
             transforms_list = [c.transform for c in geometry]
             if len(transforms_list) == 1:
                 return get_bounds(transforms_list[0], inherit_rotations=inherit_rotations, inherit_scale=inherit_scale)
             return get_bounds_from_bounding_box(geometry=transforms_list)
 
-        elif component_type == ComponentType.locator:
+        elif component_type.name == ComponentType.locator.name:
             # Locators don't have mesh rotation to inherit
             for loc in geometry:
                 pos = cmds.xform(loc.transform, query=True, worldSpace=True, translation=True)
@@ -1144,20 +1146,21 @@ def get_bounds(
                 node = transforms.pop()
 
             # Helper to collect positions based on component type
+            # Use .name string comparisons to avoid module reload issues with enum identity
             def collect_positions():
                 collected = []
-                if component_type == ComponentType.vertex:
+                if component_type.name == ComponentType.vertex.name:
                     for v in geometry:
                         pos = cmds.pointPosition(f'{v.transform}.vtx[{v.idx}]', world=True)
                         collected.append(Point3(*pos))
-                elif component_type == ComponentType.edge:
+                elif component_type.name == ComponentType.edge.name:
                     for edge in geometry:
                         edge_verts = cmds.polyListComponentConversion(
                             f'{edge.transform}.e[{edge.idx}]', fromEdge=True, toVertex=True)
                         for vtx in cmds.ls(edge_verts, flatten=True):
                             pos = cmds.pointPosition(vtx, world=True)
                             collected.append(Point3(*pos))
-                elif component_type == ComponentType.face:
+                elif component_type.name == ComponentType.face.name:
                     for face in geometry:
                         face_verts = cmds.polyListComponentConversion(
                             f'{face.transform}.f[{face.idx}]', fromFace=True, toVertex=True)

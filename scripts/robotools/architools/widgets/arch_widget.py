@@ -6,13 +6,13 @@ from maya import cmds
 from PySide6.QtCore import QSettings
 
 from core import DEVELOPER
-from core.core_enums import CustomType
+from robotools import CustomType
 from core import logging_utils
 from widgets.form_widget import FormWidget
 from widgets.generic_widget import GenericWidget
 from maya_tools import node_utils
-from maya_tools.utilities.architools import arch_utils, TOOL_NAME
-from maya_tools.utilities.boxy import boxy_utils
+from robotools.architools import arch_utils, TOOL_NAME
+from robotools.boxy import boxy_utils
 
 # All architypes that can be converted
 ARCHITYPES = (CustomType.window, CustomType.door, CustomType.staircase)
@@ -73,8 +73,8 @@ class ArchWidget(GenericWidget):
                     boxy_node = arch_utils.convert_node_to_boxy(node=node, delete=True)
                     if boxy_node:
                         boxy_nodes.append(boxy_node)
-                elif boxy_utils.find_poly_cube_in_history(node):
-                    boxy_node = boxy_utils.convert_poly_cube_to_boxy(node=node)
+                elif boxy_utils.is_polycube(node):
+                    boxy_node = boxy_utils.convert_polycube_to_boxy(polycube=node)
                     if boxy_node:
                         boxy_nodes.append(boxy_node)
 

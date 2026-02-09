@@ -8,7 +8,7 @@ from PySide6.QtGui import QImageReader
 
 from maya_tools.maya_enums import ObjectType
 from maya_tools.node_utils import pivot_to_base, move_to_origin
-from maya_tools.material_utils import apply_shader, lambert_file_texture_shader
+from maya_tools.material_utils import apply_shader, create_lambert_file_texture_shader
 from shiboken6 import wrapInstance
 from widgets.grid_widget import GridWidget
 
@@ -47,7 +47,7 @@ class BillboardCreator:
             axis=(0, 0, 1))
         pivot_to_base(node=billboard)
         move_to_origin(billboard)
-        lambert_shader, shading_group = lambert_file_texture_shader(texture_path=self.image_path)
+        lambert_shader, shading_group = create_lambert_file_texture_shader(texture_path=self.image_path)
         apply_shader(shading_group=shading_group, transforms=billboard)
 
         for panel in cmds.getPanel(type=ObjectType.modelPanel.name):

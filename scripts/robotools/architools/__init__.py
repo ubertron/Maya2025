@@ -3,7 +3,7 @@ from __future__ import annotations
 from core import color_classes
 from core.version_info import Versions, VersionInfo
 
-ARCHITOOLS_COLOR: color_classes.RGBColor = color_classes.ORANGE
+ARCHITOOLS_COLOR: color_classes.ColorRGB = color_classes.ORANGE
 CURVE_COLOR = color_classes.BABY_BLUE
 LOCATOR_COLOR = color_classes.LIME
 LOCATOR_SIZE = 10.0

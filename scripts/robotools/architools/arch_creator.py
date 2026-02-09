@@ -37,18 +37,19 @@ return geometry
 from __future__ import annotations
 
 import logging
-
 from abc import ABC, abstractmethod
+
 from maya import cmds
 
-from core.color_classes import RGBColor
-from core.core_enums import CustomType, Side
+from core.color_classes import ColorRGB
+from core.core_enums import Side
 from core.logging_utils import get_logger
 from core.point_classes import Point3
 from maya_tools import node_utils
-from maya_tools.utilities.architools.data.arch_data import ArchData
-from maya_tools.utilities.architools import arch_utils, ARCHITOOLS_COLOR
-from maya_tools.utilities.boxy import boxy_utils
+from robotools import CustomType
+from robotools.architools import ARCHITOOLS_COLOR
+from robotools.architools.data.arch_data import ArchData
+from robotools.boxy import boxy_utils
 
 LOGGER = get_logger(name=__name__, level=logging.DEBUG)
 
@@ -56,7 +57,7 @@ LOGGER = get_logger(name=__name__, level=logging.DEBUG)
 class ArchCreator(ABC):
     """Base metaclass for architools creator class."""
 
-    color: RGBColor = ARCHITOOLS_COLOR
+    color: ColorRGB = ARCHITOOLS_COLOR
 
     def __init__(self, custom_type: CustomType, auto_texture: bool = False):
         self.custom_type = custom_type

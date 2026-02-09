@@ -5,12 +5,13 @@ import logging
 from maya import cmds
 from PySide6.QtWidgets import QDoubleSpinBox
 
-from core.core_enums import CustomType, Side
+from core.core_enums import Side
+from robotools import CustomType
 from core.logging_utils import get_logger
 from maya_tools import node_utils
-from maya_tools.utilities.architools import door_creator
-from maya_tools.utilities.architools.widgets.arch_widget import ArchWidget
-from maya_tools.utilities.boxy import boxy_utils
+from robotools.architools import door_creator
+from robotools.architools.widgets.arch_widget import ArchWidget
+from robotools.boxy import boxy_utils
 
 LOGGER = get_logger(__name__, level=logging.DEBUG)
 

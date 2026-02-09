@@ -1,58 +1,30 @@
-"""ArchData subclass for DoorCreator."""
-
-from __future__ import annotations
-
 from dataclasses import dataclass
 
-from core.core_enums import Side
 from core.point_classes import Point3, Point3Pair
-from maya_tools.utilities.architools.data.arch_data import ArchData
+from robotools.architools.data.arch_data import ArchData
 
 
 @dataclass
-class DoorData(ArchData):
-    """Class contains all the data necessary to construct a door object."""
-
-    door_depth: float
-    hinge_side: Side
-    opening_side: Side
+class WindowData(ArchData):
+    """Class contains all the data necessary to construct a window object."""
+    sill_thickness: float
+    sill_depth: float
     frame: float
     skirt: float
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return (
             f"Position: {self.translation}\n"
-            f"Y-Rotation: {self.y_rotation}\n"
+            f"Rotation: {self.y_rotation}\n"
             f"Size: {self.size}\n"
             f"Start: {self.bounds.a}\n"
             f"End: {self.bounds.b}\n"
             f'{"-" * 26}\n'
-            f"Door Width: {self.door_width}\n"
-            f"Door Height: {self.door_height}\n"
-            f"Door Depth: {self.door_depth}\n"
-            f"Hinge Side: {self.hinge_side.name}\n"
-            f"Opening Side: {self.opening_side.name}\n"
-            f"Frame Size: {self.frame}\n"
+            f"Sill Thickness: {self.sill_thickness}\n"
+            f"Sill Depth: {self.sill_depth}\n"
+            f"Frame: {self.frame}\n"
             f"Skirt: {self.skirt}\n"
         )
-
-    @property
-    def data(self) -> dict:
-        return {
-            "position": self.translation,
-            "rotation": self.y_rotation,
-            "start": self.bounds.a.values,
-            "end": self.bounds.b.values,
-            "door_depth": self.door_depth,
-            "hinge_side": self.hinge_side.name,
-            "opening_side": self.opening_side.name,
-            "frame": self.frame,
-            "skirt": self.skirt,
-        }
-
-    @property
-    def door_width(self) -> float:
-        return self.size.x - (2 * self.skirt)
 
     @property
     def frame_bounds(self) -> Point3Pair:
@@ -68,15 +40,21 @@ class DoorData(ArchData):
         return Point3Pair(minimum, maximum)
 
     @property
-    def door_height(self) -> float:
-        return self.size.y - self.skirt
+    def sill_size(self) -> Point3:
+        """Size of the window sill."""
+        return Point3(
+            self.bounds.size.x + 2 * self.frame,
+            self.sill_thickness,
+            self.bounds.size.z + 2 * self.sill_depth
+        )
 
     @property
-    def doorway_depth(self) -> float:
+    def opening_depth(self) -> float:
+        """Depth of the opening."""
         return self.bounds.size.z
 
     @property
-    def doorway_profile_points(self) -> list[Point3]:
+    def window_frame_profile_points(self) -> list[Point3]:
         """Control Vertex positions for profile curve."""
         points = []
         point = Point3(
@@ -88,7 +66,7 @@ class DoorData(ArchData):
         points.append(Point3(*point.values))
         point.x = point.x + self.frame
         points.append(Point3(*point.values))
-        point.z = point.z - self.doorway_depth - 2 * self.skirt
+        point.z = point.z - self.opening_depth - 2 * self.skirt
         points.append(Point3(*point.values))
         point.x = point.x - self.frame
         points.append(Point3(*point.values))
@@ -97,8 +75,8 @@ class DoorData(ArchData):
         return points
 
     @property
-    def doorway_profile_positions(self) -> list[Point3]:
-        """Positions of the four profile curves of the doorway."""
+    def window_frame_profile_positions(self) -> list[Point3]:
+        """Positions of the four profile curves of the window frame."""
         return [
             Point3(
                 self.frame_bounds.minimum.x,
@@ -123,24 +101,20 @@ class DoorData(ArchData):
         ]
 
     @property
-    def doorway_profile_rotations(self) -> list[float]:
-        """Rotations of the four profile curves of the doorway."""
+    def window_frame_profile_rotations(self) -> list[float]:
+        """Rotations of the four profile curves of the window frame."""
         return [0.0, -45.0, -135.0, -180.0]
 
 
-TEST_DOOR_DATA = DoorData(
-    translation=Point3(2.4, 0.0, -4.2),
-    y_rotation=30.0,
-    size=Point3(95.0, 205.0, 30.0),
-    door_depth=5.0,
-    hinge_side=Side.left,
-    opening_side=Side.front,
-    frame=10.0,
+TEST_WINDOW_DATA: WindowData = WindowData(
+    translation=Point3(20.5, 0.0, -4.2),
+    y_rotation=45.0,
+    size=Point3(150.0, 90.0, 25.0),
+    sill_thickness=2.0,
+    sill_depth=4.0,
+    frame=20.0,
     skirt=2.0,
 )
 
-
 if __name__ == "__main__":
-    print(TEST_DOOR_DATA)
-    # print(TEST_DOOR_DATA.data)
-    # print(TEST_DOOR_DATA.door_frame_bounds)
+    print(TEST_WINDOW_DATA)

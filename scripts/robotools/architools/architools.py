@@ -2,17 +2,19 @@
 from __future__ import annotations
 
 import contextlib
+
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QDoubleSpinBox, QTabWidget
 
 from core import DEVELOPER
-from core.core_enums import ComponentType, CustomType, Side, SurfaceDirection
+from core.core_enums import ComponentType, CreationMode, Side, SurfaceDirection
 from core.core_paths import image_path
 from maya_tools import maya_widget_utils
-from maya_tools.utilities.architools import TOOL_NAME, VERSIONS, ARCHITOOLS_COLOR, arch_utils
-from maya_tools.utilities.architools.widgets.door_widget import DoorWidget
-from maya_tools.utilities.architools.widgets.staircase_widget import StaircaseWidget
-from maya_tools.utilities.architools.widgets.window_widget import WindowWidget
+from robotools import CustomType
+from robotools.architools import TOOL_NAME, VERSIONS, ARCHITOOLS_COLOR, arch_utils
+from robotools.architools.widgets.door_widget import DoorWidget
+from robotools.architools.widgets.staircase_widget import StaircaseWidget
+from robotools.architools.widgets.window_widget import WindowWidget
 from widgets.button_bar import ButtonBar
 from widgets.form_widget import FormWidget
 from widgets.generic_widget import GenericWidget
@@ -26,7 +28,7 @@ with contextlib.suppress(ImportError):
     from maya_tools import node_utils
     from maya_tools.geometry import face_finder
     from maya_tools.geometry.component_utils import FaceComponent, components_from_selection
-    from maya_tools.utilities.boxy import boxy_utils
+    from robotools.boxy import boxy_utils
 
 
 class Architools(GenericWidget):
@@ -43,7 +45,7 @@ class Architools(GenericWidget):
         button_bar: ButtonBar = self.add_widget(ButtonBar())
         button_bar.add_icon_button(
             icon_path=image_path("boxy_architools.png"), tool_tip="Create Boxy", clicked=self.boxy_clicked)
-        button_bar.add_icon_button(icon_path=image_path("boxy_to_cube.png"), tool_tip="Create Cube", clicked=self.cube_button_clicked)
+        button_bar.add_icon_button(icon_path=image_path("polycube.png"), tool_tip="Create Polycube", clicked=self.polycube_button_clicked)
         button_bar.add_icon_button(icon_path=image_path("boxy_face_concave_architools.png"), tool_tip="Concave boxy from face",
                                    clicked=self.concave_face_button_clicked)
         button_bar.add_icon_button(icon_path=image_path("boxy_face_convex_architools.png"), tool_tip="Convex boxy from face",
@@ -160,7 +162,7 @@ class Architools(GenericWidget):
         # If nothing selected, create default boxy at origin
         if not selected_transforms:
             from core.point_classes import Point3
-            from maya_tools.utilities.boxy.boxy_data import BoxyData
+            from robotools.boxy.boxy_data import BoxyData
             size = self.default_cube_size
             boxy_data = BoxyData(
                 size=Point3(size, size, size),
@@ -182,7 +184,7 @@ class Architools(GenericWidget):
                 has_convertible_nodes = True
             elif any(node_utils.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
                 has_convertible_nodes = True
-            elif boxy_utils.find_poly_cube_in_history(node):
+            elif boxy_utils.is_polycube(node):
                 has_convertible_nodes = True
 
         if has_convertible_nodes:
@@ -203,9 +205,9 @@ class Architools(GenericWidget):
                     result = arch_utils.convert_node_to_boxy(node=node, delete=True)
                     if result:
                         boxy_items.append(result)
-                elif boxy_utils.find_poly_cube_in_history(node):
-                    # Convert polycube to boxy
-                    result = boxy_utils.convert_poly_cube_to_boxy(node=node, color=ARCHITOOLS_COLOR)
+                elif boxy_utils.is_polycube(node):
+                    # Convert polycube to boxy (Architools always uses bottom pivot)
+                    result = boxy_utils.convert_polycube_to_boxy(polycube=node, color=ARCHITOOLS_COLOR, pivot=Side.bottom)
                     if result:
                         boxy_items.append(result)
         else:
@@ -229,7 +231,7 @@ class Architools(GenericWidget):
             cmds.select(boxy_items)
             node_utils.set_component_mode(ComponentType.object)
 
-    def cube_button_clicked(self):
+    def polycube_button_clicked(self):
         """Event for Create Polycube button.
 
         Context-sensitive polycube conversion:
@@ -239,7 +241,7 @@ class Architools(GenericWidget):
         - Polycube nodes: recalculate (reset transforms, pivot to bottom center)
         - Other: no action (only handles architools-related nodes)
         """
-        from maya_tools.geometry import geometry_utils
+        from core.point_classes import Point3
 
         # Capture selected transforms before any conversions
         selected_transforms = list(node_utils.get_selected_transforms(full_path=True))
@@ -247,18 +249,18 @@ class Architools(GenericWidget):
 
         # If nothing selected, create default polycube at origin
         if not selected_transforms:
-            from core.point_classes import Point3
             size = self.default_cube_size
-            cube = geometry_utils.create_cube(
+            polycube = boxy_utils.create_polycube(
+                pivot_side=Side.bottom,
                 size=Point3(size, size, size),
-                position=Point3(0, 0, 0),
-                baseline=0  # Bottom pivot
+                creation_mode=CreationMode.pivot_origin,
+                construction_history=False,
             )
             # TODO: xray mode disabled due to Maya viewport refresh bug
             # if self.xray_mode:
             #     geometry_utils.toggle_xray()
-            self.info = f"Polycube created: {cube}"
-            cmds.select(cube)
+            self.info = f"Polycube created: {polycube}"
+            cmds.select(polycube)
             return
 
         # Process each selected node
@@ -267,23 +269,23 @@ class Architools(GenericWidget):
             if not cmds.objExists(node):
                 continue
             if node_utils.is_boxy(node):
-                # Convert boxy to polycube
-                result = boxy_utils.convert_boxy_to_poly_cube(node=node)
+                # Convert boxy to polycube (Architools always uses bottom pivot)
+                result = boxy_utils.convert_boxy_to_polycube(node=node, pivot=Side.bottom)
                 if result and not isinstance(result, boxy_utils.BoxyException):
                     polycube_items.append(result)
             elif any(node_utils.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
                 # Convert architype to boxy first, then to polycube
                 boxy_node = arch_utils.convert_node_to_boxy(node=node, delete=True)
                 if boxy_node:
-                    result = boxy_utils.convert_boxy_to_poly_cube(node=boxy_node)
+                    result = boxy_utils.convert_boxy_to_polycube(node=boxy_node, pivot=Side.bottom)
                     if result and not isinstance(result, boxy_utils.BoxyException):
                         polycube_items.append(result)
-            elif boxy_utils.find_poly_cube_in_history(node):
+            elif boxy_utils.is_polycube(node):
                 # Recalculate polycube: convert to boxy then back to polycube
                 # This resets transforms and puts pivot to bottom center
-                boxy_node = boxy_utils.convert_poly_cube_to_boxy(node=node, color=ARCHITOOLS_COLOR)
+                boxy_node = boxy_utils.convert_polycube_to_boxy(polycube=node, color=ARCHITOOLS_COLOR, pivot=Side.bottom)
                 if boxy_node:
-                    result = boxy_utils.convert_boxy_to_poly_cube(node=boxy_node)
+                    result = boxy_utils.convert_boxy_to_polycube(node=boxy_node, pivot=Side.bottom)
                     if result and not isinstance(result, boxy_utils.BoxyException):
                         polycube_items.append(result)
             # Other node types: no action
@@ -311,7 +313,7 @@ class Architools(GenericWidget):
 
     def help_button_clicked(self):
         """Event for help button."""
-        from maya_tools.utilities.architools.architools_help import ArchitoolsHelp
+        from robotools.architools.architools_help import ArchitoolsHelp
         help_widgets = maya_widget_utils.get_widget_instances(tool_class="ArchitoolsHelp")
         help_widget = help_widgets[-1] if help_widgets else ArchitoolsHelp(parent_widget=self)
         help_widget.show()
@@ -361,13 +363,13 @@ class Architools(GenericWidget):
                 result = boxy_utils.edit_boxy_orientation(node=node, rotation=-90, axis=Axis.y)
                 if result:
                     rotated_items.append(result)
-            elif boxy_utils.find_poly_cube_in_history(node):
+            elif boxy_utils.is_polycube(node):
                 # Polycube: convert to boxy, rotate, convert back to polycube
-                temp_boxy = boxy_utils.convert_poly_cube_to_boxy(node=node, color=ARCHITOOLS_COLOR)
+                temp_boxy = boxy_utils.convert_polycube_to_boxy(polycube=node, color=ARCHITOOLS_COLOR, pivot=Side.bottom)
                 if temp_boxy:
                     rotated_boxy = boxy_utils.edit_boxy_orientation(node=temp_boxy, rotation=-90, axis=Axis.y)
                     if rotated_boxy:
-                        result = boxy_utils.convert_boxy_to_poly_cube(node=rotated_boxy)
+                        result = boxy_utils.convert_boxy_to_polycube(node=rotated_boxy, pivot=Side.bottom)
                         if result and not isinstance(result, boxy_utils.BoxyException):
                             rotated_items.append(result)
 
@@ -384,10 +386,10 @@ class Architools(GenericWidget):
 def launch():
     """Launch Boxy Tool."""
     maya_widget_utils.launch_tool(
-        tool_module="maya_tools.utilities.architools.architools",
+        tool_module="robotools.architools.architools",
         tool_class="Architools",
         use_workspace_control=True,
-        ui_script="from maya_tools.utilities.architools import architools; architools.Architools().restore()",
+        ui_script="from robotools.architools import architools; architools.Architools().restore()",
     )
 
 

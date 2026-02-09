@@ -6,7 +6,7 @@ Dataclass to handle all the information required to create an Architools asset
 from dataclasses import dataclass
 
 from core.point_classes import Point3, Point3Pair
-from core.core_enums import CustomType
+from robotools import CustomType
 
 
 @dataclass

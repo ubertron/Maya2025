@@ -10,7 +10,7 @@ from maya import cmds
 from typing import Optional, Sequence, Union
 
 from core import logging_utils
-from core.color_classes import RGBColor
+from core.color_classes import ColorRGB
 from core.core_enums import ComponentType, Axis
 from core.point_classes import Point3, Point3Pair, NEGATIVE_Y_AXIS, ZERO3
 from core.math_utils import dot_product, normalize_vector, degrees_to_radians, get_midpoint_from_point_list
@@ -63,12 +63,11 @@ def create_cube(name: Optional[str] = None, size: float | Point3 = 1, position: 
         depth = size
 
     # Create cube without heightBaseline (Maya 2022 compatibility)
-    result = cmds.polyCube(
+    polycube = cmds.polyCube(
         name=name if name else 'cube',
         width=width, height=height, depth=depth,
         sx=divisions, sy=divisions, sz=divisions,
-        constructionHistory=construction_history)
-    cube = result[0] if construction_history else result
+        constructionHistory=construction_history)[0]
 
     # Manually adjust position based on baseline
     # baseline: 0=bottom at position, 0.5=center at position (default), 1=top at position
@@ -79,8 +78,8 @@ def create_cube(name: Optional[str] = None, size: float | Point3 = 1, position: 
     y_offset = (0.5 - baseline) * height
     adjusted_position = Point3(position.x, position.y + y_offset, position.z)
 
-    node_utils.set_translation(nodes=cube, value=adjusted_position)
-    return cube
+    node_utils.set_translation(nodes=polycube, value=adjusted_position)
+    return polycube
 
 
 def create_platonic_sphere(name: str, diameter: float, primitive: int = 2, subdivisions: int = 3):
@@ -1109,7 +1108,7 @@ def reverse_face_normals(transform: str, faces: list[int] or None = None):
     cmds.polyNormal(component_list, normalMode=3)
 
 
-def set_wireframe_color(node: str, color: RGBColor, shading: bool = True):
+def set_wireframe_color(node: str, color: ColorRGB, shading: bool = True):
     """Set the wireframe color."""
     shape = node_utils.get_shape_from_transform(node=node)
     cmds.setAttr(f"{shape}.overrideEnabled", 1)

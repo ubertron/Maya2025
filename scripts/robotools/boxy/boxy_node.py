@@ -46,7 +46,7 @@ Copyright (c) 2026 Andrew Davis / Robotools Studio. All Rights Reserved.
 #     cmds.createNode('boxyShape')
 #
 #     # Option 2: Use the helper function (after importing)
-#     from maya_tools.utilities.boxy import boxy_node
+#     from robotools.boxy import boxy_node
 #     boxy_node.create_boxy()
 #     boxy_node.create_boxy(size=(10, 20, 10), pivot='bottom', color=(0, 1, 0))
 

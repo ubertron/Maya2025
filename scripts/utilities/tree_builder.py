@@ -73,5 +73,5 @@ class TreeBuilder:
 if __name__ == "__main__":
     # my_path = Path(__file__).parents[1]
     # my_path = Path.home() / "Dropbox/Projects/Unity/ElysiumProject"
-    my_path = Path("/Users/andrewdavis/Dropbox/Technology/Python3/Projects/Maya2025/scripts/maya_tools/utilities/boxy")
+    my_path = Path("/robotools/boxy")
     TreeBuilder(root=my_path, dir_token=" [dir]", ignore_list=["__pycache__", ".DS_Store"]).plot()

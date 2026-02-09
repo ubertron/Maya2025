@@ -41,27 +41,25 @@ from enum import Enum, auto
 
 from core import color_classes, math_utils
 from core.bounds import Bounds
-from core.color_classes import RGBColor
+from core.color_classes import ColorRGB
 from core.core_enums import CreationMode, DataType, Side, Axis
 from core.logging_utils import get_logger
 from core.point_classes import Point3, Point3Pair, UNIT3, ZERO3
+from robotools import CustomAttribute, CustomType
 
 with contextlib.suppress(ImportError):
     from maya import cmds
     from maya_tools import attribute_utils, node_utils
     from maya_tools.geometry import geometry_utils, component_utils, bounds_utils
     from maya_tools.node_utils import get_translation
-    from maya_tools.utilities.boxy import BoxyException
-    from maya_tools.utilities.boxy import boxy_node
-    from maya_tools.utilities.boxy.boxy_data import BoxyData
+    from robotools.boxy import BoxyException
+    from robotools.boxy import boxy_node
+    from robotools.boxy.boxy_data import BoxyData
     from tests.validators import boxy_validator
 
 DEBUG_MODE = False
 DEFAULT_SIZE: float = 100.0
 LOGGER = get_logger(__name__, level=logging.INFO)
-PIVOT_SIDE_ATTR = "pivot_side"
-CUSTOM_TYPE_ATTR = "custom_type"
-CUBE_TYPE_ATTR = "cube_type"
 
 
 class ElementType(Enum):
@@ -80,7 +78,7 @@ class Boxy:
     Use to define base centered bounding boxes and as a placeholder for objects
     """
 
-    def __init__(self, color: RGBColor = color_classes.DEEP_GREEN):
+    def __init__(self, color: ColorRGB = color_classes.DEEP_GREEN):
         self.box = None
         self.size = Point3(*[DEFAULT_SIZE for _ in range(3)])
         self.position = ZERO3
@@ -352,20 +350,20 @@ def _detect_pivot_from_poly_cube(node: str, bounds: Bounds) -> Side:
         return Side.center
 
 
-def boxy_cube_toggle(wireframe_color: RGBColor) -> tuple[list[str], list[BoxyException]]:
-    """Toggle between boxy and poly-cube."""
+def boxy_cube_toggle(wireframe_color: ColorRGB) -> tuple[list[str], list[BoxyException]]:
+    """Toggle between boxy and polycube."""
     selection_list = []
     exceptions = []
     boxy_nodes = get_selected_boxy_nodes()
-    poly_cubes = get_selected_poly_cubes()
+    polycubes = get_selected_polycubes()
     for node in boxy_nodes:
-        result = convert_boxy_to_poly_cube(node=node)
+        result = convert_boxy_to_polycube(node=node)
         if isinstance(result, BoxyException):
             exceptions.append(result)
         else:
             selection_list.append(result)
-    for poly_cube in poly_cubes:
-        result = convert_poly_cube_to_boxy(node=poly_cube, color=wireframe_color)
+    for polycube in polycubes:
+        result = convert_polycube_to_boxy(polycube=polycube, color=wireframe_color)
         if isinstance(result, BoxyException):
             exceptions.append(result)
         else:
@@ -378,110 +376,200 @@ def build(boxy_data: BoxyData) -> str:
     return boxy_node.build(boxy_data=boxy_data)
 
 
-def convert_boxy_to_poly_cube(node: str) -> str | BoxyException:
-    """Convert a boxy node to a poly-cube.
+def convert_boxy_to_polycube(node: str, pivot: Side = None, inherit_scale: bool = False) -> str | BoxyException:
+    """Convert a boxy node to a polycube.
 
-    Maya 2022 compatible - uses manual baseline positioning.
-    For rotated cubes, we must create the cube at the center position, then set rotation,
-    then reposition the pivot. The baseline parameter only works for unrotated cubes.
+    Uses create_polycube() for consistent polycube creation.
 
-    The original pivot type is stored as a custom attribute for reliable conversion back.
+    :param node: The boxy transform node
+    :param pivot: Optional pivot override. If None, uses the boxy's original pivot.
+    :param inherit_scale: If True, preserve original scale on polycube. If False, bake scale into size.
     """
-    result = rebuild(node=node)
-    if isinstance(result, BoxyException):
-        return result
-    boxy_data: BoxyData = get_boxy_data(node=result)
-    LOGGER.debug(f"convert_boxy_to_poly_cube: boxy_data.pivot = {boxy_data.pivot_side}")
-    LOGGER.debug(f"  boxy_data.translation: {boxy_data.translation}")
-    LOGGER.debug(f"  boxy_data.center: {boxy_data.center}")
+    # Get original transform values BEFORE any modifications
+    original_scale = node_utils.get_scale(node)
+    original_translation = node_utils.get_translation(node)
+    original_rotation = node_utils.get_rotation(node)
+    has_scale = original_scale.x != 1.0 or original_scale.y != 1.0 or original_scale.z != 1.0
+    LOGGER.debug(f"convert_boxy_to_polycube: inherit_scale={inherit_scale}, has_scale={has_scale}")
+    LOGGER.debug(f"  original_scale: {original_scale}")
+    LOGGER.debug(f"  original_translation: {original_translation}")
 
-    # Always create cube at center position with baseline=0.5 (center)
-    # This ensures rotation happens around the correct point
-    cube = geometry_utils.create_cube(
-        size=boxy_data.size,
-        position=boxy_data.center,
-        baseline=0.5
+    if inherit_scale and has_scale:
+        # When inheriting scale, get data directly from boxy (don't use rebuild which bakes scale)
+        boxy_data: BoxyData = get_boxy_data(node=node)
+        target_pivot = pivot if pivot else boxy_data.pivot_side
+        size = boxy_data.size  # Unscaled size from shape attributes
+        rotation = original_rotation
+        scale = original_scale
+        LOGGER.debug(f"=== convert_boxy_to_polycube (inherit_scale=True, has_scale=True) ===")
+        LOGGER.debug(f"  original_translation: {original_translation}")
+        LOGGER.debug(f"  original_rotation: {original_rotation}")
+        LOGGER.debug(f"  original_scale: {original_scale}")
+        LOGGER.debug(f"  size (unscaled from shape): {size}")
+        LOGGER.debug(f"  original pivot: {boxy_data.pivot_side.name}, target pivot: {target_pivot.name}")
+
+        # Calculate translation accounting for pivot change
+        # The visual size is size * scale
+        visual_size = Point3(size.x * scale.x, size.y * scale.y, size.z * scale.z)
+        LOGGER.debug(f"  visual_size (size * scale): {visual_size}")
+
+        # Calculate visual center from original pivot position
+        pivot_to_center_offsets = {
+            Side.bottom.name: Point3(0.0, visual_size.y / 2.0, 0.0),
+            Side.top.name: Point3(0.0, -visual_size.y / 2.0, 0.0),
+            Side.left.name: Point3(visual_size.x / 2.0, 0.0, 0.0),
+            Side.right.name: Point3(-visual_size.x / 2.0, 0.0, 0.0),
+            Side.front.name: Point3(0.0, 0.0, -visual_size.z / 2.0),
+            Side.back.name: Point3(0.0, 0.0, visual_size.z / 2.0),
+            Side.center.name: Point3(0.0, 0.0, 0.0),
+        }
+        local_offset_to_center = pivot_to_center_offsets[boxy_data.pivot_side.name]
+        LOGGER.debug(f"  local_offset_to_center (before rotation): {local_offset_to_center}")
+        rotated_offset_to_center = math_utils.apply_euler_xyz_rotation(local_offset_to_center, rotation)
+        LOGGER.debug(f"  rotated_offset_to_center: {rotated_offset_to_center}")
+        visual_center = Point3(
+            original_translation.x + rotated_offset_to_center.x,
+            original_translation.y + rotated_offset_to_center.y,
+            original_translation.z + rotated_offset_to_center.z
+        )
+        LOGGER.debug(f"  visual_center: {visual_center}")
+
+        # Calculate new translation from visual center to target pivot
+        center_to_pivot_offsets = {
+            Side.bottom.name: Point3(0.0, -visual_size.y / 2.0, 0.0),
+            Side.top.name: Point3(0.0, visual_size.y / 2.0, 0.0),
+            Side.left.name: Point3(-visual_size.x / 2.0, 0.0, 0.0),
+            Side.right.name: Point3(visual_size.x / 2.0, 0.0, 0.0),
+            Side.front.name: Point3(0.0, 0.0, visual_size.z / 2.0),
+            Side.back.name: Point3(0.0, 0.0, -visual_size.z / 2.0),
+            Side.center.name: Point3(0.0, 0.0, 0.0),
+        }
+        local_offset_to_pivot = center_to_pivot_offsets[target_pivot.name]
+        LOGGER.debug(f"  local_offset_to_pivot (before rotation): {local_offset_to_pivot}")
+        rotated_offset_to_pivot = math_utils.apply_euler_xyz_rotation(local_offset_to_pivot, rotation)
+        LOGGER.debug(f"  rotated_offset_to_pivot: {rotated_offset_to_pivot}")
+        translation = Point3(
+            visual_center.x + rotated_offset_to_pivot.x,
+            visual_center.y + rotated_offset_to_pivot.y,
+            visual_center.z + rotated_offset_to_pivot.z
+        )
+        LOGGER.debug(f"  FINAL translation (new pivot position): {translation}")
+
+        # Delete the original boxy
+        short_name = node.split('|')[-1]
+        if cmds.objExists(short_name):
+            cmds.delete(short_name)
+    else:
+        # When not inheriting scale, use rebuild which bakes scale into size
+        result = rebuild(node=node, pivot=pivot)
+        if isinstance(result, BoxyException):
+            return result
+        boxy_data = get_boxy_data(node=result)
+        target_pivot = boxy_data.pivot_side
+        size = boxy_data.size  # Baked size (includes scale)
+        translation = boxy_data.translation
+        rotation = boxy_data.rotation
+        scale = None  # No scale to apply
+        LOGGER.debug(f"  Using rebuilt boxy data (inherit_scale=False)")
+        LOGGER.debug(f"    size: {size}, pivot: {target_pivot}")
+
+        # Delete the rebuilt boxy
+        short_name = result.split('|')[-1]
+        if cmds.objExists(short_name):
+            cmds.delete(short_name)
+
+    # Create polycube with pivot at origin, then position it
+    polycube = create_polycube(
+        pivot_side=target_pivot,
+        size=size,
+        creation_mode=CreationMode.pivot_origin,
+        construction_history=False,
     )
-    node_utils.set_rotation(nodes=cube, value=boxy_data.rotation)
 
-    # Add custom_type attribute to shape node to identify as Robotools polycube
-    shape = node_utils.get_shape_from_transform(node=cube, full_path=True)
-    attribute_utils.add_attribute(
-        node=shape, attr=CUSTOM_TYPE_ATTR, data_type=DataType.string,
-        lock=True, default_value=CUBE_TYPE_ATTR)
+    # Apply rotation, then translation
+    node_utils.set_rotation(nodes=polycube, value=rotation)
+    node_utils.set_translation(nodes=polycube, value=translation, absolute=True)
 
-    # Set pivot to match the original boxy pivot position (translation)
-    # This ensures the transform translation stays at the pivot location
-    node_utils.set_pivot(nodes=cube, value=boxy_data.translation, reset=True)
+    # Apply scale if inheriting
+    if scale is not None:
+        node_utils.scale(nodes=polycube, value=scale)
+        LOGGER.debug(f"  applied scale: {scale}")
 
-    # Store the original pivot type as a custom attribute for reliable conversion back
-    pivot_index = {
-        Side.bottom: 0, Side.center: 1, Side.top: 2,
-        Side.left: 3, Side.right: 4, Side.front: 5, Side.back: 6
-    }[boxy_data.pivot_side]
-    if not cmds.attributeQuery(PIVOT_SIDE_ATTR, node=cube, exists=True):
-        cmds.addAttr(cube, longName=PIVOT_SIDE_ATTR, attributeType="short", defaultValue=pivot_index)
-    cmds.setAttr(f"{cube}.{PIVOT_SIDE_ATTR}", pivot_index)
-    LOGGER.debug(f"Stored pivot type {boxy_data.pivot_side.name} (index {pivot_index}) on {cube}.{PIVOT_SIDE_ATTR}")
-
-    # Use short name for deletion in case full path changed
-    short_name = node.split('|')[-1]
-    if cmds.objExists(short_name):
-        cmds.delete(short_name)
-    return cube
+    return polycube
 
 
-def convert_poly_cube_to_boxy(node: str, color: RGBColor = color_classes.DEEP_GREEN,
-                              pivot: Side = None) -> str:
-    """Convert a poly-cube to a boxy node.
+def convert_polycube_to_boxy(polycube: str, color: ColorRGB = color_classes.DEEP_GREEN,
+                             pivot: Side = None, inherit_scale: bool = False) -> str:
+    """Convert a polycube to a boxy node.
 
-    Maya 2022 compatible - doesn't rely on heightBaseline attribute.
-    Uses custom boxyPivotType attribute if available, otherwise detects from geometry.
+    Detects Robotools polycubes by checking for custom_type attribute.
+    Uses stored pivot_side attribute if available, otherwise detects from geometry.
 
-    :param node: The polycube transform node
+    :param polycube: The polycube transform node
     :param color: Wireframe color for the boxy
     :param pivot: Optional pivot override. If None, uses stored/detected pivot.
+    :param inherit_scale: If True, preserve original scale on boxy. If False, bake scale into size.
     """
-    LOGGER.info(f"=== convert_poly_cube_to_boxy({node}) ===")
-    shape = node_utils.get_shape_from_transform(node=node)
+    LOGGER.info(f"=== convert_polycube_to_boxy({polycube}) ===")
+    shape = node_utils.get_shape_from_transform(node=polycube)
     LOGGER.info(f"  shape: {shape}")
 
-    # Search through history to find polyCube node (handles intermediate nodes from set_pivot)
-    poly_cube_node = find_poly_cube_in_history(node)
-    LOGGER.info(f"  poly_cube_node from history search: {poly_cube_node}")
-    if not poly_cube_node:
-        LOGGER.info(f"  No polyCube found in history - not a polyCube")
-        return node
-    LOGGER.info(f"  poly_cube_node: {poly_cube_node}, type: {cmds.objectType(poly_cube_node)}")
+    # Check for custom_type attribute to verify it's a Robotools polycube
+    if not is_polycube(polycube):
+        LOGGER.info(f"  Not a Robotools polycube (missing custom_type attribute)")
+        return polycube
+
+    # Get original scale before any operations
+    original_scale = node_utils.get_scale(polycube)
+    has_scale = original_scale.x != 1.0 or original_scale.y != 1.0 or original_scale.z != 1.0
+    LOGGER.info(f"  original_scale: {original_scale}, inherit_scale: {inherit_scale}")
 
     # Get bounds (try CuboidFinder first for rotated faces, fall back to BoundsFinder)
-    bounds: Bounds = bounds_utils.get_cuboid(geometry=node)
+    bounds: Bounds = bounds_utils.get_cuboid(geometry=polycube)
     LOGGER.info(f"  bounds from get_cuboid: {bounds}")
     if not bounds:
-        bounds = bounds_utils.get_bounds(geometry=node, inherit_rotations=True)
+        bounds = bounds_utils.get_bounds(geometry=polycube, inherit_rotations=True)
         LOGGER.info(f"  bounds from get_bounds: {bounds}")
 
-    # Use pivot override if provided, otherwise detect from geometry/attribute
+    # Use pivot override if provided, otherwise detect from attribute/geometry
     if pivot is not None:
         LOGGER.info(f"  Using pivot override: {pivot.name}")
-    elif cmds.attributeQuery(PIVOT_SIDE_ATTR, node=node, exists=True):
-        pivot_index = cmds.getAttr(f"{node}.{PIVOT_SIDE_ATTR}")
+    elif cmds.attributeQuery(CustomAttribute.pivot_side.name, node=shape, exists=True):
+        # New polycubes store pivot_side as string on shape
+        pivot_name = cmds.getAttr(f"{shape}.{CustomAttribute.pivot_side.name}")
+        pivot = Side[pivot_name]
+        LOGGER.info(f"  Found stored pivot_side attribute: {pivot.name}")
+    elif cmds.attributeQuery(CustomAttribute.pivot_side.name, node=polycube, exists=True):
+        # Legacy polycubes store pivot_side as index on transform
+        pivot_index = cmds.getAttr(f"{polycube}.{CustomAttribute.pivot_side.name}")
         pivot_map = {
             0: Side.bottom, 1: Side.center, 2: Side.top,
             3: Side.left, 4: Side.right, 5: Side.front, 6: Side.back
         }
         pivot = pivot_map.get(pivot_index, Side.center)
-        LOGGER.info(f"  Found stored pivot attribute: index={pivot_index}, pivot={pivot.name}")
+        LOGGER.info(f"  Found legacy pivot attribute: index={pivot_index}, pivot={pivot.name}")
     else:
         # Detect pivot from geometry (pivot position relative to bounds center)
-        pivot = _detect_pivot_from_poly_cube(node, bounds)
+        pivot = _detect_pivot_from_poly_cube(polycube, bounds)
         LOGGER.info(f"  Detected pivot from geometry: {pivot.name}")
 
     LOGGER.info(f"  final pivot: {pivot}")
+
+    # Calculate size - unbake if inheriting scale
+    if inherit_scale and has_scale:
+        size = Point3(
+            bounds.size.x / original_scale.x,
+            bounds.size.y / original_scale.y,
+            bounds.size.z / original_scale.z,
+        )
+        LOGGER.info(f"  unbaked size: {size}")
+    else:
+        size = bounds.size
+
     # Calculate translation (pivot position) from bounds center
     translation = bounds.get_pivot(pivot)
     boxy_data = BoxyData(
-        size=bounds.size,
+        size=size,
         translation=translation,
         rotation=bounds.rotation,
         pivot_side=pivot,
@@ -490,19 +578,34 @@ def convert_poly_cube_to_boxy(node: str, color: RGBColor = color_classes.DEEP_GR
     LOGGER.info(f"  building boxy with data: {boxy_data.dictionary}")
     _boxy_node = build(boxy_data=boxy_data)
     LOGGER.info(f"  built boxy_node: {_boxy_node}")
-    cmds.delete(node)
+
+    # Apply scale if inheriting
+    if inherit_scale and has_scale:
+        node_utils.scale(nodes=_boxy_node, value=original_scale)
+        LOGGER.info(f"  applied scale: {original_scale}")
+
+    cmds.delete(polycube)
     return _boxy_node
 
 
 def create_polycube(pivot_side: Side, size: Point3, creation_mode: CreationMode = CreationMode.pivot_origin,
-                    construction_history: bool = False, xray_mode: bool = False) -> str:
-    """Create a custom polycube node."""
-    cube = geometry_utils.create_cube(
+                    construction_history: bool = False) -> str:
+    """Create a custom polycube node.
+
+    Doesn't need to be a custom DAG node at this stage as it's a regular mesh transform
+    It does feature some custom attributes though
+    """
+    result = geometry_utils.create_cube(
         size=size,
         position=ZERO3,
         baseline=0.5,
         construction_history=construction_history,
+        name="polycube",
     )
+    if construction_history:
+        polycube, shape = result
+    else:
+        polycube = result
     pivot_position = {
         Side.top: Point3(0.0, size.y / 2.0, 0.0),
         Side.center: ZERO3,
@@ -512,19 +615,29 @@ def create_polycube(pivot_side: Side, size: Point3, creation_mode: CreationMode 
         Side.front: Point3(0.0, 0.0, size.z / 2),
         Side.back: Point3(0.0, 0.0, -size.z / 2),
     }[pivot_side]
-    node_utils.set_pivot(nodes=cube, value=pivot_position, reset=True)
-    shape = node_utils.get_shape_from_transform(node=cube, full_path=True)
-    attribute_utils.add_attribute(
-        node=shape, attr=CUSTOM_TYPE_ATTR, data_type=DataType.string,
-        lock=True, default_value=CUBE_TYPE_ATTR)
-    attribute_utils.add_attribute(
-        node=shape, attr=PIVOT_SIDE_ATTR, data_type=DataType.string,
-        lock=True, default_value=pivot_side.name)
+    node_utils.set_pivot(nodes=polycube, value=pivot_position, reset=True)
     if creation_mode is CreationMode.pivot_origin:
-        node_utils.set_translation(nodes=cube, value=ZERO3, absolute=True)
-    # if xray_mode:
-    #     geometry_utils.set_xray(transform=cube, state=True)
-    return cube
+        node_utils.set_translation(nodes=polycube, value=ZERO3, absolute=True)
+
+    # Add custom attributes
+    shape = node_utils.get_shape_from_transform(node=polycube, full_path=True)
+    attribute_utils.add_attribute(
+        node=shape, attr=CustomAttribute.custom_type.name, data_type=DataType.string,
+        lock=True, default_value=CustomType.polycube.name, channel_box=True)
+    attribute_utils.add_attribute(
+        node=shape, attr=CustomAttribute.pivot_side.name, data_type=DataType.string,
+        lock=True, default_value=pivot_side.name, channel_box=True)
+    attribute_utils.add_compound_attribute(
+        node=shape,
+        parent_attr=CustomAttribute.size.name,
+        data_type=DataType.float3,
+        attrs=("x", "y", "z"),
+        default_values=(size.x, size.y, size.z),
+        lock=True,
+        channel_box=True,
+    )
+
+    return polycube
 
 
 def edit_boxy_orientation(node: str, rotation: float, axis: Axis) -> str | False:
@@ -572,7 +685,7 @@ def get_boxy_data(node: str) -> BoxyData:
     LOGGER.debug(f"  transform position: {transform_pos}")
 
     # Get color from shape attributes
-    color = RGBColor(
+    color = ColorRGB(
         int(cmds.getAttr(f"{shape}.wireframeColorR") * 255),
         int(cmds.getAttr(f"{shape}.wireframeColorG") * 255),
         int(cmds.getAttr(f"{shape}.wireframeColorB") * 255)
@@ -654,34 +767,21 @@ def get_selected_boxy_positions() -> list[Point3]:
     return [node_utils.get_translation(x, absolute=True) for x in get_selected_boxy_nodes()]
 
 
-def find_poly_cube_in_history(node: str) -> str | None:
-    """Find a polyCube node in the construction history of a mesh.
-
-    When set_pivot is called with reset=True, intermediate nodes may be inserted
-    between the shape and the polyCube node. This function searches through the
-    history to find the polyCube node.
+def is_polycube(node: str) -> bool:
+    """Check if node is a Robotools polycube by checking custom_type attribute.
 
     Args:
         node: Transform or shape node name.
 
     Returns:
-        The polyCube node name if found, None otherwise.
+        True if the node is a Robotools polycube, False otherwise.
     """
     shape = node_utils.get_shape_from_transform(node=node)
     if not shape:
-        return None
-
-    # Get the full history of the shape
-    history = cmds.listHistory(shape, pruneDagObjects=True) or []
-    LOGGER.debug(f"find_poly_cube_in_history({node}): history = {history}")
-
-    for hist_node in history:
-        if cmds.objectType(hist_node) == "polyCube":
-            LOGGER.debug(f"  Found polyCube: {hist_node}")
-            return hist_node
-
-    LOGGER.debug(f"  No polyCube found in history")
-    return None
+        return False
+    if not cmds.attributeQuery(CustomAttribute.custom_type.name, node=shape, exists=True):
+        return False
+    return cmds.getAttr(f"{shape}.{CustomAttribute.custom_type.name}") == CustomType.polycube.name
 
 
 def is_simple_cuboid(node: str) -> bool:
@@ -701,17 +801,13 @@ def is_simple_cuboid(node: str) -> bool:
     return face_count == 6 and vertex_count == 8
 
 
-def get_selected_poly_cubes() -> list[str]:
-    """Get a list of all poly cube nodes selected."""
+def get_selected_polycubes() -> list[str]:
+    """Get a list of all Robotools polycube nodes selected."""
     mesh_nodes = [x for x in node_utils.get_selected_geometry() if not node_utils.is_custom_type_node(x)]
-    poly_cubes = []
-    for x in mesh_nodes:
-        if find_poly_cube_in_history(x):
-            poly_cubes.append(x)
-    return poly_cubes
+    return [x for x in mesh_nodes if is_polycube(x)]
 
 
-def rebuild(node: str, pivot: Side | None = None, color: RGBColor | None = None) -> str | BoxyException:
+def rebuild(node: str, pivot: Side | None = None, color: ColorRGB | None = None) -> str | BoxyException:
     """Rebuild a boxy node."""
     LOGGER.debug(f"=== rebuild({node}) ===")
     result, issues = boxy_validator.test_selected_boxy(node=node, test_poly_cube=False)

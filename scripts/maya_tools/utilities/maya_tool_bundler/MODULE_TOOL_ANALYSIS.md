@@ -27,14 +27,15 @@ With `--dockable` flag:
 - Adds `ui_script` parameter using the module's UI_SCRIPT
 
 ### 3. Generated Plugin Code
+
 ```python
 def doIt(self, args):
     """Execute the command."""
     try:
         _setup_plugin_path()
-        import maya_tools.utilities.boxy.boxy_tool
-        maya_tools.utilities.boxy.boxy_tool.BoxyTool().show_workspace_control(
-            ui_script=maya_tools.utilities.boxy.boxy_tool.UI_SCRIPT
+        import robotools.boxy.boxy_tool
+        robotools.boxy.boxy_tool.BoxyTool().show_workspace_control(
+            ui_script=robotools.boxy.boxy_tool.UI_SCRIPT
         )
     except Exception as e:
         cmds.error(f"BoxyTool error: {e}")

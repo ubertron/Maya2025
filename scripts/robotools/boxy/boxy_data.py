@@ -35,7 +35,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from core.color_classes import RGBColor
+from core.color_classes import ColorRGB
 from core.core_enums import Side
 from core.math_utils import apply_euler_xyz_rotation
 from core.point_classes import Point3
@@ -57,7 +57,7 @@ class BoxyData:
     translation: Point3
     rotation: Point3
     pivot_side: Side
-    color: RGBColor
+    color: ColorRGB
     scale: Point3 = None
 
     def __post_init__(self):
@@ -89,16 +89,17 @@ class BoxyData:
         The translation is where the pivot is. This calculates where the
         geometric center of the box is based on the pivot side.
         """
+        # Use .name string keys to avoid module reload issues with enum identity
         pivot_to_center_offsets = {
-            Side.bottom: Point3(0.0, self.size.y / 2.0, 0.0),
-            Side.top: Point3(0.0, -self.size.y / 2.0, 0.0),
-            Side.left: Point3(self.size.x / 2.0, 0.0, 0.0),
-            Side.right: Point3(-self.size.x / 2.0, 0.0, 0.0),
-            Side.front: Point3(0.0, 0.0, -self.size.z / 2.0),
-            Side.back: Point3(0.0, 0.0, self.size.z / 2.0),
-            Side.center: Point3(0.0, 0.0, 0.0),
+            Side.bottom.name: Point3(0.0, self.size.y / 2.0, 0.0),
+            Side.top.name: Point3(0.0, -self.size.y / 2.0, 0.0),
+            Side.left.name: Point3(self.size.x / 2.0, 0.0, 0.0),
+            Side.right.name: Point3(-self.size.x / 2.0, 0.0, 0.0),
+            Side.front.name: Point3(0.0, 0.0, -self.size.z / 2.0),
+            Side.back.name: Point3(0.0, 0.0, self.size.z / 2.0),
+            Side.center.name: Point3(0.0, 0.0, 0.0),
         }
-        local_offset = pivot_to_center_offsets[self.pivot_side]
+        local_offset = pivot_to_center_offsets[self.pivot_side.name]
         if local_offset.x == 0.0 and local_offset.y == 0.0 and local_offset.z == 0.0:
             return self.translation
         rotated_offset = apply_euler_xyz_rotation(local_offset, self.rotation)

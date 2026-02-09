@@ -177,12 +177,14 @@ class Bounds:
 
     def get_pivot(self, side: Side) -> Point3:
         """Position of the pivot given by side."""
-        return {
-            Side.back: self.back,
-            Side.bottom: self.bottom,
-            Side.center: self.center,
-            Side.front: self.front,
-            Side.left: self.left,
-            Side.right: self.right,
-            Side.top: self.top,
-        }[side]
+        # Use .name string keys to avoid module reload issues with enum identity
+        pivot_map = {
+            Side.back.name: self.back,
+            Side.bottom.name: self.bottom,
+            Side.center.name: self.center,
+            Side.front.name: self.front,
+            Side.left.name: self.left,
+            Side.right.name: self.right,
+            Side.top.name: self.top,
+        }
+        return pivot_map[side.name]

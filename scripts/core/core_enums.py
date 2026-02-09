@@ -67,14 +67,6 @@ class ComponentType(Enum):
     vertex_face = 'vertex face'
 
 
-class CustomType(Enum):
-    boxy = auto()
-    cube = auto()
-    door = auto()
-    staircase = auto()
-    window = auto()
-
-
 @unique
 class DataType(Enum):
     enum = auto()

@@ -1,7 +1,7 @@
 """Help widget for Boxy Tool."""
 from qtpy.QtWidgets import QWidget
 
-from maya_tools.utilities.boxy import TOOL_NAME, VERSIONS
+from robotools.boxy import TOOL_NAME, VERSIONS
 from widgets.help_widget import HelpWidget
 
 DESCRIPTION = (

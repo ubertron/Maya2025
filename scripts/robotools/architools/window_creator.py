@@ -2,19 +2,19 @@
 from __future__ import annotations
 
 import logging
-import math
 
+import math
 from maya import cmds
 
-from core import color_classes
-from core.core_enums import CustomType, DataType
+from core.core_enums import DataType
 from core.logging_utils import get_logger
 from core.point_classes import Point3
 from maya_tools import attribute_utils, material_utils, node_utils
 from maya_tools.geometry import geometry_utils, curve_utils
-from maya_tools.utilities.architools import CURVE_COLOR
-from maya_tools.utilities.architools.arch_creator import ArchCreator
-from maya_tools.utilities.architools.data.window_data import WindowData
+from robotools import CustomAttribute, CustomType
+from robotools.architools import CURVE_COLOR
+from robotools.architools.arch_creator import ArchCreator
+from robotools.architools.data.window_data import WindowData
 
 LOGGER = get_logger(name=__name__, level=logging.DEBUG)
 
@@ -29,7 +29,6 @@ class WindowCreator(ArchCreator):
         self.sill_depth = sill_depth
         self.frame = frame
         self.skirt = skirt
-
 
     def initialize_arch_data(self):
         """Initialize the data from selected boxy."""
@@ -61,7 +60,8 @@ class WindowCreator(ArchCreator):
 
         for i in range(1, 4):
             curves.append(node_utils.duplicate(node=curves[0], name=f"{self.custom_type.name}_curve{i}"))
-            node_utils.set_translation(nodes=curves[i], value=self.data.window_frame_profile_positions[i], absolute=True)
+            node_utils.set_translation(nodes=curves[i], value=self.data.window_frame_profile_positions[i],
+                                       absolute=True)
             node_utils.set_rotation(nodes=curves[i], value=Point3(0, 0, self.data.window_frame_profile_rotations[i]))
             if 0 < i < 3:
                 cmds.setAttr(f"{curves[i]}.scaleX", math.sqrt(2))
@@ -71,26 +71,31 @@ class WindowCreator(ArchCreator):
         # 3) create the geometry
         cmds.nurbsToPolygonsPref(polyType=1, format=3)
         window_frame, loft = cmds.loft(*curves, degree=1, polygon=1, name="window_frame")
-        window_sill, poly_cube_node = cmds.polyCube(width=self.data.sill_size.x, height=self.data.sill_size.y, depth=self.data.sill_size.z, name="window_sill")
+        window_sill, poly_cube_node = cmds.polyCube(width=self.data.sill_size.x, height=self.data.sill_size.y,
+                                                    depth=self.data.sill_size.z, name="window_sill")
         cmds.setAttr(f"{poly_cube_node}.heightBaseline", -1)
         geometry = geometry_utils.combine(transforms=[window_frame, window_sill], name=self.custom_type.name)
 
-        # 4) add the attributes (custom_type on shape node for consistency)
+        # 4) add the attributes
         shape = node_utils.get_shape_from_transform(geometry)
         attribute_utils.add_attribute(
-            node=shape, attr="custom_type", data_type=DataType.string, lock=True,
+            node=shape, attr=CustomAttribute.custom_type.name, data_type=DataType.string, lock=True,
             default_value=self.custom_type.name)
         attribute_utils.add_compound_attribute(
-            node=geometry, parent_attr="size", data_type=DataType.float3, attrs=["x", "y", "z"],
+            node=shape, parent_attr=CustomAttribute.size.name, data_type=DataType.float3, attrs=["x", "y", "z"],
             lock=True, default_values=self.data.size.values)
         attribute_utils.add_attribute(
-            node=geometry, attr="frame", data_type=DataType.float, lock=True, default_value=self.frame)
+            node=shape, attr=CustomAttribute.frame.name, data_type=DataType.float, lock=True,
+            default_value=self.frame)
         attribute_utils.add_attribute(
-            node=geometry, attr="skirt", data_type=DataType.float, lock=True, default_value=self.skirt)
+            node=shape, attr=CustomAttribute.skirt.name, data_type=DataType.float, lock=True,
+            default_value=self.skirt)
         attribute_utils.add_attribute(
-            node=geometry, attr="sill_thickness", data_type=DataType.float, lock=True, default_value=self.sill_thickness)
+            node=shape, attr=CustomAttribute.sill_thickness.name, data_type=DataType.float, lock=True,
+            default_value=self.sill_thickness)
         attribute_utils.add_attribute(
-            node=geometry, attr="sill_depth", data_type=DataType.float, lock=True, default_value=self.sill_depth)
+            node=shape, attr=CustomAttribute.sill_depth.name, data_type=DataType.float, lock=True,
+            default_value=self.sill_depth)
 
         # 5) texture/wireframe color
         geometry_utils.set_wireframe_color(node=geometry, color=self.color)

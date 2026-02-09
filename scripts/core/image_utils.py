@@ -6,17 +6,17 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 from core import color_classes
-from core.color_classes import RGBColor
+from core.color_classes import ColorRGB
 from core.logging_utils import get_logger
-from maya_tools.utilities.architools import ARCHITOOLS_COLOR
+from robotools.architools import ARCHITOOLS_COLOR
 
 LOGGER = get_logger(__name__)
 
 
 def create_checker(
         path: Path, size: int = 256, count: int = 8,
-        color1: RGBColor = color_classes.WHITE,
-        color2: RGBColor = color_classes.GREY) -> Path:
+        color1: ColorRGB = color_classes.WHITE,
+        color2: ColorRGB = color_classes.GREY) -> Path:
     """Create checker texture."""
     square_size = math.floor(size / count)
     image = Image.new("RGB", (size, size), color1.values)
@@ -71,10 +71,10 @@ def resize_image(path: Path, output_path: Path, resolution: tuple[int, int], sho
         resized_img.show()
 
 
-def tint_image(path: Path, output_path: Path, rgb: tuple[int, int, int] | RGBColor, show: bool = False) -> None:
+def tint_image(path: Path, output_path: Path, rgb: tuple[int, int, int] | ColorRGB, show: bool = False) -> None:
     """Tint an image preserving the transparency."""
     try:
-        if isinstance(rgb, RGBColor):
+        if isinstance(rgb, ColorRGB):
             rgb = rgb.values
         img = Image.open(path).convert("RGBA")
         pixels = img.load()

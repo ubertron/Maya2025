@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from core.point_classes import Point3
-from maya_tools.utilities.architools.data.arch_data import ArchData
+from robotools.architools.data.arch_data import ArchData
 
 
 @dataclass

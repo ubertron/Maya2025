@@ -13,7 +13,7 @@ def create_billboard(path: Path, width: float | None = None,
     height: float | None = None, axis: Axis = Axis.y) -> str:
     """Create a plane with a texture applied."""
     image_x, image_y = image_utils.get_image_size(path=path)
-    lambert_shader, lambert_sg = material_utils.lambert_file_texture_shader(texture_path=path)
+    lambert_shader, lambert_sg = material_utils.create_lambert_file_texture_shader(texture_path=path)
 
     if not width and not height:
         width = 1.0

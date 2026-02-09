@@ -7,6 +7,7 @@ from typing import Optional, Sequence
 
 from ams import ams_project
 from core import image_utils
+from core.color_classes import ColorRGB
 from maya_tools.maya_enums import ObjectType
 from maya_tools import node_utils, uv_utils
 
@@ -22,11 +23,8 @@ def apply_checker_shader(transform: str | None = None):
     if checker_shader:
         shading_group = get_shading_group_from_shader(shader=checker_shader)
     else:
-        project = ams_project.AMSProject()
-        checker_texture = next((project.textures_dir.rglob("checker.png")), None)
-        if checker_texture is None:
-            checker_texture = image_utils.create_checker(path=project.textures_dir / "checker.png")
-        checker_shader, shading_group = lambert_file_texture_shader(texture_path=checker_texture, check_existing=False)
+        _, shading_group = create_checker_shader(
+            divisions=4, color1=ColorRGB(64, 64, 64), color2=ColorRGB(128, 128, 128))
     apply_shader(shading_group=shading_group, transforms=selection)
 
 
@@ -69,7 +67,7 @@ def collect_textures():
     return textures
 
 
-def file_texture_node(texture_path: Path, name: Optional[str] = None, check_existing: bool = True):
+def create_file_texture_node(texture_path: Path, name: Optional[str] = None, check_existing: bool = True):
     """
     create a file texture node with a texture placement node
     @param texture_path:
@@ -87,7 +85,7 @@ def file_texture_node(texture_path: Path, name: Optional[str] = None, check_exis
             return file_node
 
     file_node = cmds.shadingNode(ObjectType.file.name, asTexture=True, name=file_node_name)
-    placement_node = cmds.shadingNode(ObjectType.place2dTexture.name, asUtility=True, name=f'{name}Place2dTexture')
+    placement_node = create_placement_node(name=name)
     cmds.setAttr(f'{file_node}.fileTextureName', texture_path, type='string')
     cmds.connectAttr(f'{placement_node}.outUV', f'{file_node}.uvCoord')
     cmds.connectAttr(f'{placement_node}.coverage', f'{file_node}.coverage')
@@ -108,6 +106,74 @@ def file_texture_node(texture_path: Path, name: Optional[str] = None, check_exis
     cmds.connectAttr(f'{placement_node}.wrapU', f'{file_node}.wrapU')
     cmds.connectAttr(f'{placement_node}.wrapV', f'{file_node}.wrapV')
     return file_node
+
+
+def create_checker_shader(
+        divisions: int  = 4,
+        color1: ColorRGB = ColorRGB(64, 64, 64),
+        color2: ColorRGB = ColorRGB(128, 128, 128)) -> tuple:
+    """Create a checker shader."""
+    name = "checker"
+    lambert_shader, shading_group = create_lambert_shader(name)
+    checker_node = cmds.shadingNode("checker", asTexture=True, name="checker_node")
+    placement_node = create_placement_node(name=name)
+    cmds.connectAttr(f'{placement_node}.outUV', f'{checker_node}.uvCoord', force=True)
+    cmds.connectAttr(f'{placement_node}.outUvFilterSize', f'{checker_node}.uvFilterSize', force=True)
+    cmds.connectAttr(f'{checker_node}.outColor', f'{lambert_shader}.color')
+    cmds.setAttr(f'{checker_node}.color1', *color1.normalized, type='double3')
+    cmds.setAttr(f'{checker_node}.color2', *color2.normalized, type='double3')
+    cmds.setAttr(f"{placement_node}.repeatU", divisions)
+    cmds.setAttr(f"{placement_node}.repeatV", divisions)
+    return lambert_shader, shading_group
+
+
+def create_lambert_shader(name: str, color: Optional[Sequence[float]] = None) -> tuple[str, str]:
+    """
+    Create a Lambert shader node
+    @param name:
+    @param color:
+    @return:
+    """
+    shader = cmds.shadingNode(ObjectType.lambert.name, asShader=True, name=f'{name}Shader')
+    shading_group = cmds.sets(renderable=True, noSurfaceShader=True, empty=True, name=f'{name}SG')
+    cmds.connectAttr(f'{shader}.outColor', f'{shading_group}.surfaceShader')
+
+    if color:
+        set_diffuse_color(shader=shader, color=color)
+
+    return shader, shading_group
+
+
+def create_lambert_file_texture_shader(texture_path: Path, name=None, check_existing: bool = True) -> tuple:
+    """
+    Create a Lambert shader with a file texture node
+    @param texture_path:
+    @param name:
+    @param check_existing:
+    @return:
+    """
+    assert texture_path.exists(), f'Path not found: {texture_path}'
+    name = name if name else texture_path.stem
+    shader_name = f'{name}Shader'
+    if check_existing:
+        output_shader = next((x for x in LAMBERT_SHADER_NODES if x == shader_name), None)
+
+        if output_shader:
+            return output_shader, get_shading_group_from_shader(output_shader)
+    output_shader, shading_group = create_lambert_shader(name)
+    file_node = create_file_texture_node(texture_path, name)
+    cmds.connectAttr(f'{file_node}.outColor', f'{output_shader}.color')
+    return output_shader, shading_group
+
+
+def create_placement_node(name: str) -> str:
+    """Create a placement node."""
+    return cmds.shadingNode(ObjectType.place2dTexture.name, asUtility=True, name=f'{name}Place2dTexture')
+
+
+def is_shading_group_applied(shading_group: str) -> bool:
+    """Query to find out if a shading group is applied to geometry."""
+    return next((True for x in cmds.listConnections(shading_group) if node_utils.is_geometry(x)), False)
 
 
 def get_shading_group_from_file_node(file_node: str) -> str | None:
@@ -133,50 +199,6 @@ def get_texture_from_file_node(file_node: str) -> Path | None:
     """Get a texture from a file node."""
     result = cmds.getAttr(f"{file_node}.fileTextureName")
     return Path(result) if result else None
-
-
-def is_shading_group_applied(shading_group: str) -> bool:
-    """Query to find out if a shading group is applied to geometry."""
-    return next((True for x in cmds.listConnections(shading_group) if node_utils.is_geometry(x)), False)
-
-
-def lambert_shader(name: str, color: Optional[Sequence[float]] = None) -> tuple[str, str]:
-    """
-    Create a Lambert shader node
-    @param name:
-    @param color:
-    @return:
-    """
-    shader = cmds.shadingNode(ObjectType.lambert.name, asShader=True, name=f'{name}Shader')
-    shading_group = cmds.sets(renderable=True, noSurfaceShader=True, empty=True, name=f'{name}SG')
-    cmds.connectAttr(f'{shader}.outColor', f'{shading_group}.surfaceShader')
-
-    if color:
-        set_diffuse_color(shader=shader, color=color)
-
-    return shader, shading_group
-
-
-def lambert_file_texture_shader(texture_path: Path, name=None, check_existing: bool = True) -> tuple:
-    """
-    Create a Lambert shader with a file texture node
-    @param texture_path:
-    @param name:
-    @param check_existing:
-    @return:
-    """
-    assert texture_path.exists(), f'Path not found: {texture_path}'
-    name = name if name else texture_path.stem
-    shader_name = f'{name}Shader'
-    if check_existing:
-        output_shader = next((x for x in LAMBERT_SHADER_NODES if x == shader_name), None)
-
-        if output_shader:
-            return output_shader, get_shading_group_from_shader(output_shader)
-    output_shader, shading_group = lambert_shader(name)
-    file_node = file_texture_node(texture_path, name)
-    cmds.connectAttr(f'{file_node}.outColor', f'{output_shader}.color')
-    return output_shader, shading_group
 
 
 def set_diffuse_color(shader, color: tuple[float]):

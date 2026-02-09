@@ -53,13 +53,13 @@
                 "icon": "boxy_logo.png",
                 "language": "python",
                 "tool_tip": "Boxy Box",
-                "script": "from maya_tools.utilities.boxy import boxy_tool\nboxy_tool.launch()"
+                "script": "from robotools.boxy import boxy_tool\nboxy_tool.launch()"
             },
             "Arch Tools": {
                 "icon": "architools_logo.png",
                 "language": "python",
                 "tool_tip": "Architools",
-                "script": "from maya_tools.utilities.architools import architools\narchitools.launch()"
+                "script": "from robotools.architools import architools\narchitools.launch()"
             },
             "Test Boxy": {
                 "icon": "test.png",

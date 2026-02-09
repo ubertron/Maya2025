@@ -30,7 +30,7 @@ def add_attribute(node: str, attr: str, data_type: DataType,
 
 
 def add_color_attribute(node: str, attr: str, channel_box: bool = False, lock: bool = False,
-                        default_value: color_classes.RGBColor = color_classes.MAGENTA) -> None:
+                        default_value: color_classes.ColorRGB = color_classes.MAGENTA) -> None:
     """
     Add a color attribute to a DAG node
     :param default_value:
@@ -81,15 +81,17 @@ def add_compound_attribute(node: str, parent_attr: str, data_type: DataType, att
     :param channel_box:
     :param lock:
     """
-    child_data_type: DataType = {
-        DataType.double2: DataType.double,
-        DataType.double3: DataType.double,
-        DataType.float2: DataType.float,
-        DataType.float3: DataType.float,
-        DataType.int2: DataType.int,
-        DataType.int3: DataType.int,
-    }.get(data_type)
-    assert data_type is not None, f'Data type not supported: {data_type}'
+    # Use string keys to avoid module reload issues with enum identity
+    child_data_type_map = {
+        DataType.double2.name: DataType.double,
+        DataType.double3.name: DataType.double,
+        DataType.float2.name: DataType.float,
+        DataType.float3.name: DataType.float,
+        DataType.int2.name: DataType.int,
+        DataType.int3.name: DataType.int,
+    }
+    child_data_type: DataType = child_data_type_map.get(data_type.name)
+    assert child_data_type is not None, f'Data type not supported: {data_type}'
     cmds.addAttr(node, longName=parent_attr, attributeType=data_type.name)
     for attr in attrs:
         cmds.addAttr(node, longName=attr, attributeType=child_data_type.name, parent=parent_attr)

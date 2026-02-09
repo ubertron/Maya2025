@@ -203,15 +203,17 @@ class Point3Pair:
 
     def get_pivot(self, side: Side) -> Point3:
         """Position of the pivot given by side."""
-        return {
-            Side.bottom: self.bottom,
-            Side.center: self.center,
-            Side.top: self.top,
-            Side.left: self.left,
-            Side.right: self.right,
-            Side.front: self.front,
-            Side.back: self.back,
-        }[side]
+        # Use .name string keys to avoid module reload issues with enum identity
+        pivot_map = {
+            Side.bottom.name: self.bottom,
+            Side.center.name: self.center,
+            Side.top.name: self.top,
+            Side.left.name: self.left,
+            Side.right.name: self.right,
+            Side.front.name: self.front,
+            Side.back.name: self.back,
+        }
+        return pivot_map[side.name]
 
     def interpolate(self, value: float):
         """

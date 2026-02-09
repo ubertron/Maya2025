@@ -7,7 +7,8 @@ from maya import cmds
 from typing import Optional, Union
 
 from core import math_utils
-from core.core_enums import ComponentType, Attributes, DataType, CustomType
+from core.core_enums import ComponentType, Attributes, DataType
+from robotools import CustomType
 from core.logging_utils import get_logger
 from core.point_classes import Point2, Point3, Point3Pair, ZERO3
 from maya_tools import attribute_utils
@@ -16,7 +17,6 @@ from maya_tools.maya_enums import ObjectType, MayaAttributes
 
 LOGGER = get_logger(name=__name__, level=logging.DEBUG)
 TRANSFORMATION_ATTRS = MayaAttributes.transformation_attribute_names()
-CUSTOM_TYPE = "custom_type"
 
 
 class State:

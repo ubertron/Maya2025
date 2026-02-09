@@ -3,7 +3,7 @@ from __future__ import annotations
 from maya import cmds
 from typing import Sequence, Optional
 
-from core.color_classes import RGBColor
+from core.color_classes import ColorRGB
 from core.core_enums import Axis
 from core.point_classes import Point3, Point2
 from maya_tools import node_utils
@@ -57,7 +57,7 @@ def set_cv(transform: str, cv_id: int, position: Point3):
 
 
 def create_curve_from_points(points: Sequence[Point3], close: bool = False, name: str = '',
-                             color: RGBColor | None = None) -> str or None:
+                             color: ColorRGB | None = None) -> str or None:
     """
     Create a curve from a list of cv locations
     :param name:

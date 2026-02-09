@@ -4,8 +4,8 @@ from __future__ import annotations
 import contextlib
 import logging
 
-from core import color_classes, math_utils
-from core.core_enums import Axis, DataType, CustomType
+from core import math_utils
+from core.core_enums import Axis, DataType
 from core.logging_utils import get_logger
 from core.point_classes import Point3, Y_AXIS
 
@@ -13,9 +13,10 @@ with contextlib.suppress(ImportError):
     from maya import cmds
     from maya_tools import node_utils, attribute_utils, material_utils
     from maya_tools.geometry import geometry_utils, curve_utils
-    from maya_tools.utilities.architools import CURVE_COLOR
-    from maya_tools.utilities.architools.arch_creator import ArchCreator
-    from maya_tools.utilities.architools.data.staircase_data import StaircaseData
+    from robotools import CustomAttribute, CustomType
+    from robotools.architools import CURVE_COLOR
+    from robotools.architools.arch_creator import ArchCreator
+    from robotools.architools.data.staircase_data import StaircaseData
 
 LOGGER = get_logger(__name__, level=logging.INFO)
 
@@ -75,13 +76,15 @@ class StaircaseCreator(ArchCreator):
         # 4) add the attributes (custom_type on shape node for consistency)
         shape = node_utils.get_shape_from_transform(geometry)
         attribute_utils.add_attribute(
-            node=shape, attr="custom_type", data_type=DataType.string, lock=True,
+            node=shape, attr=CustomAttribute.custom_type.name, data_type=DataType.string, lock=True,
             default_value=self.custom_type.name)
         attribute_utils.add_compound_attribute(
-            node=geometry, parent_attr="size", data_type=DataType.float3, attrs=["x", "y", "z"], lock=True,
+            node=geometry, parent_attr=CustomAttribute.size.name, data_type=DataType.float3, attrs=["x", "y", "z"],
+            lock=True,
             default_values=self.data.size.values)
         attribute_utils.add_attribute(
-            node=geometry, attr="target_rise", data_type=DataType.float, lock=True, default_value=self.target_rise)
+            node=geometry, attr=CustomAttribute.target_rise.name, data_type=DataType.float, lock=True,
+            default_value=self.target_rise)
 
         # 5) texture/wireframe color
         geometry_utils.set_wireframe_color(node=geometry, color=self.color)
