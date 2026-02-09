@@ -3,3 +3,4 @@
 /.venv/
 /config/maya_config.ini
 /scripts/legacy/Robotools_Hotkeys.mhk
+.venv/
