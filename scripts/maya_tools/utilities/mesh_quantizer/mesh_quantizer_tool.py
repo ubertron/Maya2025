@@ -5,6 +5,7 @@ import sys
 from PySide6.QtWidgets import QSizePolicy, QDoubleSpinBox
 from PySide6.QtCore import QSettings
 
+import robotools
 from core import DEVELOPER
 from core.version_info import VersionInfo
 from core.core_paths import image_path
@@ -98,7 +99,7 @@ class MeshQuantizerTool(GenericWidget):
 
         Don't want to quantize custom_type nodes (i.e. procedural)
         """
-        selected_geometry = [x for x in node_utils.get_selected_geometry() if not node_utils.is_custom_type_node(x)]
+        selected_geometry = [x for x in node_utils.get_selected_geometry() if not robotools.is_custom_type_node(x)]
         count = 0
         if len(selected_geometry) > 0:
             for x in selected_geometry:

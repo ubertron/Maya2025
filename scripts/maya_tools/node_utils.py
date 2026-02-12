@@ -11,7 +11,6 @@ from core.core_enums import ComponentType, Attributes, DataType
 from robotools import CustomType
 from core.logging_utils import get_logger
 from core.point_classes import Point2, Point3, Point3Pair, ZERO3
-from maya_tools import attribute_utils
 from maya_tools.display_utils import warning_message, in_view_message
 from maya_tools.maya_enums import ObjectType, MayaAttributes
 
@@ -630,34 +629,6 @@ def get_type_from_transform(transform: str):
     :return:
     """
     return cmds.objectType(get_shape_from_transform(node=transform))
-
-
-def is_boxy(node: str) -> bool:
-    """Check if node is a boxy (boxyShape)."""
-    shape = get_shape_from_transform(node=node)
-    return shape is not None and cmds.objectType(shape) == "boxyShape"
-
-
-def is_custom_type(node: str, custom_type: CustomType) -> bool:
-    """Is node a custom type (checks shape node first, then transform for legacy)."""
-    shape = get_shape_from_transform(node=node)
-    # Check shape first (new standard)
-    if shape and cmds.attributeQuery("custom_type", node=shape, exists=True):
-        return cmds.getAttr(f"{shape}.custom_type") == custom_type.name
-    # Fallback to transform (legacy)
-    if cmds.attributeQuery("custom_type", node=node, exists=True):
-        return cmds.getAttr(f"{node}.custom_type") == custom_type.name
-    return False
-
-
-def is_custom_type_node(node: str) -> bool:
-    """Is node a custom type node (checks shape first, then transform for legacy)."""
-    shape = get_shape_from_transform(node=node)
-    # Check shape first (new standard)
-    if shape and attribute_utils.has_attribute(node=shape, attr="custom_type"):
-        return True
-    # Fallback to transform (legacy)
-    return attribute_utils.has_attribute(node=node, attr="custom_type")
 
 
 def is_geometry(node: str) -> bool:

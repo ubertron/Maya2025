@@ -40,6 +40,7 @@ from itertools import combinations
 import math
 from maya import cmds
 
+import robotools
 from core import logging_utils, math_utils
 from core.core_enums import ComponentType
 from core.math_utils import (
@@ -980,7 +981,7 @@ def get_cuboid(
     locators = None
 
     if isinstance(geometry, str):
-        if node_utils.is_boxy(node=geometry):
+        if robotools.is_boxy(node=geometry):
             # For boxy nodes, get center from BoxyData
             from robotools.boxy.boxy_utils import get_boxy_data
             boxy_data = get_boxy_data(node=geometry)

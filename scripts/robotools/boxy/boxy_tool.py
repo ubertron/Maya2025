@@ -35,6 +35,7 @@ Copyright (c) 2026 Andrew Davis / Robotools Studio. All Rights Reserved.
 import contextlib
 import logging
 
+import robotools
 from qtpy.QtCore import Qt, QSettings
 from qtpy.QtGui import QColor
 from qtpy.QtWidgets import QCheckBox, QComboBox, QColorDialog, QDoubleSpinBox, QSizePolicy
@@ -69,15 +70,21 @@ class BoxyTool(GenericWidget):
     color_key = "color"
     inherit_rotation_key = "inherit_rotation"
     inherit_scale_key = "inherit_scale"
+    button_size = 32
     pivot_index = "pivot_index"
     size_key = "size"
 
     def __init__(self):
         super().__init__(title=VERSIONS.title, margin=8, spacing=8)
         self.settings = QSettings(DEVELOPER, TOOL_NAME)
-        self.logo = self.add_widget(ImageLabel(image_path("boxy_logo.png")))
+        # self.logo = self.add_widget(ImageLabel(image_path("boxy_logo.png")))
+        header: ButtonBar = self.add_widget(ButtonBar(button_size=self.button_size))
+        logo = header.add_widget(ImageLabel(path=image_path("boxy_icon.png")))
+        logo.setFixedSize(self.button_size, self.button_size)
+        header_label: QLabel = header.add_label("boxy tool", side=Side.left)
+        header_label.setStyleSheet("font-size: 24pt; font-family: BM Dohyeon, Arial;")
         left_alignment = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-        button_bar: ButtonBar = self.add_widget(ButtonBar(button_size=32))
+        button_bar: ButtonBar = self.add_widget(ButtonBar(button_size=self.button_size))
         button_bar.add_icon_button(icon_path=image_path("boxy.png"), tool_tip="Create Boxy", clicked=self.create_button_clicked)
         button_bar.add_icon_button(icon_path=image_path("polycube.png"), tool_tip="Create Polycube", clicked=self.polycube_button_clicked)
         button_bar.add_icon_button(icon_path=image_path("boxy_face_concave.png"), tool_tip="Concave boxy from face", clicked=self.concave_face_button_clicked)
@@ -143,7 +150,7 @@ class BoxyTool(GenericWidget):
         self.size_field.setDecimals(1)
         self.size_field.setSingleStep(0.1)
         self.size_field.valueChanged.connect(self.size_field_value_changed)
-        self.logo.setFixedHeight(80)
+        # self.logo.setFixedHeight(80)
 
     @property
     def default_size(self):
@@ -238,9 +245,9 @@ class BoxyTool(GenericWidget):
 
         # Check for convertible nodes first
         for node in selected_transforms:
-            if node_utils.is_boxy(node):
+            if robotools.is_boxy(node):
                 has_convertible_nodes = True
-            elif any(node_utils.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
+            elif any(robotools.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
                 has_convertible_nodes = True
             elif boxy_utils.is_polycube(node):
                 has_convertible_nodes = True
@@ -250,7 +257,7 @@ class BoxyTool(GenericWidget):
             for node in selected_transforms:
                 if not cmds.objExists(node):
                     continue
-                if node_utils.is_boxy(node):
+                if robotools.is_boxy(node):
                     # Rebuild boxy with current settings
                     cmds.select(node)
                     rebuilt_nodes, rebuild_exceptions = boxy_utils.Boxy(color=self.wireframe_color).create(
@@ -258,7 +265,7 @@ class BoxyTool(GenericWidget):
                         inherit_scale=self.inherit_scale)
                     boxy_items.extend(rebuilt_nodes)
                     exceptions.extend(rebuild_exceptions)
-                elif any(node_utils.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
+                elif any(robotools.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
                     # Convert architype to boxy
                     result = arch_utils.convert_node_to_boxy(node=node, delete=True)
                     if result:
@@ -337,9 +344,9 @@ class BoxyTool(GenericWidget):
         for node in selected_transforms:
             if not cmds.objExists(node):
                 continue
-            if node_utils.is_boxy(node):
+            if robotools.is_boxy(node):
                 boxy_nodes.append(node)
-            elif any(node_utils.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
+            elif any(robotools.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
                 architype_nodes.append(node)
             elif boxy_utils.is_polycube(node):
                 polycube_nodes.append(node)

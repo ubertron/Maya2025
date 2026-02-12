@@ -39,6 +39,7 @@ import logging
 
 from enum import Enum, auto
 
+import robotools
 from core import color_classes, math_utils
 from core.bounds import Bounds
 from core.color_classes import ColorRGB
@@ -89,7 +90,7 @@ class Boxy:
         self._init_selection()
         self._init_element_type_dict()
         self.all_selected_transforms = node_utils.get_selected_transforms()
-        self.selected_transforms = [x for x in self.all_selected_transforms if not node_utils.is_boxy(x)]
+        self.selected_transforms = [x for x in self.all_selected_transforms if not robotools.is_boxy(x)]
 
     def __repr__(self):
         """Preview the analysis prior to creation."""
@@ -275,7 +276,7 @@ class Boxy:
 
         if self.selection:
             for x in self.selection:
-                if node_utils.is_boxy(x):
+                if robotools.is_boxy(x):
                     self.append_dict_list(element_type_dict, ElementType.boxy, x)
                 elif node_utils.is_locator(x):
                     self.append_dict_list(_dict=element_type_dict, key=ElementType.locator, value=x)
@@ -760,7 +761,7 @@ def get_position_from_bounds(bounds: Point3Pair, pivot: Side) -> Point3:
 
 def get_selected_boxy_nodes() -> list[str]:
     """Get a list of all boxy nodes selected."""
-    return [x for x in node_utils.get_selected_transforms(full_path=True) if node_utils.is_boxy(x)]
+    return [x for x in node_utils.get_selected_transforms(full_path=True) if robotools.is_boxy(x)]
 
 
 def get_selected_boxy_positions() -> list[Point3]:
@@ -803,7 +804,7 @@ def is_simple_cuboid(node: str) -> bool:
 
 def get_selected_polycubes() -> list[str]:
     """Get a list of all Robotools polycube nodes selected."""
-    mesh_nodes = [x for x in node_utils.get_selected_geometry() if not node_utils.is_custom_type_node(x)]
+    mesh_nodes = [x for x in node_utils.get_selected_geometry() if not robotools.is_custom_type_node(x)]
     return [x for x in mesh_nodes if is_polycube(x)]
 
 

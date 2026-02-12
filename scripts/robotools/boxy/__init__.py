@@ -13,11 +13,11 @@ class BoxyException(Exception):
 TOOL_NAME = "Boxy Tool"
 VERSIONS = Versions(
     versions=[
-        VersionInfo(name=TOOL_NAME, version="1.0.0", codename="cobra", info="Initial release"),
-        VersionInfo(name=TOOL_NAME, version="1.0.1", codename="banshee", info="Size field added"),
-        VersionInfo(name=TOOL_NAME, version="1.0.2", codename="newt", info="Issue fixed for nodes with children"),
-        VersionInfo(name=TOOL_NAME, version="1.0.3", codename="panther", info="Button functions added"),
-        VersionInfo(name=TOOL_NAME, version="1.0.4", codename="dumb animals", info="Boxy v2 node implemented"),
-        VersionInfo(name=TOOL_NAME, version="1.0.5", codename="treefingers", info="inherit scale"),
+        VersionInfo(name=TOOL_NAME, version="0.0.0", codename="cobra", info="Initial release"),
+        VersionInfo(name=TOOL_NAME, version="0.0.1", codename="banshee", info="Size field added"),
+        VersionInfo(name=TOOL_NAME, version="0.0.2", codename="newt", info="Issue fixed for nodes with children"),
+        VersionInfo(name=TOOL_NAME, version="0.0.3", codename="panther", info="Button functions added"),
+        VersionInfo(name=TOOL_NAME, version="0.0.4", codename="dumb animals", info="Boxy v2 node implemented"),
+        VersionInfo(name=TOOL_NAME, version="0.0.5", codename="treefingers", info="inherit scale"),
     ]
 )

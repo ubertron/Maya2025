@@ -5,6 +5,7 @@ import logging
 from maya import cmds
 from PySide6.QtCore import QSettings
 
+import robotools
 from core import DEVELOPER
 from robotools import CustomType
 from core import logging_utils
@@ -67,9 +68,9 @@ class ArchWidget(GenericWidget):
         try:
             # Phase 1: Pre-convert all selected nodes to boxy nodes
             for node in node_utils.get_selected_transforms(full_path=True):
-                if node_utils.is_boxy(node):
+                if robotools.is_boxy(node):
                     boxy_nodes.append(node)
-                elif any(node_utils.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
+                elif any(robotools.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
                     boxy_node = arch_utils.convert_node_to_boxy(node=node, delete=True)
                     if boxy_node:
                         boxy_nodes.append(boxy_node)

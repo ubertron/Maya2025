@@ -26,6 +26,20 @@ def auto_parent_locators():
             print(locators[i])
             cmds.parent(locators[i], locators[i + 1])
 
+    def create_annotation(node: str, text: str, color: ColorRGB = color_classes.WHITE, position: Point3 | None = None,
+                          display_arrow: bool = True):
+        """Create annotation."""
+        annotation_node = cmds.annotate(node, text=text)
+        annotation_transform = cmds.listRelatives(annotation_node, parent=True)[0]
+        cmds.setAttr(f"{annotation_node}.displayArrow", int(display_arrow))
+        cmds.setAttr(f"{annotation_transform}.overrideEnabled", 1)
+        cmds.setAttr(f"{annotation_transform}.overrideRGBColors", 1)
+        cmds.setAttr(f"{annotation_transform}.overrideColorRGB", *color.normalized, type="double3")
+        if position:
+            node_utils.set_translation(nodes=(annotation_transform, annotation_node), value=position, absolute=True)
+        cmds.parent(annotation_transform, node)
+        return annotation_node
+
 
 def create_locator(position: Point3, name: str = "locator", size: float=DEFAULT_SIZE, color: ColorRGB | None = None) -> str:
     """Create a locator."""

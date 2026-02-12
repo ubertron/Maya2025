@@ -4,6 +4,7 @@ import logging
 
 from maya import cmds
 
+import robotools
 from core.core_enums import Side
 from robotools import CustomType
 from core.logging_utils import get_logger
@@ -51,4 +52,4 @@ def convert_node_to_boxy(node: str, delete: bool = False) -> any:
 def get_custom_type(custom_type: CustomType, selected: bool = False) -> list[str]:
     """Get a list of custom type nodes."""
     search_list = node_utils.get_selected_transforms() if selected else node_utils.get_transforms()
-    return [x for x in search_list if node_utils.is_custom_type(node=x, custom_type=custom_type)]
+    return [x for x in search_list if robotools.is_custom_type(node=x, custom_type=custom_type)]

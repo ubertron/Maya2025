@@ -76,14 +76,20 @@ class FormWidget(QWidget):
         """Number of rows."""
         return int(self.layout().count() / 2)
 
-    def add_button(self, label: str, clicked: Callable | None = None, tool_tip: str="") -> QPushButton:
+    def add_button(self, button_text: str, label: str | None = None, clicked: Callable | None = None,
+                   tool_tip: str= "") -> QPushButton | tuple:
         """Add a button to the form."""
-        button = QPushButton(label)
+        button = QPushButton(button_text)
         if clicked:
             button.clicked.connect(clicked)
         button.setToolTip(tool_tip)
-        self.layout().addRow(button)
-        return button
+        if label is not None:
+            label_widget = QLabel(label)
+            self.layout().addRow(button, label_widget)
+            return button, label_widget
+        else:
+            self.layout().addRow(button)
+            return button
 
     def add_check_box(self, label: str, checked: bool = True, tool_tip: str="") -> QCheckBox:
         """Add a checkbox to the form."""

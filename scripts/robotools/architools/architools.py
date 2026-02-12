@@ -6,6 +6,7 @@ import contextlib
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QDoubleSpinBox, QTabWidget
 
+import robotools
 from core import DEVELOPER
 from core.core_enums import ComponentType, CreationMode, Side, SurfaceDirection
 from core.core_paths import image_path
@@ -180,9 +181,9 @@ class Architools(GenericWidget):
 
         # Check for convertible nodes first
         for node in selected_transforms:
-            if node_utils.is_boxy(node):
+            if robotools.is_boxy(node):
                 has_convertible_nodes = True
-            elif any(node_utils.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
+            elif any(robotools.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
                 has_convertible_nodes = True
             elif boxy_utils.is_polycube(node):
                 has_convertible_nodes = True
@@ -193,14 +194,14 @@ class Architools(GenericWidget):
                 # Skip if node no longer exists (may have been affected by previous conversion)
                 if not cmds.objExists(node):
                     continue
-                if node_utils.is_boxy(node):
+                if robotools.is_boxy(node):
                     # Rebuild boxy with ARCHITOOLS_COLOR and bottom pivot
                     cmds.select(node)
                     rebuilt_nodes, rebuild_exceptions = boxy_utils.Boxy(color=ARCHITOOLS_COLOR).create(
                         pivot=Side.bottom)
                     boxy_items.extend(rebuilt_nodes)
                     exceptions.extend(rebuild_exceptions)
-                elif any(node_utils.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
+                elif any(robotools.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
                     # Convert architype to boxy
                     result = arch_utils.convert_node_to_boxy(node=node, delete=True)
                     if result:
@@ -268,12 +269,12 @@ class Architools(GenericWidget):
             # Skip if node no longer exists (may have been affected by previous conversion)
             if not cmds.objExists(node):
                 continue
-            if node_utils.is_boxy(node):
+            if robotools.is_boxy(node):
                 # Convert boxy to polycube (Architools always uses bottom pivot)
                 result = boxy_utils.convert_boxy_to_polycube(node=node, pivot=Side.bottom)
                 if result and not isinstance(result, boxy_utils.BoxyException):
                     polycube_items.append(result)
-            elif any(node_utils.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
+            elif any(robotools.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
                 # Convert architype to boxy first, then to polycube
                 boxy_node = arch_utils.convert_node_to_boxy(node=node, delete=True)
                 if boxy_node:
@@ -341,7 +342,7 @@ class Architools(GenericWidget):
             # Check for architype nodes
             detected_type = None
             for ct in ARCHITYPES:
-                if node_utils.is_custom_type(node=node, custom_type=ct):
+                if robotools.is_custom_type(node=node, custom_type=ct):
                     detected_type = ct
                     break
 
@@ -358,7 +359,7 @@ class Architools(GenericWidget):
                         result = widget.generate_architype()
                         if result:
                             rotated_items.append(result)
-            elif node_utils.is_boxy(node):
+            elif robotools.is_boxy(node):
                 # Boxy: just rotate orientation
                 result = boxy_utils.edit_boxy_orientation(node=node, rotation=-90, axis=Axis.y)
                 if result:

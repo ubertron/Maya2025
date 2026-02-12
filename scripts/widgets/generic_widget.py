@@ -102,7 +102,9 @@ class GenericWidget(QWidget):
 
     def add_group_box(self, widget: QWidget):
         """Add a widget in a group box."""
-        self.add_widget(widget=GroupBox(widget=widget))
+        group_box = GroupBox(widget=widget)
+        group_box.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
+        self.add_widget(widget=group_box)
         return widget
 
     def add_icon_button(self, icon_path: Path | None, tool_tip: str = "", size: int=32, margin: int = 2,
@@ -124,9 +126,9 @@ class GenericWidget(QWidget):
         if side is Side.center:
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         elif side is Side.right:
-            label.setAlignment(Qt.AlignmentFlag.AlignRight)
+            label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         else:
-            label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         return label
 
     def add_stretch(self):
