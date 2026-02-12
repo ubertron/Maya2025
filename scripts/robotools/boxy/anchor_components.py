@@ -1,4 +1,4 @@
-"""boxy_components.py"""
+"""anchor_components.py"""
 from __future__ import annotations
 
 from importlib import reload
@@ -14,22 +14,22 @@ from core.point_classes import Point3, ZERO3
 from maya_tools import helpers
 
 
-class BoxyComponents:
+class AnchorComponents:
     """
     Class gets the reference positions of the components
-    in a Boxy object.
+    in a Boxy or Polycube node.
     The reference positions are calculated with the assumption that
-    the Boxy node sits at the origin with zero rotation and unit scale.
+    the node sits at the origin with zero rotation and unit scale.
     Those are the values that correspond to what we need for procedural generation.
     """
 
-    def __init__(self, boxy: str):
-        self.boxy = boxy
+    def __init__(self, node: str):
+        self.node = node
         self.annotations = None
 
     def __repr__(self) -> str:
         return (
-            f"Node: {self.boxy}"
+            f"Node: {self.node}"
         )
 
     @property
@@ -115,7 +115,7 @@ class BoxyComponents:
 
     @property
     def shape(self) -> str:
-        return cmds.listRelatives(self.boxy, shapes=True)[0]
+        return cmds.listRelatives(self.node, shapes=True)[0]
 
     @property
     def size(self) -> Point3:
@@ -125,7 +125,7 @@ class BoxyComponents:
     def generate_annotations(self):
         """Create annotations at keypoints."""
         annotation_list = [helpers.create_annotation(
-            node=self.boxy,
+            node=self.node,
             text="c",
             color=color_classes.BLACK,
             position=self.center,
@@ -133,7 +133,7 @@ class BoxyComponents:
         )]
         for idx, vertex in enumerate(self.vertices):
             annotation_list.append(helpers.create_annotation(
-                node=self.boxy,
+                node=self.node,
                 text=f"v{idx}",
                 color=color_classes.MAROON,
                 position=vertex,
@@ -141,7 +141,7 @@ class BoxyComponents:
             ))
         for idx, edge in enumerate(self.edges):
             annotation_list.append(helpers.create_annotation(
-                node=self.boxy,
+                node=self.node,
                 text=f"e{idx}",
                 color=color_classes.DARK_BLUE,
                 position=edge,
@@ -149,7 +149,7 @@ class BoxyComponents:
             ))
         for idx, face in enumerate(self.faces):
             annotation_list.append(helpers.create_annotation(
-                node=self.boxy,
+                node=self.node,
                 text=f"f{idx}",
                 color=color_classes.DARK_GREEN,
                 position=face,
@@ -161,7 +161,7 @@ class BoxyComponents:
 
 
 if __name__ == "__main__":
-    gen = BoxyComponents(boxy="boxy")
+    gen = AnchorComponents(node="boxy")
     print(gen)
     gen.generate_annotations()
     # print(cmds.listRelatives("boxy", shapes=True))

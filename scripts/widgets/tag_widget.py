@@ -379,8 +379,8 @@ class TagWidget(QWidget):
         return "".join(result)
 
     def _rebuild_tag_pills(self):
-        """Rebuild all tag pill widgets from the current tags list."""
-        # Remove all existing widgets and spacers
+        """Rebuild all tag pill architools_widgets from the current tags list."""
+        # Remove all existing architools_widgets and spacers
         layout = self.tag_container.layout()
         for i in reversed(range(layout.count())):
             item = layout.itemAt(i)

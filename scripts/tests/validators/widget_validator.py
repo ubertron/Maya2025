@@ -1,4 +1,4 @@
-"""Validator for checking if Qt widgets are valid and usable."""
+"""Validator for checking if Qt architools_widgets are valid and usable."""
 
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ def validate_widget(widget: QWidget) -> tuple[bool, str]:
         return False, "windowHandle() is None (window closed)"
 
     # Check 4: Widget is not hidden (was closed by user)
-    # This is the most reliable check for Windows zombie widgets
+    # This is the most reliable check for Windows zombie architools_widgets
     if widget.isHidden():
         return False, "widget is hidden (closed by user)"
 

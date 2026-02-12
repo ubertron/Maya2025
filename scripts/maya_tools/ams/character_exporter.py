@@ -117,7 +117,7 @@ class CharacterExporter(GenericWidget):
 
     def restore_panel_states(self, state_dict: dict):
         """
-        Set the state of the panel widgets
+        Set the state of the panel architools_widgets
         :param state_dict:
         """
         for title, value in state_dict.items():

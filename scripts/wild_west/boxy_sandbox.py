@@ -141,8 +141,8 @@ def test_maya_widget_utils():
 
 
 if __name__ == "__main__":
-    run_test_cases(load=True)
-    # boxy_tool.launch()
+    #run_test_cases(load=True)
+    boxy_tool.launch()
     # test_boxy_build()
     #test_maya_widget_utils()
     '''node_utils.delete("cube*")

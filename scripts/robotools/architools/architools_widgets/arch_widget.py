@@ -1,8 +1,7 @@
 from __future__ import annotations
 
+import contextlib
 import logging
-
-from maya import cmds
 from PySide6.QtCore import QSettings
 
 import robotools
@@ -11,9 +10,12 @@ from robotools import CustomType
 from core import logging_utils
 from widgets.form_widget import FormWidget
 from widgets.generic_widget import GenericWidget
-from maya_tools import node_utils
 from robotools.architools import arch_utils, TOOL_NAME
 from robotools.boxy import boxy_utils
+
+with contextlib.suppress(ImportError):
+    from maya_tools import node_utils
+    from maya import cmds
 
 # All architypes that can be converted
 ARCHITYPES = (CustomType.window, CustomType.door, CustomType.staircase)

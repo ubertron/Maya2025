@@ -340,7 +340,7 @@ class MayaToolBundler:
             import_match = self.launch_command.split('(')[0].rsplit('.', 1)[0]
 
             if self.dockable:
-                # For dockable widgets, modify the command to use show_workspace_control
+                # For dockable architools_widgets, modify the command to use show_workspace_control
                 # e.g., "maya_tools.utilities.time_date_tool.TimeDateTool().show()"
                 # -> "maya_tools.utilities.time_date_tool.TimeDateTool().show_workspace_control(ui_script=maya_tools.utilities.time_date_tool.UI_SCRIPT)"
                 # For module-based tools, UI_SCRIPT may be in parent module's __init__.py

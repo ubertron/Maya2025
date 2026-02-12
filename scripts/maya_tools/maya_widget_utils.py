@@ -1,4 +1,4 @@
-"""Utilities for launching and managing Maya widgets."""
+"""Utilities for launching and managing Maya architools_widgets."""
 
 from __future__ import annotations
 
@@ -68,7 +68,7 @@ def launch_tool(
 
         # With initialization kwargs and module reload
         tool = maya_widget_utils.launch_tool(
-            tool_module="widgets.generic_widget",
+            tool_module="architools_widgets.generic_widget",
             tool_class="ExampleGenericWidget",
             reload_module=True
         )
@@ -174,7 +174,7 @@ def print_widget_diagnostics(widget: QWidget) -> None:
     """Print diagnostic information about a widget's state.
 
     Useful for debugging widget lifecycle issues, especially on Windows
-    where closed widgets may become "zombie" instances.
+    where closed architools_widgets may become "zombie" instances.
 
     Args:
         widget: The widget to diagnose
@@ -205,7 +205,7 @@ def print_widget_diagnostics(widget: QWidget) -> None:
 
     # Check all children recursively
     all_children = widget.findChildren(QWidget)
-    print(f"\nTotal child widgets: {len(all_children)}")
+    print(f"\nTotal child architools_widgets: {len(all_children)}")
     print(f"Valid children: {sum(1 for w in all_children if shiboken.isValid(w))}")
 
     # Object ID (to see if it's reusing same instance)

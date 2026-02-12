@@ -14,7 +14,7 @@ from maya_tools import scene_utils; reload(scene_utils)
 from maya_tools import helpers; reload(helpers)
 from maya_tools import rigging_utils; reload(rigging_utils)
 from maya_tools import character_utils; reload(character_utils)
-from widgets import generic_widget; reload(generic_widget)
+from architools_widgets import generic_widget; reload(generic_widget)
 DEBUG BLOCK END
 """
 
@@ -189,7 +189,7 @@ class CharacterTools(GenericWidget):
 
 
 # if __name__ == '__main__':
-#     from widgets.maya_dockable_widget import generate_ui_script
+#     from architools_widgets.maya_dockable_widget import generate_ui_script
 #     tool = CharacterTools()
 #     ui_script = generate_ui_script(instance=tool, import_module='maya_tools.utilities.character_tools')
 #     tool.show(dockable=True, floating=True, uiScript=ui_script)

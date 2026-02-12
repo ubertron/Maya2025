@@ -8,6 +8,7 @@ from core import math_utils
 from core.core_enums import Axis, DataType
 from core.logging_utils import get_logger
 from core.point_classes import Point3, Y_AXIS
+from robotools.architools.arch_creator import ArchCreator
 
 with contextlib.suppress(ImportError):
     from maya import cmds
@@ -15,7 +16,6 @@ with contextlib.suppress(ImportError):
     from maya_tools.geometry import geometry_utils, curve_utils
     from robotools import CustomAttribute, CustomType
     from robotools.architools import CURVE_COLOR
-    from robotools.architools.arch_creator import ArchCreator
     from robotools.architools.data.staircase_data import StaircaseData
 
 LOGGER = get_logger(__name__, level=logging.INFO)
@@ -102,12 +102,12 @@ class StaircaseCreator(ArchCreator):
         return geometry
 
 
-if __name__ == "__main__":
-    if cmds.ls("spline_*"):
-        cmds.delete("spline_*")
-    if cmds.ls("staircase*"):
-        cmds.delete("staircase*")
-    cmds.select("locator*")
-    stairs = StaircaseCreator(axis=Axis.z)
-    print(stairs.data)
-    stairs.create()
+# if __name__ == "__main__":
+#     if cmds.ls("spline_*"):
+#         cmds.delete("spline_*")
+#     if cmds.ls("staircase*"):
+#         cmds.delete("staircase*")
+#     cmds.select("locator*")
+#     stairs = StaircaseCreator(axis=Axis.z)
+#     print(stairs.data)
+#     stairs.create()

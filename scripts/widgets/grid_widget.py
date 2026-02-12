@@ -164,7 +164,7 @@ class GridWidget(QWidget):
 
     def clear_layout(self):
         """
-        Remove all widgets and spacer items from the current layout
+        Remove all architools_widgets and spacer items from the current layout
         """
         for i in reversed(range(self.layout().count())):
             item = self.layout().itemAt(i)

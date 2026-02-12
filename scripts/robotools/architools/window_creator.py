@@ -1,20 +1,23 @@
 """Window Creator."""
 from __future__ import annotations
 
+import contextlib
 import logging
 
 import math
-from maya import cmds
 
 from core.core_enums import DataType
 from core.logging_utils import get_logger
 from core.point_classes import Point3
-from maya_tools import attribute_utils, material_utils, node_utils
-from maya_tools.geometry import geometry_utils, curve_utils
 from robotools import CustomAttribute, CustomType
 from robotools.architools import CURVE_COLOR
 from robotools.architools.arch_creator import ArchCreator
 from robotools.architools.data.window_data import WindowData
+
+with contextlib.suppress(ImportError):
+    from maya import cmds
+    from maya_tools import attribute_utils, material_utils, node_utils
+    from maya_tools.geometry import geometry_utils, curve_utils
 
 LOGGER = get_logger(name=__name__, level=logging.DEBUG)
 
@@ -112,8 +115,3 @@ class WindowCreator(ArchCreator):
         cmds.select(clear=True)
         cmds.select(geometry)
         return geometry
-
-
-if __name__ == "__main__":
-    window_creator = WindowCreator()
-    print(window_creator.data)

@@ -147,7 +147,7 @@ class GenericWidget(QWidget):
         return widget
 
     def clear_layout(self):
-        """Remove all widgets and spacer items from the current layout."""
+        """Remove all architools_widgets and spacer items from the current layout."""
         for i in reversed(range(self.layout().count())):
             item = self.layout().itemAt(i)
             if isinstance(item, QSpacerItem):
@@ -225,9 +225,9 @@ class ExampleGenericWidget(GenericWidget):
 """
 # Instantiation of dockable widget in Maya
 from importlib import reload
-from widgets import generic_widget; reload(generic_widget)
+from architools_widgets import generic_widget; reload(generic_widget)
 
-ui_script = "from widgets import generic_widget; generic_widget.ExampleGenericWidget().restore()"
+ui_script = "from architools_widgets import generic_widget; generic_widget.ExampleGenericWidget().restore()"
 widget = generic_widget.ExampleGenericWidget()
 widget.show_workspace_control(ui_script=ui_script)
 """

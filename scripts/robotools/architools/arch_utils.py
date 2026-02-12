@@ -1,19 +1,21 @@
 from __future__ import annotations
 
+import contextlib
 import logging
-
-from maya import cmds
 
 import robotools
 from core.core_enums import Side
 from robotools import CustomType
 from core.logging_utils import get_logger
 from core.point_classes import Point3
-from maya_tools import node_utils
 from robotools.architools import ARCHITOOLS_COLOR
 from robotools.boxy import boxy_utils
 from robotools.boxy.boxy_data import BoxyData
 from core.bounds import Bounds
+
+with contextlib.suppress(ImportError):
+    from maya_tools import node_utils
+    from maya import cmds
 
 LOGGER = get_logger(name=__name__, level=logging.DEBUG)
 

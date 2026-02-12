@@ -75,7 +75,7 @@ class BoxyTool(GenericWidget):
     size_key = "size"
 
     def __init__(self):
-        super().__init__(title=VERSIONS.title, margin=8, spacing=8)
+        super().__init__(title=VERSIONS.title, margin=2, spacing=2)
         self.settings = QSettings(DEVELOPER, TOOL_NAME)
         # self.logo = self.add_widget(ImageLabel(image_path("boxy_logo.png")))
         header: ButtonBar = self.add_widget(ButtonBar(button_size=self.button_size))

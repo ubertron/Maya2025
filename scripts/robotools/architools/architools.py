@@ -10,39 +10,45 @@ import robotools
 from core import DEVELOPER
 from core.core_enums import ComponentType, CreationMode, Side, SurfaceDirection
 from core.core_paths import image_path
-from maya_tools import maya_widget_utils
 from robotools import CustomType
-from robotools.architools import TOOL_NAME, VERSIONS, ARCHITOOLS_COLOR, arch_utils
-from robotools.architools.widgets.door_widget import DoorWidget
-from robotools.architools.widgets.staircase_widget import StaircaseWidget
-from robotools.architools.widgets.window_widget import WindowWidget
+from robotools.architools import TOOL_NAME, VERSIONS, ARCHITOOLS_COLOR
 from widgets.button_bar import ButtonBar
 from widgets.form_widget import FormWidget
 from widgets.generic_widget import GenericWidget
 from widgets.image_label import ImageLabel
+from robotools.architools.architools_widgets.door_widget import DoorWidget
+from robotools.architools.architools_widgets.staircase_widget import StaircaseWidget
+from robotools.architools.architools_widgets.window_widget import WindowWidget
 
 # All architypes that can be converted
 ARCHITYPES = (CustomType.window, CustomType.door, CustomType.staircase)
 
 with contextlib.suppress(ImportError):
     from maya import cmds
+    from maya_tools import maya_widget_utils
     from maya_tools import node_utils
     from maya_tools.geometry import face_finder
     from maya_tools.geometry.component_utils import FaceComponent, components_from_selection
     from robotools.boxy import boxy_utils
+    from robotools.architools import arch_utils
 
 
 class Architools(GenericWidget):
     auto_texture_check_box_state = "auto_texture_check_box_state"
+    button_size = 32
     default_cube_size_key = "default_cube_size"
     skirt_thickness_key = "skirt_thickness"
     tab_index_key = "tab_index"
     xray_mode_key = "xray_mode"
 
     def __init__(self):
-        super().__init__(title=VERSIONS.title)
+        super().__init__(title=VERSIONS.title, margin=2, spacing=2)
         self.settings = QSettings(DEVELOPER, TOOL_NAME)
-        self.logo = self.add_widget(ImageLabel(image_path("architools_logo.png")))
+        header: ButtonBar = self.add_widget(ButtonBar(button_size=self.button_size))
+        logo = header.add_widget(ImageLabel(path=image_path("architools_icon.png")))
+        logo.setFixedSize(self.button_size, self.button_size)
+        header_label: QLabel = header.add_label("architools", side=Side.left)
+        header_label.setStyleSheet("font-size: 24pt; font-family: BM Dohyeon, Arial;")
         button_bar: ButtonBar = self.add_widget(ButtonBar())
         button_bar.add_icon_button(
             icon_path=image_path("boxy_architools.png"), tool_tip="Create Boxy", clicked=self.boxy_clicked)
@@ -112,7 +118,6 @@ class Architools(GenericWidget):
         self.tab_widget.setCurrentIndex(self.settings.value(self.tab_index_key, 0))
         self.tab_widget.currentChanged.connect(lambda: self.settings.setValue(
             self.tab_index_key, self.tab_widget.currentIndex()))
-        self.logo.setFixedHeight(80)
 
     @property
     def info(self) -> str:
@@ -400,4 +405,4 @@ if __name__ == "__main__":
     app = QApplication()
     tool = Architools()
     tool.show()
-    app.exec_()
+    app.exec()

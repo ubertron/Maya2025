@@ -1,17 +1,20 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 
-from maya import cmds
 from PySide6.QtWidgets import QDoubleSpinBox
 
 from core.core_enums import Side
 from robotools import CustomType
 from core.logging_utils import get_logger
-from maya_tools import node_utils
 from robotools.architools import door_creator
-from robotools.architools.widgets.arch_widget import ArchWidget
+from robotools.architools.architools_widgets.arch_widget import ArchWidget
 from robotools.boxy import boxy_utils
+
+with contextlib.suppress(ImportError):
+    from maya import cmds
+    from maya_tools import node_utils
 
 LOGGER = get_logger(__name__, level=logging.DEBUG)
 
