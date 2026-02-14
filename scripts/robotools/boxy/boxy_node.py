@@ -90,6 +90,50 @@ DEFAULT_SIZE = 100.0
 DEFAULT_COLOR = (0.0, 0.627, 0.0)  # Deep green
 
 
+def _get_pivot_offset(pivot: int, sx: float, sy: float, sz: float) -> tuple:
+    """Calculate pivot offset from center for any of the 27 pivot positions.
+
+    Args:
+        pivot: Pivot index (0-26)
+        sx, sy, sz: Size in each dimension
+
+    Returns:
+        Tuple of (x, y, z) offset from center to pivot position
+    """
+    hx, hy, hz = sx / 2.0, sy / 2.0, sz / 2.0
+    # Face pivots (0-6)
+    if pivot == 0:    return (0.0, -hy, 0.0)      # bottom
+    elif pivot == 1:  return (0.0, 0.0, 0.0)      # center
+    elif pivot == 2:  return (0.0, hy, 0.0)       # top
+    elif pivot == 3:  return (-hx, 0.0, 0.0)      # left
+    elif pivot == 4:  return (hx, 0.0, 0.0)       # right
+    elif pivot == 5:  return (0.0, 0.0, hz)       # front
+    elif pivot == 6:  return (0.0, 0.0, -hz)      # back
+    # Edge pivots (7-18)
+    elif pivot == 7:  return (0.0, -hy, -hz)      # e0: bottom-back
+    elif pivot == 8:  return (0.0, -hy, hz)       # e1: bottom-front
+    elif pivot == 9:  return (0.0, hy, -hz)       # e2: top-back
+    elif pivot == 10: return (0.0, hy, hz)        # e3: top-front
+    elif pivot == 11: return (-hx, 0.0, -hz)      # e4: left-back
+    elif pivot == 12: return (-hx, 0.0, hz)       # e5: left-front
+    elif pivot == 13: return (hx, 0.0, -hz)       # e6: right-back
+    elif pivot == 14: return (hx, 0.0, hz)        # e7: right-front
+    elif pivot == 15: return (-hx, -hy, 0.0)      # e8: left-bottom
+    elif pivot == 16: return (-hx, hy, 0.0)       # e9: left-top
+    elif pivot == 17: return (hx, -hy, 0.0)       # e10: right-bottom
+    elif pivot == 18: return (hx, hy, 0.0)        # e11: right-top
+    # Vertex pivots (19-26)
+    elif pivot == 19: return (-hx, -hy, -hz)      # v0: left-bottom-back
+    elif pivot == 20: return (-hx, -hy, hz)       # v1: left-bottom-front
+    elif pivot == 21: return (-hx, hy, -hz)       # v2: left-top-back
+    elif pivot == 22: return (-hx, hy, hz)        # v3: left-top-front
+    elif pivot == 23: return (hx, -hy, -hz)       # v4: right-bottom-back
+    elif pivot == 24: return (hx, -hy, hz)        # v5: right-bottom-front
+    elif pivot == 25: return (hx, hy, -hz)        # v6: right-top-back
+    elif pivot == 26: return (hx, hy, hz)         # v7: right-top-front
+    return (0.0, 0.0, 0.0)  # fallback to center
+
+
 class BoxyShape(om.MPxSurfaceShape):
     """
     Custom surface shape node that represents a wireframe cube.
@@ -195,19 +239,38 @@ class BoxyShape(om.MPxSurfaceShape):
                 # Returns (x, y, z) offset from center to pivot position in LOCAL space
                 # Use SCALED size since the visual offset in world space is affected by scale
                 def pivot_offset(piv, sx, sy, sz):
-                    if piv == 0:  # bottom
-                        return (0.0, -sy / 2.0, 0.0)
-                    elif piv == 2:  # top
-                        return (0.0, sy / 2.0, 0.0)
-                    elif piv == 3:  # left (min X)
-                        return (-sx / 2.0, 0.0, 0.0)
-                    elif piv == 4:  # right (max X)
-                        return (sx / 2.0, 0.0, 0.0)
-                    elif piv == 5:  # front (max Z)
-                        return (0.0, 0.0, sz / 2.0)
-                    elif piv == 6:  # back (min Z)
-                        return (0.0, 0.0, -sz / 2.0)
-                    return (0.0, 0.0, 0.0)  # center
+                    hx, hy, hz = sx / 2.0, sy / 2.0, sz / 2.0
+                    # Face pivots (0-6)
+                    if piv == 0:    return (0.0, -hy, 0.0)      # bottom
+                    elif piv == 1:  return (0.0, 0.0, 0.0)      # center
+                    elif piv == 2:  return (0.0, hy, 0.0)       # top
+                    elif piv == 3:  return (-hx, 0.0, 0.0)      # left
+                    elif piv == 4:  return (hx, 0.0, 0.0)       # right
+                    elif piv == 5:  return (0.0, 0.0, hz)       # front
+                    elif piv == 6:  return (0.0, 0.0, -hz)      # back
+                    # Edge pivots (7-18)
+                    elif piv == 7:  return (0.0, -hy, -hz)      # e0: bottom-back
+                    elif piv == 8:  return (0.0, -hy, hz)       # e1: bottom-front
+                    elif piv == 9:  return (0.0, hy, -hz)       # e2: top-back
+                    elif piv == 10: return (0.0, hy, hz)        # e3: top-front
+                    elif piv == 11: return (-hx, 0.0, -hz)      # e4: left-back
+                    elif piv == 12: return (-hx, 0.0, hz)       # e5: left-front
+                    elif piv == 13: return (hx, 0.0, -hz)       # e6: right-back
+                    elif piv == 14: return (hx, 0.0, hz)        # e7: right-front
+                    elif piv == 15: return (-hx, -hy, 0.0)      # e8: left-bottom
+                    elif piv == 16: return (-hx, hy, 0.0)       # e9: left-top
+                    elif piv == 17: return (hx, -hy, 0.0)       # e10: right-bottom
+                    elif piv == 18: return (hx, hy, 0.0)        # e11: right-top
+                    # Vertex pivots (19-26)
+                    elif piv == 19: return (-hx, -hy, -hz)      # v0: left-bottom-back
+                    elif piv == 20: return (-hx, -hy, hz)       # v1: left-bottom-front
+                    elif piv == 21: return (-hx, hy, -hz)       # v2: left-top-back
+                    elif piv == 22: return (-hx, hy, hz)        # v3: left-top-front
+                    elif piv == 23: return (hx, -hy, -hz)       # v4: right-bottom-back
+                    elif piv == 24: return (hx, -hy, hz)        # v5: right-bottom-front
+                    elif piv == 25: return (hx, hy, -hz)        # v6: right-top-back
+                    elif piv == 26: return (hx, hy, hz)         # v7: right-top-front
+                    return (0.0, 0.0, 0.0)  # fallback to center
 
                 oldOffset = pivot_offset(oldPivot, scaledSizeX, scaledSizeY, scaledSizeZ)
                 newOffset = pivot_offset(newPivot, scaledSizeX, scaledSizeY, scaledSizeZ)
@@ -258,14 +321,40 @@ class BoxyShape(om.MPxSurfaceShape):
         tAttr.channelBox = True
 
         # ========== pivot (enum) ==========
+        # Indices 0-6: Original face/center pivots (backward compatible)
+        # Indices 7-18: Edge midpoints (e0-e11)
+        # Indices 19-26: Vertices (v0-v7)
         BoxyShape.pivot = eAttr.create("pivot", "piv", 1)  # default: center
-        eAttr.addField("bottom", 0)
-        eAttr.addField("center", 1)
-        eAttr.addField("top", 2)
-        eAttr.addField("left", 3)
-        eAttr.addField("right", 4)
-        eAttr.addField("front", 5)
-        eAttr.addField("back", 6)
+        # Face centers (basic pivots)
+        eAttr.addField("f2:bottom", 0)
+        eAttr.addField("c:center", 1)
+        eAttr.addField("f3:top", 2)
+        eAttr.addField("f0:left", 3)
+        eAttr.addField("f1:right", 4)
+        eAttr.addField("f5:front", 5)
+        eAttr.addField("f4:back", 6)
+        # Edge midpoints
+        eAttr.addField("e0:bottom-back", 7)
+        eAttr.addField("e1:bottom-front", 8)
+        eAttr.addField("e2:top-back", 9)
+        eAttr.addField("e3:top-front", 10)
+        eAttr.addField("e4:left-back", 11)
+        eAttr.addField("e5:left-front", 12)
+        eAttr.addField("e6:right-back", 13)
+        eAttr.addField("e7:right-front", 14)
+        eAttr.addField("e8:left-bottom", 15)
+        eAttr.addField("e9:left-top", 16)
+        eAttr.addField("e10:right-bottom", 17)
+        eAttr.addField("e11:right-top", 18)
+        # Vertices (corners)
+        eAttr.addField("v0:left-bottom-back", 19)
+        eAttr.addField("v1:left-bottom-front", 20)
+        eAttr.addField("v2:left-top-back", 21)
+        eAttr.addField("v3:left-top-front", 22)
+        eAttr.addField("v4:right-bottom-back", 23)
+        eAttr.addField("v5:right-bottom-front", 24)
+        eAttr.addField("v6:right-top-back", 25)
+        eAttr.addField("v7:right-top-front", 26)
         eAttr.keyable = True
         eAttr.storable = True
         eAttr.channelBox = True
@@ -383,25 +472,18 @@ class BoxyShape(om.MPxSurfaceShape):
             sz = fn.findPlug("sizeZ", False).asFloat()
             pivot = fn.findPlug("pivot", False).asInt()
 
+            # Get pivot offset from center
+            offset = _get_pivot_offset(pivot, sx, sy, sz)
+
             halfX, halfY, halfZ = sx / 2.0, sy / 2.0, sz / 2.0
 
-            # Default: center pivot
-            xMin, xMax = -halfX, halfX
-            yMin, yMax = -halfY, halfY
-            zMin, zMax = -halfZ, halfZ
-
-            if pivot == 0:  # bottom
-                yMin, yMax = 0.0, sy
-            elif pivot == 2:  # top
-                yMin, yMax = -sy, 0.0
-            elif pivot == 3:  # left (min X)
-                xMin, xMax = 0.0, sx
-            elif pivot == 4:  # right (max X)
-                xMin, xMax = -sx, 0.0
-            elif pivot == 5:  # front (max Z)
-                zMin, zMax = -sz, 0.0
-            elif pivot == 6:  # back (min Z)
-                zMin, zMax = 0.0, sz
+            # Calculate bounds relative to pivot position (origin)
+            xMin = -halfX - offset[0]
+            xMax = halfX - offset[0]
+            yMin = -halfY - offset[1]
+            yMax = halfY - offset[1]
+            zMin = -halfZ - offset[2]
+            zMax = halfZ - offset[2]
 
             return om.MBoundingBox(om.MPoint(xMin, yMin, zMin), om.MPoint(xMax, yMax, zMax))
         except Exception:
@@ -445,25 +527,18 @@ class BoxyDrawOverride(omr.MPxDrawOverride):
             sz = fn.findPlug("sizeZ", False).asFloat()
             pivot = fn.findPlug("pivot", False).asInt()
 
+            # Get pivot offset from center
+            offset = _get_pivot_offset(pivot, sx, sy, sz)
+
             halfX, halfY, halfZ = sx / 2.0, sy / 2.0, sz / 2.0
 
-            # Default: center pivot
-            xMin, xMax = -halfX, halfX
-            yMin, yMax = -halfY, halfY
-            zMin, zMax = -halfZ, halfZ
-
-            if pivot == 0:  # bottom
-                yMin, yMax = 0.0, sy
-            elif pivot == 2:  # top
-                yMin, yMax = -sy, 0.0
-            elif pivot == 3:  # left (min X)
-                xMin, xMax = 0.0, sx
-            elif pivot == 4:  # right (max X)
-                xMin, xMax = -sx, 0.0
-            elif pivot == 5:  # front (max Z)
-                zMin, zMax = -sz, 0.0
-            elif pivot == 6:  # back (min Z)
-                zMin, zMax = 0.0, sz
+            # Calculate bounds relative to pivot position (origin)
+            xMin = -halfX - offset[0]
+            xMax = halfX - offset[0]
+            yMin = -halfY - offset[1]
+            yMax = halfY - offset[1]
+            zMin = -halfZ - offset[2]
+            zMax = halfZ - offset[2]
 
             return om.MBoundingBox(om.MPoint(xMin, yMin, zMin), om.MPoint(xMax, yMax, zMax))
         except Exception:
@@ -487,25 +562,18 @@ class BoxyDrawOverride(omr.MPxDrawOverride):
             colorB = fn.findPlug("wireframeColorB", False).asFloat()
             data.color = om.MColor([colorR, colorG, colorB, 1.0])
 
+            # Get pivot offset from center
+            offset = _get_pivot_offset(pivot, sx, sy, sz)
+
             halfX, halfY, halfZ = sx / 2.0, sy / 2.0, sz / 2.0
 
-            # Default: center pivot
-            xMin, xMax = -halfX, halfX
-            yMin, yMax = -halfY, halfY
-            zMin, zMax = -halfZ, halfZ
-
-            if pivot == 0:  # bottom
-                yMin, yMax = 0.0, sy
-            elif pivot == 2:  # top
-                yMin, yMax = -sy, 0.0
-            elif pivot == 3:  # left (min X)
-                xMin, xMax = 0.0, sx
-            elif pivot == 4:  # right (max X)
-                xMin, xMax = -sx, 0.0
-            elif pivot == 5:  # front (max Z)
-                zMin, zMax = -sz, 0.0
-            elif pivot == 6:  # back (min Z)
-                zMin, zMax = 0.0, sz
+            # Calculate bounds relative to pivot position (origin)
+            xMin = -halfX - offset[0]
+            xMax = halfX - offset[0]
+            yMin = -halfY - offset[1]
+            yMax = halfY - offset[1]
+            zMin = -halfZ - offset[2]
+            zMax = halfZ - offset[2]
 
             data.vertices = [
                 om.MPoint(xMin, yMin, zMin),
@@ -808,7 +876,7 @@ def build(boxy_data, name: str = "boxy") -> str:
     Build a custom boxy node from BoxyData.
 
     Args:
-        boxy_data: BoxyData instance with size, translation, rotation, pivot_side, color
+        boxy_data: BoxyData instance with size, translation, rotation, pivot_anchor, color
         name: Name for the created node (default: "boxy")
 
     Returns:
@@ -816,13 +884,13 @@ def build(boxy_data, name: str = "boxy") -> str:
     """
     import maya.cmds as cmds
     import logging
-    from core.core_enums import Side
     from core.logging_utils import get_logger
+    from robotools.anchor import anchor_to_index
 
     LOGGER = get_logger(__name__, level=logging.INFO)
     LOGGER.debug(f"=== boxy_node.build() ===")
     LOGGER.debug(f"  name: {name}")
-    LOGGER.debug(f"  boxy_data.pivot_side: {boxy_data.pivot_side}")
+    LOGGER.debug(f"  boxy_data.pivot_anchor: {boxy_data.pivot_anchor}")
     LOGGER.debug(f"  boxy_data.size: {boxy_data.size}")
     LOGGER.debug(f"  boxy_data.translation: {boxy_data.translation}")
     LOGGER.debug(f"  boxy_data.rotation: {boxy_data.rotation}")
@@ -844,11 +912,7 @@ def build(boxy_data, name: str = "boxy") -> str:
     cmds.setAttr(f'{shape}.sizeZ', boxy_data.size.z)
 
     # Set pivot
-    pivot_map = {
-        Side.bottom: 0, Side.center: 1, Side.top: 2,
-        Side.left: 3, Side.right: 4, Side.front: 5, Side.back: 6
-    }
-    pivot_value = pivot_map.get(boxy_data.pivot_side, 1)
+    pivot_value = anchor_to_index(boxy_data.pivot_anchor)
     cmds.setAttr(f'{shape}.previousPivot', pivot_value)
     cmds.setAttr(f'{shape}.pivot', pivot_value)
 

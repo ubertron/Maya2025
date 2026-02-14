@@ -1,17 +1,90 @@
-"""anchor_components.py"""
+"""anchor_utils.py"""
 from __future__ import annotations
 
-from importlib import reload
 from maya import cmds
 
-from robotools.boxy import boxy_utils
-from robotools.anchor import Anchor
+from robotools.anchor import Anchor, index_to_anchor
 
-from core.core_enums import Side
-from core import color_classes
+from core import color_classes, math_utils
 from core.color_classes import ColorRGB
 from core.point_classes import Point3, ZERO3
+from core.bounds import Bounds
 from maya_tools import helpers
+
+
+def get_anchor_offset(anchor: Anchor, hx: float, hy: float, hz: float) -> Point3:
+    """Get the local offset from center to an anchor point.
+
+    Args:
+        anchor: The anchor point
+        hx: Half-extent in X (size.x / 2)
+        hy: Half-extent in Y (size.y / 2)
+        hz: Half-extent in Z (size.z / 2)
+
+    Returns:
+        Point3 local offset from center to anchor
+    """
+    offsets = {
+        # Center
+        Anchor.c: ZERO3,
+        # Face centers
+        Anchor.f0: Point3(-hx, 0.0, 0.0),      # left
+        Anchor.f1: Point3(hx, 0.0, 0.0),       # right
+        Anchor.f2: Point3(0.0, -hy, 0.0),      # bottom
+        Anchor.f3: Point3(0.0, hy, 0.0),       # top
+        Anchor.f4: Point3(0.0, 0.0, -hz),      # back
+        Anchor.f5: Point3(0.0, 0.0, hz),       # front
+        # Edge midpoints
+        Anchor.e0: Point3(0.0, -hy, -hz),      # bottom-back
+        Anchor.e1: Point3(0.0, -hy, hz),       # bottom-front
+        Anchor.e2: Point3(0.0, hy, -hz),       # top-back
+        Anchor.e3: Point3(0.0, hy, hz),        # top-front
+        Anchor.e4: Point3(-hx, 0.0, -hz),      # left-back
+        Anchor.e5: Point3(-hx, 0.0, hz),       # left-front
+        Anchor.e6: Point3(hx, 0.0, -hz),       # right-back
+        Anchor.e7: Point3(hx, 0.0, hz),        # right-front
+        Anchor.e8: Point3(-hx, -hy, 0.0),      # left-bottom
+        Anchor.e9: Point3(-hx, hy, 0.0),       # left-top
+        Anchor.e10: Point3(hx, -hy, 0.0),      # right-bottom
+        Anchor.e11: Point3(hx, hy, 0.0),       # right-top
+        # Vertices
+        Anchor.v0: Point3(-hx, -hy, -hz),      # left-bottom-back
+        Anchor.v1: Point3(-hx, -hy, hz),       # left-bottom-front
+        Anchor.v2: Point3(-hx, hy, -hz),       # left-top-back
+        Anchor.v3: Point3(-hx, hy, hz),        # left-top-front
+        Anchor.v4: Point3(hx, -hy, -hz),       # right-bottom-back
+        Anchor.v5: Point3(hx, -hy, hz),        # right-bottom-front
+        Anchor.v6: Point3(hx, hy, -hz),        # right-top-back
+        Anchor.v7: Point3(hx, hy, hz),         # right-top-front
+    }
+    return offsets.get(anchor, ZERO3)
+
+
+def get_anchor_position_from_bounds(bounds: Bounds, anchor: Anchor) -> Point3:
+    """Calculate the world position of an anchor point from bounds.
+
+    The offset from center to anchor is calculated in local space, then
+    rotated by the bounds rotation to get the world-space position.
+
+    Args:
+        bounds: Bounds object with position, size, rotation, center properties
+        anchor: The anchor point to calculate position for
+
+    Returns:
+        Point3 world position of the anchor point
+    """
+    c = bounds.center
+    hx, hy, hz = bounds.size.x / 2.0, bounds.size.y / 2.0, bounds.size.z / 2.0
+
+    local_offset = get_anchor_offset(anchor, hx, hy, hz)
+
+    # If no rotation, just add offset directly
+    if bounds.rotation.x == 0.0 and bounds.rotation.y == 0.0 and bounds.rotation.z == 0.0:
+        return Point3(c.x + local_offset.x, c.y + local_offset.y, c.z + local_offset.z)
+
+    # Rotate the local offset by the bounds rotation
+    rotated_offset = math_utils.apply_euler_xyz_rotation(local_offset, bounds.rotation)
+    return Point3(c.x + rotated_offset.x, c.y + rotated_offset.y, c.z + rotated_offset.z)
 
 
 class AnchorComponents:
@@ -35,15 +108,8 @@ class AnchorComponents:
     @property
     def pivot_offset(self) -> Point3:
         """Location of the pivot relative to the center."""
-        return {
-            Side.center: ZERO3,
-            Side.left: Point3(-self.size.x, 0.0, 0.0),
-            Side.right: Point3(self.size.x, 0.0, 0.0),
-            Side.top: Point3(0.0, self.size.y / 2.0, 0.0),
-            Side.bottom: Point3(0.0, -self.size.y / 2.0, 0.0),
-            Side.front: Point3(0.0, 0.0, self.size.z / 2.0),
-            Side.back: Point3(0.0, 0.0, -self.size.z / 2.0),
-        }[self.pivot_side]
+        hx, hy, hz = self.size.x / 2.0, self.size.y / 2.0, self.size.z / 2.0
+        return get_anchor_offset(self.pivot_anchor, hx, hy, hz)
 
     @property
     def center(self) -> Point3:
@@ -66,8 +132,10 @@ class AnchorComponents:
         )
 
     @property
-    def pivot_side(self) -> Side:
-        return Side[cmds.getAttr(f"{self.shape}.pivot", asString=True)]
+    def pivot_anchor(self) -> Anchor:
+        """Get the pivot anchor from the shape node."""
+        pivot_index = cmds.getAttr(f"{self.shape}.pivot")
+        return index_to_anchor(pivot_index)
 
     @property
     def edges(self) -> tuple[Point3]:

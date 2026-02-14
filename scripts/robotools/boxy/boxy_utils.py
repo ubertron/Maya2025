@@ -47,6 +47,8 @@ from core.core_enums import CreationMode, DataType, Side, Axis
 from core.logging_utils import get_logger
 from core.point_classes import Point3, Point3Pair, UNIT3, ZERO3
 from robotools import CustomAttribute, CustomType
+from robotools.anchor import Anchor, BASIC_ANCHORS, anchor_to_index, anchor_to_side, index_to_anchor, side_to_anchor
+from robotools.anchor_utils import get_anchor_position_from_bounds, get_anchor_offset
 
 with contextlib.suppress(ImportError):
     from maya import cmds
@@ -84,7 +86,7 @@ class Boxy:
         self.size = Point3(*[DEFAULT_SIZE for _ in range(3)])
         self.position = ZERO3
         self.rotation = ZERO3
-        self.pivot_side = Side.center
+        self.pivot_anchor = Anchor.c
         self.color = color
         self.original_selection = cmds.ls(selection=True, flatten=True)
         self._init_selection()
@@ -120,7 +122,7 @@ class Boxy:
                                                   inherit_scale=inherit_scale)
                 LOGGER.debug(f"  get_bounds returned: {bounds}")
             # Calculate translation (pivot position) from bounds center
-            translation = bounds.get_pivot(self.pivot_side)
+            translation = get_anchor_position_from_bounds(bounds, self.pivot_anchor)
             size = bounds.size
             rotation = bounds.rotation
             scale = bounds.scale if inherit_scale else UNIT3
@@ -140,7 +142,7 @@ class Boxy:
             size=size,
             translation=translation,
             rotation=rotation,
-            pivot_side=self.pivot_side,
+            pivot_anchor=self.pivot_anchor,
             color=self.color,
             scale=scale,
         )
@@ -149,8 +151,49 @@ class Boxy:
     def _evaluate_for_multiple_selection(self):
         """Set up boxy attributes for multiple nodes."""
         min_max: Point3Pair = node_utils.get_min_max_from_selection(self.selection)
-        self.position = min_max.get_pivot(self.pivot_side)
+        # Point3Pair has simpler interface, use center for edge/vertex anchors
+        from robotools.anchor import anchor_to_side, is_basic_anchor
+        if is_basic_anchor(self.pivot_anchor):
+            self.position = min_max.get_pivot(anchor_to_side(self.pivot_anchor))
+        else:
+            # For edge/vertex anchors, calculate from center
+            c = min_max.center
+            hx, hy, hz = min_max.size.x / 2.0, min_max.size.y / 2.0, min_max.size.z / 2.0
+            self.position = self._calculate_anchor_position(c, hx, hy, hz)
         self.size = min_max.size
+
+    def _calculate_anchor_position(self, center: Point3, hx: float, hy: float, hz: float) -> Point3:
+        """Calculate anchor position from center and half-extents."""
+        positions = {
+            Anchor.c: center,
+            Anchor.f0: Point3(center.x - hx, center.y, center.z),
+            Anchor.f1: Point3(center.x + hx, center.y, center.z),
+            Anchor.f2: Point3(center.x, center.y - hy, center.z),
+            Anchor.f3: Point3(center.x, center.y + hy, center.z),
+            Anchor.f4: Point3(center.x, center.y, center.z - hz),
+            Anchor.f5: Point3(center.x, center.y, center.z + hz),
+            Anchor.e0: Point3(center.x, center.y - hy, center.z - hz),
+            Anchor.e1: Point3(center.x, center.y - hy, center.z + hz),
+            Anchor.e2: Point3(center.x, center.y + hy, center.z - hz),
+            Anchor.e3: Point3(center.x, center.y + hy, center.z + hz),
+            Anchor.e4: Point3(center.x - hx, center.y, center.z - hz),
+            Anchor.e5: Point3(center.x - hx, center.y, center.z + hz),
+            Anchor.e6: Point3(center.x + hx, center.y, center.z - hz),
+            Anchor.e7: Point3(center.x + hx, center.y, center.z + hz),
+            Anchor.e8: Point3(center.x - hx, center.y - hy, center.z),
+            Anchor.e9: Point3(center.x - hx, center.y + hy, center.z),
+            Anchor.e10: Point3(center.x + hx, center.y - hy, center.z),
+            Anchor.e11: Point3(center.x + hx, center.y + hy, center.z),
+            Anchor.v0: Point3(center.x - hx, center.y - hy, center.z - hz),
+            Anchor.v1: Point3(center.x - hx, center.y - hy, center.z + hz),
+            Anchor.v2: Point3(center.x - hx, center.y + hy, center.z - hz),
+            Anchor.v3: Point3(center.x - hx, center.y + hy, center.z + hz),
+            Anchor.v4: Point3(center.x + hx, center.y - hy, center.z - hz),
+            Anchor.v5: Point3(center.x + hx, center.y - hy, center.z + hz),
+            Anchor.v6: Point3(center.x + hx, center.y + hy, center.z - hz),
+            Anchor.v7: Point3(center.x + hx, center.y + hy, center.z + hz),
+        }
+        return positions.get(self.pivot_anchor, center)
 
     def _evaluate_for_single_selection(self, inherit_rotations: bool, inherit_scale: bool = False):
         """Set up boxy attributes for a single node."""
@@ -172,7 +215,7 @@ class Boxy:
             min_max: Point3Pair = math_utils.get_minimum_maximum_from_points(
                 points=points, y_offset=y_offset, pivot=position)
             self.size = min_max.size
-            position_pre_rotation = get_position_from_bounds(bounds=min_max, pivot=self.pivot_side)
+            position_pre_rotation = get_position_from_bounds(bounds=min_max, pivot=self.pivot_anchor)
             self.position = math_utils.rotate_point_about_y(
                 point=position_pre_rotation, y_rotation=-y_offset, pivot=position)
         else:
@@ -180,7 +223,10 @@ class Boxy:
             min_max: Point3Pair = node_utils.get_min_max_points(
                 node=self.selected_transforms[0], inherit_rotations=inherit_rotations)
             self.size = min_max.size
-            self.position = min_max.get_pivot(self.pivot_side)
+            # For Point3Pair, use helper method for anchor position
+            c = min_max.center
+            hx, hy, hz = min_max.size.x / 2.0, min_max.size.y / 2.0, min_max.size.z / 2.0
+            self.position = self._calculate_anchor_position(c, hx, hy, hz)
 
     def _init_selection(self):
         """Initialize the selection. Convert any edges/faces to vertices."""
@@ -233,14 +279,12 @@ class Boxy:
         """Returns True if there are only two locators selected."""
         return len(self.selection) == 2 and len(self.element_type_dict.get(ElementType.locator, [])) == 2
 
-    def create(self, pivot: Side = Side.center, inherit_rotations: bool = True,
+    def create(self, pivot: Anchor = Anchor.c, inherit_rotations: bool = True,
                inherit_scale: bool = False, default_size: float = 10.0) -> tuple[list[str], list[BoxyException]]:
         """Evaluate selection."""
-        valid_pivots = (Side.bottom, Side.center, Side.top, Side.left, Side.right, Side.front, Side.back)
-        assert pivot in valid_pivots, f"Invalid pivot position: {pivot.name}"
         exceptions = []
         rebuilt_boxy_nodes = []  # Track rebuilt boxy nodes with their NEW names
-        self.pivot_side = pivot
+        self.pivot_anchor = pivot
         self.size = Point3(default_size, default_size, default_size)
         if ElementType.boxy in self.element_type_dict:
             for boxy_item in self.element_type_dict[ElementType.boxy]:
@@ -398,7 +442,7 @@ def convert_boxy_to_polycube(node: str, pivot: Side = None, inherit_scale: bool 
     if inherit_scale and has_scale:
         # When inheriting scale, get data directly from boxy (don't use rebuild which bakes scale)
         boxy_data: BoxyData = get_boxy_data(node=node)
-        target_pivot = pivot if pivot else boxy_data.pivot_side
+        target_pivot = pivot if pivot else boxy_data.pivot_anchor
         size = boxy_data.size  # Unscaled size from shape attributes
         rotation = original_rotation
         scale = original_scale
@@ -407,7 +451,7 @@ def convert_boxy_to_polycube(node: str, pivot: Side = None, inherit_scale: bool 
         LOGGER.debug(f"  original_rotation: {original_rotation}")
         LOGGER.debug(f"  original_scale: {original_scale}")
         LOGGER.debug(f"  size (unscaled from shape): {size}")
-        LOGGER.debug(f"  original pivot: {boxy_data.pivot_side.name}, target pivot: {target_pivot.name}")
+        LOGGER.debug(f"  original pivot: {boxy_data.pivot_anchor.name}, target pivot: {target_pivot.name}")
 
         # Calculate translation accounting for pivot change
         # The visual size is size * scale
@@ -415,18 +459,17 @@ def convert_boxy_to_polycube(node: str, pivot: Side = None, inherit_scale: bool 
         LOGGER.debug(f"  visual_size (size * scale): {visual_size}")
 
         # Calculate visual center from original pivot position
-        pivot_to_center_offsets = {
-            Side.bottom.name: Point3(0.0, visual_size.y / 2.0, 0.0),
-            Side.top.name: Point3(0.0, -visual_size.y / 2.0, 0.0),
-            Side.left.name: Point3(visual_size.x / 2.0, 0.0, 0.0),
-            Side.right.name: Point3(-visual_size.x / 2.0, 0.0, 0.0),
-            Side.front.name: Point3(0.0, 0.0, -visual_size.z / 2.0),
-            Side.back.name: Point3(0.0, 0.0, visual_size.z / 2.0),
-            Side.center.name: Point3(0.0, 0.0, 0.0),
-        }
-        local_offset_to_center = pivot_to_center_offsets[boxy_data.pivot_side.name]
-        LOGGER.debug(f"  local_offset_to_center (before rotation): {local_offset_to_center}")
-        rotated_offset_to_center = math_utils.apply_euler_xyz_rotation(local_offset_to_center, rotation)
+        # Use BoxyData's _get_pivot_to_center_offset method for all 27 anchors
+        # The offset is computed with unscaled size, so scale it to match visual geometry
+        local_offset_to_center = boxy_data._get_pivot_to_center_offset()
+        LOGGER.debug(f"  local_offset_to_center (unscaled): {local_offset_to_center}")
+        scaled_offset_to_center = Point3(
+            local_offset_to_center.x * scale.x,
+            local_offset_to_center.y * scale.y,
+            local_offset_to_center.z * scale.z
+        )
+        LOGGER.debug(f"  scaled_offset_to_center (before rotation): {scaled_offset_to_center}")
+        rotated_offset_to_center = math_utils.apply_euler_xyz_rotation(scaled_offset_to_center, rotation)
         LOGGER.debug(f"  rotated_offset_to_center: {rotated_offset_to_center}")
         visual_center = Point3(
             original_translation.x + rotated_offset_to_center.x,
@@ -436,16 +479,8 @@ def convert_boxy_to_polycube(node: str, pivot: Side = None, inherit_scale: bool 
         LOGGER.debug(f"  visual_center: {visual_center}")
 
         # Calculate new translation from visual center to target pivot
-        center_to_pivot_offsets = {
-            Side.bottom.name: Point3(0.0, -visual_size.y / 2.0, 0.0),
-            Side.top.name: Point3(0.0, visual_size.y / 2.0, 0.0),
-            Side.left.name: Point3(-visual_size.x / 2.0, 0.0, 0.0),
-            Side.right.name: Point3(visual_size.x / 2.0, 0.0, 0.0),
-            Side.front.name: Point3(0.0, 0.0, visual_size.z / 2.0),
-            Side.back.name: Point3(0.0, 0.0, -visual_size.z / 2.0),
-            Side.center.name: Point3(0.0, 0.0, 0.0),
-        }
-        local_offset_to_pivot = center_to_pivot_offsets[target_pivot.name]
+        hx, hy, hz = visual_size.x / 2.0, visual_size.y / 2.0, visual_size.z / 2.0
+        local_offset_to_pivot = get_anchor_offset(target_pivot, hx, hy, hz)
         LOGGER.debug(f"  local_offset_to_pivot (before rotation): {local_offset_to_pivot}")
         rotated_offset_to_pivot = math_utils.apply_euler_xyz_rotation(local_offset_to_pivot, rotation)
         LOGGER.debug(f"  rotated_offset_to_pivot: {rotated_offset_to_pivot}")
@@ -462,17 +497,21 @@ def convert_boxy_to_polycube(node: str, pivot: Side = None, inherit_scale: bool 
             cmds.delete(short_name)
     else:
         # When not inheriting scale, use rebuild which bakes scale into size
+        LOGGER.info(f"  convert_boxy_to_polycube: inherit_scale=False path")
+        LOGGER.info(f"    BEFORE rebuild - node position: {node_utils.get_translation(node)}")
         result = rebuild(node=node, pivot=pivot)
         if isinstance(result, BoxyException):
             return result
+        LOGGER.info(f"    AFTER rebuild - result position: {node_utils.get_translation(result)}")
         boxy_data = get_boxy_data(node=result)
-        target_pivot = boxy_data.pivot_side
+        target_pivot = boxy_data.pivot_anchor
         size = boxy_data.size  # Baked size (includes scale)
         translation = boxy_data.translation
         rotation = boxy_data.rotation
         scale = None  # No scale to apply
-        LOGGER.debug(f"  Using rebuilt boxy data (inherit_scale=False)")
-        LOGGER.debug(f"    size: {size}, pivot: {target_pivot}")
+        LOGGER.info(f"    boxy_data.translation: {translation}")
+        LOGGER.info(f"    boxy_data.size: {size}")
+        LOGGER.info(f"    target_pivot: {target_pivot}")
 
         # Delete the rebuilt boxy
         short_name = result.split('|')[-1]
@@ -480,16 +519,20 @@ def convert_boxy_to_polycube(node: str, pivot: Side = None, inherit_scale: bool 
             cmds.delete(short_name)
 
     # Create polycube with pivot at origin, then position it
+    LOGGER.info(f"  Creating polycube: pivot={target_pivot}, size={size}")
     polycube = create_polycube(
-        pivot_side=target_pivot,
+        pivot=target_pivot,
         size=size,
         creation_mode=CreationMode.pivot_origin,
         construction_history=False,
     )
+    LOGGER.info(f"    polycube position after create: {node_utils.get_translation(polycube)}")
 
     # Apply rotation, then translation
     node_utils.set_rotation(nodes=polycube, value=rotation)
+    LOGGER.info(f"    polycube position after rotation: {node_utils.get_translation(polycube)}")
     node_utils.set_translation(nodes=polycube, value=translation, absolute=True)
+    LOGGER.info(f"    polycube position after translation: {node_utils.get_translation(polycube)}")
 
     # Apply scale if inheriting
     if scale is not None:
@@ -500,7 +543,7 @@ def convert_boxy_to_polycube(node: str, pivot: Side = None, inherit_scale: bool 
 
 
 def convert_polycube_to_boxy(polycube: str, color: ColorRGB = color_classes.DEEP_GREEN,
-                             pivot: Side = None, inherit_scale: bool = False) -> str:
+                             pivot: Anchor = None, inherit_scale: bool = False) -> str:
     """Convert a polycube to a boxy node.
 
     Detects Robotools polycubes by checking for custom_type attribute.
@@ -508,7 +551,7 @@ def convert_polycube_to_boxy(polycube: str, color: ColorRGB = color_classes.DEEP
 
     :param polycube: The polycube transform node
     :param color: Wireframe color for the boxy
-    :param pivot: Optional pivot override. If None, uses stored/detected pivot.
+    :param pivot: Optional pivot override (Anchor). If None, uses stored/detected pivot.
     :param inherit_scale: If True, preserve original scale on boxy. If False, bake scale into size.
     """
     LOGGER.info(f"=== convert_polycube_to_boxy({polycube}) ===")
@@ -532,48 +575,102 @@ def convert_polycube_to_boxy(polycube: str, color: ColorRGB = color_classes.DEEP
         bounds = bounds_utils.get_bounds(geometry=polycube, inherit_rotations=True)
         LOGGER.info(f"  bounds from get_bounds: {bounds}")
 
-    # Use pivot override if provided, otherwise detect from attribute/geometry
-    if pivot is not None:
-        LOGGER.info(f"  Using pivot override: {pivot.name}")
+    # Detect original pivot from stored attribute or geometry
+    original_pivot = None
+    if cmds.attributeQuery(CustomAttribute.pivot_anchor.name, node=shape, exists=True):
+        anchor_name = cmds.getAttr(f"{shape}.{CustomAttribute.pivot_anchor.name}")
+        original_pivot = Anchor[anchor_name]
+        LOGGER.info(f"  Found stored pivot_anchor attribute: {original_pivot.name}")
     elif cmds.attributeQuery(CustomAttribute.pivot_side.name, node=shape, exists=True):
-        # New polycubes store pivot_side as string on shape
         pivot_name = cmds.getAttr(f"{shape}.{CustomAttribute.pivot_side.name}")
-        pivot = Side[pivot_name]
-        LOGGER.info(f"  Found stored pivot_side attribute: {pivot.name}")
+        original_pivot = side_to_anchor(Side[pivot_name])
+        LOGGER.info(f"  Found legacy pivot_side attribute: {original_pivot.name}")
     elif cmds.attributeQuery(CustomAttribute.pivot_side.name, node=polycube, exists=True):
-        # Legacy polycubes store pivot_side as index on transform
         pivot_index = cmds.getAttr(f"{polycube}.{CustomAttribute.pivot_side.name}")
         pivot_map = {
-            0: Side.bottom, 1: Side.center, 2: Side.top,
-            3: Side.left, 4: Side.right, 5: Side.front, 6: Side.back
+            0: Anchor.f2, 1: Anchor.c, 2: Anchor.f3,
+            3: Anchor.f0, 4: Anchor.f1, 5: Anchor.f5, 6: Anchor.f4
         }
-        pivot = pivot_map.get(pivot_index, Side.center)
-        LOGGER.info(f"  Found legacy pivot attribute: index={pivot_index}, pivot={pivot.name}")
+        original_pivot = pivot_map.get(pivot_index, Anchor.c)
+        LOGGER.info(f"  Found very old pivot attribute: index={pivot_index}, pivot={original_pivot.name}")
     else:
-        # Detect pivot from geometry (pivot position relative to bounds center)
-        pivot = _detect_pivot_from_poly_cube(polycube, bounds)
-        LOGGER.info(f"  Detected pivot from geometry: {pivot.name}")
+        detected_side = _detect_pivot_from_poly_cube(polycube, bounds)
+        original_pivot = side_to_anchor(detected_side)
+        LOGGER.info(f"  Detected pivot from geometry: {original_pivot.name}")
+
+    # Use pivot override if provided, otherwise use original
+    if pivot is not None:
+        LOGGER.info(f"  Using pivot override: {pivot.name}")
+    else:
+        pivot = original_pivot
 
     LOGGER.info(f"  final pivot: {pivot}")
 
-    # Calculate size - unbake if inheriting scale
+    # Calculate size and translation
     if inherit_scale and has_scale:
+        # Unbake the size (boxy will have this size + scale applied)
         size = Point3(
             bounds.size.x / original_scale.x,
             bounds.size.y / original_scale.y,
             bounds.size.z / original_scale.z,
         )
         LOGGER.info(f"  unbaked size: {size}")
+
+        if pivot == original_pivot:
+            # Same pivot - use polycube's transform position directly
+            translation = node_utils.get_translation(polycube)
+            LOGGER.info(f"  translation (same pivot, from transform): {translation}")
+        else:
+            # Pivot changed - recalculate from visual center to new pivot
+            # Visual size is bounds.size (the scaled size)
+            original_translation = node_utils.get_translation(polycube)
+            rotation = bounds.rotation
+            visual_size = bounds.size
+            hx, hy, hz = visual_size.x / 2.0, visual_size.y / 2.0, visual_size.z / 2.0
+
+            # Calculate visual center from original pivot (pivot_to_center is negative of center_to_pivot)
+            center_to_original = get_anchor_offset(original_pivot, hx, hy, hz)
+            local_offset_to_center = Point3(-center_to_original.x, -center_to_original.y, -center_to_original.z)
+            rotated_offset_to_center = math_utils.apply_euler_xyz_rotation(local_offset_to_center, rotation)
+            visual_center = Point3(
+                original_translation.x + rotated_offset_to_center.x,
+                original_translation.y + rotated_offset_to_center.y,
+                original_translation.z + rotated_offset_to_center.z
+            )
+
+            local_offset_to_pivot = get_anchor_offset(pivot, hx, hy, hz)
+            rotated_offset_to_pivot = math_utils.apply_euler_xyz_rotation(local_offset_to_pivot, rotation)
+            translation = Point3(
+                visual_center.x + rotated_offset_to_pivot.x,
+                visual_center.y + rotated_offset_to_pivot.y,
+                visual_center.z + rotated_offset_to_pivot.z
+            )
+            LOGGER.info(f"  translation (pivot changed, recalculated): {translation}")
     else:
         size = bounds.size
+        LOGGER.info(f"  inherit_scale=False path")
+        LOGGER.info(f"    bounds.position (center): {bounds.position}")
+        LOGGER.info(f"    bounds.size: {bounds.size}")
+        LOGGER.info(f"    original_pivot: {original_pivot}, target pivot: {pivot}")
+        LOGGER.info(f"    polycube transform position: {node_utils.get_translation(polycube)}")
 
-    # Calculate translation (pivot position) from bounds center
-    translation = bounds.get_pivot(pivot)
+        # Always calculate from bounds - don't trust stored pivot after geometry changes
+        # The bounds.position is the geometric center, calculate pivot position from there
+        hx, hy, hz = size.x / 2.0, size.y / 2.0, size.z / 2.0
+        rotation = bounds.rotation
+        local_offset_to_pivot = get_anchor_offset(pivot, hx, hy, hz)
+        rotated_offset_to_pivot = math_utils.apply_euler_xyz_rotation(local_offset_to_pivot, rotation)
+        translation = Point3(
+            bounds.position.x + rotated_offset_to_pivot.x,
+            bounds.position.y + rotated_offset_to_pivot.y,
+            bounds.position.z + rotated_offset_to_pivot.z
+        )
+        LOGGER.info(f"    calculated translation (from bounds center): {translation}")
     boxy_data = BoxyData(
         size=size,
         translation=translation,
         rotation=bounds.rotation,
-        pivot_side=pivot,
+        pivot_anchor=pivot,
         color=color,
     )
     LOGGER.info(f"  building boxy with data: {boxy_data.dictionary}")
@@ -589,13 +686,21 @@ def convert_polycube_to_boxy(polycube: str, color: ColorRGB = color_classes.DEEP
     return _boxy_node
 
 
-def create_polycube(pivot_side: Side, size: Point3, creation_mode: CreationMode = CreationMode.pivot_origin,
+def create_polycube(pivot: Anchor, size: Point3, creation_mode: CreationMode = CreationMode.pivot_origin,
                     construction_history: bool = False) -> str:
-    """Create a custom polycube node.
+    """Create a custom polycube node with pivot at any of the 27 anchor positions.
 
-    Doesn't need to be a custom DAG node at this stage as it's a regular mesh transform
-    It does feature some custom attributes though
+    Args:
+        pivot: Anchor position for the pivot (center, face, edge, or vertex)
+        size: Dimensions of the polycube
+        creation_mode: Where to place the polycube after creation
+        construction_history: Whether to keep construction history
+
+    Returns:
+        Name of the created polycube transform node
     """
+    hx, hy, hz = size.x / 2.0, size.y / 2.0, size.z / 2.0
+
     result = geometry_utils.create_cube(
         size=size,
         position=ZERO3,
@@ -607,15 +712,8 @@ def create_polycube(pivot_side: Side, size: Point3, creation_mode: CreationMode 
         polycube, shape = result
     else:
         polycube = result
-    pivot_position = {
-        Side.top: Point3(0.0, size.y / 2.0, 0.0),
-        Side.center: ZERO3,
-        Side.bottom: Point3(0.0, -size.y / 2.0, 0.0),
-        Side.left: Point3(-size.x / 2, 0.0, 0.0),
-        Side.right: Point3(size.x / 2, 0.0, 0.0),
-        Side.front: Point3(0.0, 0.0, size.z / 2),
-        Side.back: Point3(0.0, 0.0, -size.z / 2),
-    }[pivot_side]
+
+    pivot_position = get_anchor_offset(pivot, hx, hy, hz)
     node_utils.set_pivot(nodes=polycube, value=pivot_position, reset=True)
     if creation_mode is CreationMode.pivot_origin:
         node_utils.set_translation(nodes=polycube, value=ZERO3, absolute=True)
@@ -626,8 +724,8 @@ def create_polycube(pivot_side: Side, size: Point3, creation_mode: CreationMode 
         node=shape, attr=CustomAttribute.custom_type.name, data_type=DataType.string,
         lock=True, default_value=CustomType.polycube.name, channel_box=True)
     attribute_utils.add_attribute(
-        node=shape, attr=CustomAttribute.pivot_side.name, data_type=DataType.string,
-        lock=True, default_value=pivot_side.name, channel_box=True)
+        node=shape, attr=CustomAttribute.pivot_anchor.name, data_type=DataType.string,
+        lock=True, default_value=pivot.name, channel_box=True)
     attribute_utils.add_compound_attribute(
         node=shape,
         parent_attr=CustomAttribute.size.name,
@@ -710,7 +808,7 @@ def get_boxy_data(node: str) -> BoxyData:
         size=size,
         translation=transform_pos,
         rotation=rotation,
-        pivot_side=pivot,
+        pivot_anchor=pivot,
         color=color,
     )
     LOGGER.debug(f"  boxy_data.translation: {boxy_data.translation}")
@@ -719,44 +817,57 @@ def get_boxy_data(node: str) -> BoxyData:
     return boxy_data
 
 
-def get_boxy_pivot(node: str) -> Side:
-    """Get the pivot of a boxy node."""
+def get_boxy_pivot(node: str) -> Anchor:
+    """Get the pivot anchor of a boxy node."""
     shape = node_utils.get_shape_from_transform(node=node)
 
     if not shape or cmds.objectType(shape) != "boxyShape":
         raise ValueError(f"Node '{node}' is not a valid boxy node")
 
     pivot_index = cmds.getAttr(f"{shape}.pivot")
-    return {
-        0: Side.bottom,
-        1: Side.center,
-        2: Side.top,
-        3: Side.left,
-        4: Side.right,
-        5: Side.front,
-        6: Side.back,
-    }[pivot_index]
+    return index_to_anchor(pivot_index)
 
 
-def get_position_from_bounds(bounds: Point3Pair, pivot: Side) -> Point3:
-    """Get the position of a Boxy object from the bounds."""
-    valid_pivots = (Side.bottom, Side.top, Side.center, Side.left, Side.right, Side.front, Side.back)
-    assert pivot in valid_pivots, f"Invalid pivot: {pivot}"
+def get_position_from_bounds(bounds: Point3Pair, pivot: Anchor) -> Point3:
+    """Get the position of a Boxy object from the bounds for any anchor point."""
+    c = bounds.center
+    hx = bounds.size.x / 2.0
+    hy = bounds.size.y / 2.0
+    hz = bounds.size.z / 2.0
 
-    if pivot == Side.bottom:
-        return bounds.bottom
-    elif pivot == Side.top:
-        return bounds.top
-    elif pivot == Side.left:
-        return Point3(bounds.minimum.x, bounds.center.y, bounds.center.z)
-    elif pivot == Side.right:
-        return Point3(bounds.maximum.x, bounds.center.y, bounds.center.z)
-    elif pivot == Side.front:
-        return Point3(bounds.center.x, bounds.center.y, bounds.maximum.z)
-    elif pivot == Side.back:
-        return Point3(bounds.center.x, bounds.center.y, bounds.minimum.z)
-    else:  # center
-        return bounds.center
+    positions = {
+        # Face anchors
+        Anchor.c: c,
+        Anchor.f0: Point3(c.x - hx, c.y, c.z),       # left
+        Anchor.f1: Point3(c.x + hx, c.y, c.z),       # right
+        Anchor.f2: Point3(c.x, c.y - hy, c.z),       # bottom
+        Anchor.f3: Point3(c.x, c.y + hy, c.z),       # top
+        Anchor.f4: Point3(c.x, c.y, c.z - hz),       # back
+        Anchor.f5: Point3(c.x, c.y, c.z + hz),       # front
+        # Edge anchors
+        Anchor.e0: Point3(c.x, c.y - hy, c.z - hz),
+        Anchor.e1: Point3(c.x, c.y - hy, c.z + hz),
+        Anchor.e2: Point3(c.x, c.y + hy, c.z - hz),
+        Anchor.e3: Point3(c.x, c.y + hy, c.z + hz),
+        Anchor.e4: Point3(c.x - hx, c.y, c.z - hz),
+        Anchor.e5: Point3(c.x - hx, c.y, c.z + hz),
+        Anchor.e6: Point3(c.x + hx, c.y, c.z - hz),
+        Anchor.e7: Point3(c.x + hx, c.y, c.z + hz),
+        Anchor.e8: Point3(c.x - hx, c.y - hy, c.z),
+        Anchor.e9: Point3(c.x - hx, c.y + hy, c.z),
+        Anchor.e10: Point3(c.x + hx, c.y - hy, c.z),
+        Anchor.e11: Point3(c.x + hx, c.y + hy, c.z),
+        # Vertex anchors
+        Anchor.v0: Point3(c.x - hx, c.y - hy, c.z - hz),
+        Anchor.v1: Point3(c.x - hx, c.y - hy, c.z + hz),
+        Anchor.v2: Point3(c.x - hx, c.y + hy, c.z - hz),
+        Anchor.v3: Point3(c.x - hx, c.y + hy, c.z + hz),
+        Anchor.v4: Point3(c.x + hx, c.y - hy, c.z - hz),
+        Anchor.v5: Point3(c.x + hx, c.y - hy, c.z + hz),
+        Anchor.v6: Point3(c.x + hx, c.y + hy, c.z - hz),
+        Anchor.v7: Point3(c.x + hx, c.y + hy, c.z + hz),
+    }
+    return positions.get(pivot, c)
 
 
 def get_selected_boxy_nodes() -> list[str]:
@@ -808,7 +919,7 @@ def get_selected_polycubes() -> list[str]:
     return [x for x in mesh_nodes if is_polycube(x)]
 
 
-def rebuild(node: str, pivot: Side | None = None, color: ColorRGB | None = None) -> str | BoxyException:
+def rebuild(node: str, pivot: Anchor | None = None, color: ColorRGB | None = None) -> str | BoxyException:
     """Rebuild a boxy node."""
     LOGGER.debug(f"=== rebuild({node}) ===")
     result, issues = boxy_validator.test_selected_boxy(node=node, test_poly_cube=False)
@@ -827,14 +938,15 @@ def rebuild(node: str, pivot: Side | None = None, color: ColorRGB | None = None)
     LOGGER.debug(f"  Original transform scale: {original_scale}")
     LOGGER.debug(f"  Original boxy pivot: {original_pivot}")
 
-    pivot: Side = pivot if pivot else original_pivot
+    pivot: Anchor = pivot if pivot else original_pivot
     LOGGER.debug(f"  Target pivot: {pivot}")
 
     bounds: Bounds = bounds_utils.get_cuboid(geometry=node)
-    LOGGER.debug(f"  Bounds from get_cuboid:")
-    LOGGER.debug(f"    position (center): {bounds.position}")
-    LOGGER.debug(f"    size (unscaled): {bounds.size}")
-    LOGGER.debug(f"    rotation: {bounds.rotation}")
+    LOGGER.info(f"  Bounds from get_cuboid:")
+    LOGGER.info(f"    position (center): {bounds.position}")
+    LOGGER.info(f"    size: {bounds.size}")
+    LOGGER.info(f"    rotation: {bounds.rotation}")
+    LOGGER.info(f"  Original pivot: {original_pivot}, Target pivot: {pivot}")
 
     # Preserve scale before deleting
     scale = node_utils.get_scale(node)
@@ -857,22 +969,29 @@ def rebuild(node: str, pivot: Side | None = None, color: ColorRGB | None = None)
         # Scale will not be restored since it's now baked into size
         scale = Point3(1.0, 1.0, 1.0)
 
-    # Calculate translation (pivot position) from bounds center
-    translation = bounds.get_pivot(pivot)
-    LOGGER.debug(f"  Translation (pivot position): {translation}")
+    # Calculate translation (pivot position)
+    if pivot == original_pivot:
+        # Same pivot - use original translation directly
+        translation = original_translation
+        LOGGER.info(f"  Translation (same pivot, using original): {translation}")
+    else:
+        # Pivot changed - calculate from bounds center
+        LOGGER.info(f"  Calculating translation: bounds.center={bounds.center}, pivot={pivot}")
+        translation = get_anchor_position_from_bounds(bounds, pivot)
+        LOGGER.info(f"  Translation (pivot changed): {translation}")
 
     cmds.delete(node)
     boxy_data = BoxyData(
         size=size,
         translation=translation,
         rotation=bounds.rotation,
-        pivot_side=pivot,
+        pivot_anchor=pivot,
         color=color if color else color_classes.DEEP_GREEN,
     )
     LOGGER.debug(f"  BoxyData created:")
     LOGGER.debug(f"    size: {boxy_data.size}")
     LOGGER.debug(f"    translation: {boxy_data.translation}")
-    LOGGER.debug(f"    pivot: {boxy_data.pivot_side}")
+    LOGGER.debug(f"    pivot: {boxy_data.pivot_anchor}")
 
     boxy_object = build(boxy_data=boxy_data)
     # Restore scale after building (will be identity if scale was baked)

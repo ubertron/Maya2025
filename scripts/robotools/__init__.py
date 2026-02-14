@@ -7,7 +7,6 @@ from enum import Enum, auto
 with contextlib.suppress(ImportError):
     from maya import cmds
     from maya_tools import attribute_utils
-    from maya_tools.node_utils import get_shape_from_transform
 
 
 class CustomAttribute(Enum):
@@ -16,7 +15,8 @@ class CustomAttribute(Enum):
     frame = auto()
     hinge_side = auto()
     opening_side = auto()
-    pivot_side = auto()
+    pivot_anchor = auto()  # New: stores Anchor name (e.g., "c", "f0", "e5", "v3")
+    pivot_side = auto()    # Legacy: stores Side name for old polycubes
     sill_depth = auto()
     sill_thickness = auto()
     size = auto()
@@ -35,12 +35,14 @@ class CustomType(Enum):
 
 def is_boxy(node: str) -> bool:
     """Check if node is a boxy (boxyShape)."""
+    from maya_tools.node_utils import get_shape_from_transform
     shape = get_shape_from_transform(node=node)
     return shape is not None and cmds.objectType(shape) == "boxyShape"
 
 
 def is_custom_type(node: str, custom_type: CustomType) -> bool:
     """Is node a custom type (checks shape node first, then transform for legacy)."""
+    from maya_tools.node_utils import get_shape_from_transform
     shape = get_shape_from_transform(node=node)
     # Check shape first (new standard)
     if shape and cmds.attributeQuery(CustomAttribute.custom_type.name, node=shape, exists=True):
@@ -50,5 +52,6 @@ def is_custom_type(node: str, custom_type: CustomType) -> bool:
 
 def is_custom_type_node(node: str) -> bool:
     """Is node a custom type node."""
+    from maya_tools.node_utils import get_shape_from_transform
     shape = get_shape_from_transform(node=node)
     return shape and attribute_utils.has_attribute(node=shape, attr=CustomAttribute.custom_type.name)

@@ -6,9 +6,9 @@ from qtpy.QtCore import Signal, Qt, QRect, QSize, QPoint
 
 class CaseMode(Enum):
     """Case conversion mode for tags."""
-    LOWER = "lower"
-    UPPER = "upper"
-    MIXED = "mixed"
+    lower = "lower"
+    upper = "upper"
+    mixed = "mixed"
 
 
 class LayoutMode(Enum):
@@ -43,15 +43,51 @@ class FlowLayout(QLayout):
         return None
 
     def sizeHint(self):
-        return self._do_layout(QRect(0, 0, 0, 0), test_only=True)
+        # Return minimum size hint - just enough for one row
+        if not self._items:
+            return QSize(0, 0)
+        max_height = 0
+        total_width = 0
+        spacing = self.spacing()
+        for item in self._items:
+            hint = item.sizeHint()
+            max_height = max(max_height, hint.height())
+            total_width += hint.width() + spacing
+        margins = self.contentsMargins()
+        return QSize(total_width + margins.left() + margins.right(),
+                     max_height + margins.top() + margins.bottom())
+
+    def minimumSize(self):
+        # Minimum size is just enough for one item
+        if not self._items:
+            return QSize(0, 0)
+        max_height = 0
+        max_width = 0
+        for item in self._items:
+            hint = item.sizeHint()
+            max_height = max(max_height, hint.height())
+            max_width = max(max_width, hint.width())
+        margins = self.contentsMargins()
+        return QSize(max_width + margins.left() + margins.right(),
+                     max_height + margins.top() + margins.bottom())
+
+    def hasHeightForWidth(self):
+        return True
+
+    def heightForWidth(self, width):
+        # Calculate actual height needed for given width
+        return self._do_layout(QRect(0, 0, width, 0), test_only=True).height()
 
     def setGeometry(self, rect):
         super().setGeometry(rect)
         self._do_layout(rect, test_only=False)
 
     def _do_layout(self, rect, test_only=False):
-        x = rect.x()
-        y = rect.y()
+        margins = self.contentsMargins()
+        effective_rect = rect.adjusted(margins.left(), margins.top(),
+                                       -margins.right(), -margins.bottom())
+        x = effective_rect.x()
+        y = effective_rect.y()
         line_height = 0
         spacing = self.spacing()
 
@@ -60,23 +96,25 @@ class FlowLayout(QLayout):
             if widget is None:
                 continue
 
-            space_x = spacing
-            space_y = spacing
-            next_x = x + item.sizeHint().width() + space_x
+            item_width = item.sizeHint().width()
+            item_height = item.sizeHint().height()
+            next_x = x + item_width + spacing
 
-            if next_x - space_x > rect.right() and line_height > 0:
-                x = rect.x()
-                y = y + line_height + space_y
-                next_x = x + item.sizeHint().width() + space_x
+            # Wrap to next line if needed (but not for the first item on a line)
+            if x > effective_rect.x() and next_x - spacing > effective_rect.right():
+                x = effective_rect.x()
+                y = y + line_height + spacing
+                next_x = x + item_width + spacing
                 line_height = 0
 
             if not test_only:
                 item.setGeometry(QRect(QPoint(x, y), item.sizeHint()))
 
             x = next_x
-            line_height = max(line_height, item.sizeHint().height())
+            line_height = max(line_height, item_height)
 
-        return QSize(rect.width(), y + line_height - rect.y())
+        total_height = y + line_height - rect.y() + margins.bottom()
+        return QSize(rect.width(), max(total_height, 0))
 
 
 class TagPillWidget(QWidget):
@@ -135,8 +173,8 @@ class TagWidget(QWidget):
     tags_changed = Signal(list)  # Emitted on any change
 
     def __init__(self, parent: QWidget | None = None, title: str = "", label: str = "", layout_mode: LayoutMode = LayoutMode.flow,
-                 case_mode: CaseMode = CaseMode.MIXED, special_characters: list[str] | None = None,
-                 allow_numbers: bool = True, comma_separation_mode: bool = False,
+                 case_mode: CaseMode = CaseMode.mixed, special_characters: list[str] | None = None,
+                 allow_numbers: bool = True, separators: str = "",
                  place_holder_text: str = ""):
         """Initialize TagWidget.
 
@@ -147,7 +185,11 @@ class TagWidget(QWidget):
             special_characters: List of allowed special characters (empty/None = allow all).
                                "_" is always allowed. Example: ["'", " ", "-"]
             allow_numbers: If False, numbers are removed from tags
-            comma_separation_mode: If True, commas act as separators (like pressing return)
+            separators: String of characters that act as tag separators (e.g., ", " for comma and space).
+                       When typing, separators trigger immediate tag creation.
+                       When pasting, separators are processed only on return press.
+                       Separator characters must not conflict with special_characters restrictions.
+            place_holder_text: Placeholder text for the input field
         """
         super().__init__(parent=parent)
         self.setWindowTitle(title)
@@ -155,9 +197,12 @@ class TagWidget(QWidget):
         self.case_mode = case_mode
         self.special_characters = special_characters if special_characters is not None else []
         self.allow_numbers = allow_numbers
-        self.comma_separation_mode = comma_separation_mode
         self._tags: list[str] = []
+        self._previous_text = ""  # Track for paste detection
         self.setLayout(QVBoxLayout())
+
+        # Validate and set separators
+        self.separators = self._validate_separators(separators)
 
         # Input row: title label + input field (above tags)
         from widgets.layouts import HBoxLayout
@@ -195,18 +240,58 @@ class TagWidget(QWidget):
 
         self._setup_ui()
 
+    def _validate_separators(self, separators: str) -> str:
+        """Validate separator characters against special_characters restrictions.
+
+        Args:
+            separators: String of separator characters
+
+        Returns:
+            Validated separator string (invalid chars removed)
+        """
+        if not separators:
+            return ""
+
+        valid_separators = []
+        for char in separators:
+            # Skip duplicates
+            if char in valid_separators:
+                continue
+
+            # If special_characters is restricted (non-empty list), separator must be allowed
+            if self.special_characters:
+                # Underscore is always allowed
+                if char == "_":
+                    valid_separators.append(char)
+                # Letters and numbers shouldn't be separators
+                elif char.isalnum():
+                    print(f"TagWidget: Separator '{char}' is alphanumeric, skipping")
+                    continue
+                # Check if char is in allowed special characters
+                elif char not in self.special_characters:
+                    print(f"TagWidget: Separator '{char}' not in allowed special_characters, skipping")
+                    continue
+                else:
+                    valid_separators.append(char)
+            else:
+                # No restrictions on special characters
+                # But still skip alphanumeric as separators
+                if char.isalnum():
+                    print(f"TagWidget: Separator '{char}' is alphanumeric, skipping")
+                    continue
+                valid_separators.append(char)
+
+        return "".join(valid_separators)
+
     def _setup_ui(self):
         """Setup UI elements and connections."""
         self.field.returnPressed.connect(self._on_field_return_pressed)
-        if self.comma_separation_mode:
+        if self.separators:
             self.field.textChanged.connect(self._on_field_text_changed)
-        self.resize(320, self.sizeHint().height())
-        if self.layout_mode == LayoutMode.flow:
-            # Allow dynamic height for flow layout mode
-            self.setMinimumHeight(self.sizeHint().height())
-        else:
+        if self.layout_mode == LayoutMode.scroll:
             # Fixed height for scroll area mode
             self.setFixedHeight(self.sizeHint().height())
+        # Flow layout mode allows natural height based on content
 
     def add_tag(self, tag: str) -> bool:
         """Add a tag to the widget.
@@ -299,30 +384,74 @@ class TagWidget(QWidget):
         # Update layout geometry
         self._update_layout()
 
+    def _split_by_separators(self, text: str) -> list[str]:
+        """Split text by any separator character.
+
+        Args:
+            text: Input text to split
+
+        Returns:
+            List of parts (may include empty strings)
+        """
+        if not self.separators:
+            return [text]
+
+        # Replace all separators with a common delimiter, then split
+        result = text
+        delimiter = self.separators[0]
+        for sep in self.separators[1:]:
+            result = result.replace(sep, delimiter)
+        return result.split(delimiter)
+
+    def _contains_separator(self, text: str) -> bool:
+        """Check if text contains any separator character."""
+        return any(sep in text for sep in self.separators)
+
     def _on_field_return_pressed(self):
         """Event for self.field return pressed."""
         text = self.field.text()
-        if self.comma_separation_mode and "," in text:
-            # Split by commas and add each tag
-            tags = [t.strip() for t in text.split(",") if t.strip()]
-            if self.add_tags(tags):
+        if self.separators and self._contains_separator(text):
+            # Split by separators and add each tag
+            tags = [t.strip() for t in self._split_by_separators(text) if t.strip()]
+            if tags:
+                self.add_tags(tags)
                 self.field.clear()
         elif self.add_tag(text):
             self.field.clear()
+        # Reset previous text tracker
+        self._previous_text = ""
 
     def _on_field_text_changed(self, text: str):
-        """Event for self.field text changed (comma separation mode)."""
-        if not self.comma_separation_mode:
+        """Event for self.field text changed (separator mode).
+
+        Distinguishes between typing (process separators immediately) and
+        pasting (wait for return to process).
+        """
+        if not self.separators:
             return
-        if "," in text:
-            # Split by comma, add all but the last part as tags
-            parts = text.split(",")
+
+        # Detect if this is a paste (multiple characters added at once)
+        len_diff = len(text) - len(self._previous_text)
+        is_paste = len_diff > 1
+
+        self._previous_text = text
+
+        # If pasted, don't process separators - wait for return
+        if is_paste:
+            return
+
+        # Live typing: check if the newly typed character is a separator
+        if self._contains_separator(text):
+            # Split by separators, add all but the last part as tags
+            parts = self._split_by_separators(text)
             tags_to_add = [t.strip() for t in parts[:-1] if t.strip()]
-            remainder = parts[-1]  # Keep the part after the last comma in the field
+            remainder = parts[-1]  # Keep the part after the last separator in the field
+
             if tags_to_add:
                 self.add_tags(tags_to_add)
                 self.field.blockSignals(True)
                 self.field.setText(remainder)
+                self._previous_text = remainder  # Update tracker
                 self.field.blockSignals(False)
 
     def _on_tag_remove_requested(self, tag: str):
@@ -350,9 +479,9 @@ class TagWidget(QWidget):
             # Check if it's a letter
             if char.isalpha():
                 # Apply case mode
-                if self.case_mode == CaseMode.LOWER:
+                if self.case_mode == CaseMode.lower:
                     result.append(char.lower())
-                elif self.case_mode == CaseMode.UPPER:
+                elif self.case_mode == CaseMode.upper:
                     result.append(char.upper())
                 else:  # CaseMode.MIXED
                     result.append(char)
@@ -410,9 +539,9 @@ class TagWidget(QWidget):
 
         # Force layout recalculation
         if self.layout_mode == LayoutMode.flow:
-            # For flow layout, update the main widget's size
-            self.updateGeometry()
-            self.adjustSize()
+            # For flow layout, invalidate and activate to recalculate
+            self.tag_container.layout().invalidate()
+            self.tag_container.layout().activate()
         else:
             # For scroll area, just update the scroll area
             self.scroll_area.updateGeometry()
@@ -445,7 +574,7 @@ if __name__ == "__main__":
 
     # Mode 1: FlowLayout with lowercase only
     widget_lower = TagWidget(label="FlowLayout - Lowercase Only:",
-                             layout_mode=LayoutMode.flow, case_mode=CaseMode.LOWER)
+                             layout_mode=LayoutMode.flow, case_mode=CaseMode.lower)
     widget_lower.tag_added.connect(lambda tag: print(f"✓ Lower Added: {tag}"))
     widget_lower.add_tag("Python")
     widget_lower.add_tag("Qt")
@@ -454,7 +583,7 @@ if __name__ == "__main__":
 
     # Mode 2: Uppercase with special character restrictions
     widget_upper = TagWidget(label="FlowLayout - Uppercase, apostrophe/dash only:",
-                             layout_mode=LayoutMode.flow, case_mode=CaseMode.UPPER,
+                             layout_mode=LayoutMode.flow, case_mode=CaseMode.upper,
                              special_characters=["'", "-"])
     widget_upper.tag_added.connect(lambda tag: print(f"✓ Upper Added: {tag}"))
     widget_upper.add_tag("rock'n'roll")
@@ -464,7 +593,7 @@ if __name__ == "__main__":
 
     # Mode 3: Mixed case, no numbers, space/dash allowed
     widget_mixed = TagWidget(label="ScrollArea - Mixed case, no numbers, space/dash allowed:",
-                             layout_mode=LayoutMode.scroll, case_mode=CaseMode.MIXED,
+                             layout_mode=LayoutMode.scroll, case_mode=CaseMode.mixed,
                              special_characters=[" ", "-"], allow_numbers=False)
     widget_mixed.tag_added.connect(lambda tag: print(f"✓ Mixed Added: {tag}"))
     widget_mixed.add_tag("Test 123")  # Numbers removed
@@ -478,15 +607,23 @@ if __name__ == "__main__":
     widget_default.add_tags(["test@email.com", "123-456", "MixedCase"])
     container.layout().addWidget(widget_default)
 
-    # Mode 5: Comma separation mode (type commas to add tags)
-    widget_comma = TagWidget(label="Comma separation mode (try typing 'a, b, c'):",
-                             layout_mode=LayoutMode.flow, comma_separation_mode=True)
-    widget_comma.tag_added.connect(lambda tag: print(f"✓ Comma Added: {tag}"))
-    widget_comma.add_tags(["apple", "banana", "cherry"])  # Pre-populated tags
-    container.layout().addWidget(widget_comma)
+    # Mode 5: Separator mode (type comma or space to add tags)
+    widget_sep = TagWidget(label="Separator mode (try typing 'a, b c' or paste 'x, y, z'):",
+                           layout_mode=LayoutMode.flow, separators=", ")
+    widget_sep.tag_added.connect(lambda tag: print(f"✓ Separator Added: {tag}"))
+    widget_sep.add_tags(["apple", "banana", "cherry"])  # Pre-populated tags
+    container.layout().addWidget(widget_sep)
+
+    # Mode 6: Custom separators with restricted special chars
+    widget_restricted = TagWidget(label="Semicolon separator, dash/underscore allowed:",
+                                  layout_mode=LayoutMode.flow, separators=";",
+                                  special_characters=["-", "_", ";"])
+    widget_restricted.tag_added.connect(lambda tag: print(f"✓ Restricted Added: {tag}"))
+    widget_restricted.add_tags(["foo-bar", "hello_world"])
+    container.layout().addWidget(widget_restricted)
 
     container.layout().addStretch(True)
-    container.setFixedHeight(container.sizeHint().height())
+    container.resize(400, 500)  # Initial size, resizable
     container.show()
     app.exec()
 

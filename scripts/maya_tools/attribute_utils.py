@@ -20,10 +20,18 @@ def add_attribute(node: str, attr: str, data_type: DataType,
     :param channel_box:
     :param default_value:
     """
-    if data_type in (DataType.float, DataType.double):
-        cmds.addAttr(node, longName=attr, attributeType=data_type.name)
+    # Types that use attributeType (numeric types)
+    attribute_types = {'float', 'double', 'bool', 'long', 'short', 'byte', 'char', 'enum', 'int',
+                       'float2', 'float3', 'double2', 'double3', 'long2', 'long3', 'short2', 'short3',
+                       'int2', 'int3'}
+    type_name = data_type.name
+    # Map Python/DataType names to Maya's preferred attribute types
+    type_mapping = {'float': 'double', 'int': 'long', 'int2': 'long2', 'int3': 'long3'}
+    maya_type_name = type_mapping.get(type_name, type_name)
+    if type_name in attribute_types:
+        cmds.addAttr(node, longName=attr, attributeType=maya_type_name)
     else:
-        cmds.addAttr(node, longName=attr, dataType=data_type.name)
+        cmds.addAttr(node, longName=attr, dataType=type_name)
     if default_value is not None:
         set_attribute(node=node, attr=attr, value=default_value)
     cmds.setAttr(f"{node}.{attr}", lock=lock, channelBox=channel_box)
@@ -151,9 +159,10 @@ def set_attribute(node: str, attr: str, value: Union[int, float, str, Sequence],
     """
     attr_type = cmds.getAttr(f'{node}.{attr}', type=True)
     attr_data = DataType[attr_type]
-    if attr_data in (DataType.float3, DataType.double3, DataType.float2, DataType.double2):
+    # Use string comparison to avoid module reload issues with enum identity
+    if attr_data.name in ('float3', 'double3', 'float2', 'double2'):
         cmds.setAttr(f'{node}.{attr}', *value, type=attr_data.name, lock=lock)
-    elif attr_data in (DataType.string, DataType.message):
+    elif attr_data.name in ('string', 'message'):
         cmds.setAttr(f'{node}.{attr}', value, type=attr_data.name, lock=lock)
     else:
         cmds.setAttr(f'{node}.{attr}', value, lock=lock)

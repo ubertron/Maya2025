@@ -41,10 +41,10 @@ import logging
 from abc import ABC, abstractmethod
 
 from core.color_classes import ColorRGB
-from core.core_enums import Side
 from core.logging_utils import get_logger
 from core.point_classes import Point3
 from robotools import CustomType
+from robotools.anchor import Anchor
 from robotools.architools import ARCHITOOLS_COLOR
 from robotools.architools.data.arch_data import ArchData
 from robotools.boxy import boxy_utils
@@ -72,7 +72,7 @@ class ArchCreator(ABC):
         """Get the boxy data."""
         selection = boxy_utils.get_selected_boxy_nodes()
         assert len(selection) == 1, f"Select a single boxy item (got {len(selection)})"
-        boxy_nodes, exceptions = boxy_utils.Boxy().create(pivot=Side.bottom)
+        boxy_nodes, exceptions = boxy_utils.Boxy().create(pivot=Anchor.f2)
         self.boxy_node = boxy_nodes[0]
 
     @property

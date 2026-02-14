@@ -8,13 +8,15 @@ from pathlib import Path
 
 from core import core_enums; reload(core_enums)
 from core import color_classes
-from core.core_enums import ComponentType, Side
+from core.core_enums import ComponentType
 from core.point_classes import Point3
+from robotools.anchor import Anchor
 from core.logging_utils import get_logger
 from maya_tools import node_utils, scene_utils
 from maya_tools import maya_widget_utils; reload(maya_widget_utils)
 from maya_tools.geometry import bounds_utils; reload(bounds_utils)
 from maya_tools.geometry import geometry_utils; reload(geometry_utils)
+from robotools import anchor; reload(anchor)
 from robotools.boxy import boxy_tool; reload(boxy_tool)
 from robotools.boxy import boxy_utils; reload(boxy_utils)
 from robotools.boxy.boxy_utils import BoxyData
@@ -32,7 +34,7 @@ def run_test_case(*nodes):
     cmds.select(nodes)
     creator = boxy_utils.Boxy(color=color_classes.LIME)
     boxy_nodes, exceptions = creator.create(
-        pivot=core_enums.Side.center,
+        pivot=Anchor("center"),
         inherit_rotations=True,
         inherit_scale=True,
         default_size=100)
@@ -127,7 +129,7 @@ def test_boxy_build():
         size=Point3(10, 10, 10),
         translation=Point3(0, 0, 0),
         rotation=Point3(0, 0, 0),
-        pivot_side=Side.bottom,
+        pivot_anchor=Anchor("bottom"),
         color=color_classes.RED,
     )
     result = boxy_utils.build(boxy_data=data)
@@ -141,13 +143,13 @@ def test_maya_widget_utils():
 
 
 if __name__ == "__main__":
-    #run_test_cases(load=True)
-    boxy_tool.launch()
+    run_test_cases(load=True)
+    #boxy_tool.launch()
     # test_boxy_build()
     #test_maya_widget_utils()
     '''node_utils.delete("cube*")
     result = boxy_utils.create_polycube(
-        pivot_side=Side.bottom,
+        pivot_anchor=Anchor("bottom"),
         size=Point3(40, random.uniform(10, 40), 30),
         construction_history=False)
     print(result)'''

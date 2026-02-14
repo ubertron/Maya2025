@@ -4,8 +4,8 @@ import contextlib
 import logging
 
 import robotools
-from core.core_enums import Side
 from robotools import CustomType
+from robotools.anchor import Anchor
 from core.logging_utils import get_logger
 from core.point_classes import Point3
 from robotools.architools import ARCHITOOLS_COLOR
@@ -35,7 +35,7 @@ def convert_node_to_boxy(node: str, delete: bool = False) -> any:
             size=bounds.size,
             translation=position,
             rotation=node_utils.get_rotation(node=node),
-            pivot_side=Side.bottom,
+            pivot_anchor=Anchor.f2,  # bottom
             color=ARCHITOOLS_COLOR
         )
         LOGGER.debug(f">>> convert_node_to_boxy - data: {data}")

@@ -10,8 +10,11 @@ from robotools import CustomType
 from core import logging_utils
 from widgets.form_widget import FormWidget
 from widgets.generic_widget import GenericWidget
-from robotools.architools import arch_utils, TOOL_NAME
+from robotools.architools import arch_utils, TOOL_NAME, ARCHITOOLS_COLOR
+from robotools.anchor import Anchor
 from robotools.boxy import boxy_utils
+from robotools.boxy.boxy_data import BoxyData
+from core.point_classes import Point3
 
 with contextlib.suppress(ImportError):
     from maya_tools import node_utils
@@ -69,23 +72,39 @@ class ArchWidget(GenericWidget):
 
         try:
             # Phase 1: Pre-convert all selected nodes to boxy nodes
-            for node in node_utils.get_selected_transforms(full_path=True):
-                if robotools.is_boxy(node):
-                    boxy_nodes.append(node)
-                elif any(robotools.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
-                    boxy_node = arch_utils.convert_node_to_boxy(node=node, delete=True)
-                    if boxy_node:
-                        boxy_nodes.append(boxy_node)
-                elif boxy_utils.is_polycube(node):
-                    boxy_node = boxy_utils.convert_polycube_to_boxy(polycube=node)
-                    if boxy_node:
-                        boxy_nodes.append(boxy_node)
+            selected_nodes = node_utils.get_selected_transforms(full_path=True)
+
+            if not selected_nodes:
+                # Nothing selected - create default boxy at origin
+                size = self.parent_widget.default_cube_size if self.parent_widget else 100.0
+                data = BoxyData(
+                    size=Point3(size, size, size),
+                    translation=Point3(0.0, 0.0, 0.0),
+                    rotation=Point3(0.0, 0.0, 0.0),
+                    pivot_anchor=Anchor.f2,
+                    color=ARCHITOOLS_COLOR
+                )
+                boxy_node = boxy_utils.build(boxy_data=data)
+                if boxy_node:
+                    boxy_nodes.append(boxy_node)
+            else:
+                for node in selected_nodes:
+                    if robotools.is_boxy(node):
+                        boxy_nodes.append(node)
+                    elif any(robotools.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
+                        boxy_node = arch_utils.convert_node_to_boxy(node=node, delete=True)
+                        if boxy_node:
+                            boxy_nodes.append(boxy_node)
+                    elif boxy_utils.is_polycube(node):
+                        boxy_node = boxy_utils.convert_polycube_to_boxy(polycube=node)
+                        if boxy_node:
+                            boxy_nodes.append(boxy_node)
 
             # Phase 2: Convert each boxy node to the target architype
             for boxy_node in boxy_nodes:
                 if not cmds.objExists(boxy_node):
                     continue
-                cmds.select(boxy_node)
+                cmds.select(boxy_node, noExpand=True)
                 result = self.generate_architype()
                 if result:
                     new_objects.append(result)

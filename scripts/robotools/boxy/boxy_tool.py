@@ -38,14 +38,17 @@ import logging
 import robotools
 from qtpy.QtCore import Qt, QSettings
 from qtpy.QtGui import QColor
-from qtpy.QtWidgets import QCheckBox, QComboBox, QColorDialog, QDoubleSpinBox, QSizePolicy
+from qtpy.QtWidgets import QCheckBox, QColorDialog, QDoubleSpinBox, QSizePolicy
 
 from core import color_classes, DEVELOPER, logging_utils
 from core.color_classes import ColorRGB
 from core.core_enums import ComponentType, CreationMode, Side, SurfaceDirection
 from robotools import CustomType
 from core.core_paths import image_path
+from robotools.anchor import Anchor
 from robotools.boxy import boxy_utils, VERSIONS, TOOL_NAME
+from robotools.boxy.boxy_settings_dialog import BoxySettingsDialog, get_advanced_pivot_mode
+from widgets.anchor_picker import AnchorPicker
 from widgets.button_bar import ButtonBar
 from widgets.clickable_label import ClickableLabel
 from widgets.generic_widget import GenericWidget
@@ -67,33 +70,38 @@ LOGGER = logging_utils.get_logger(name=__name__, level=logging.DEBUG)
 
 class BoxyTool(GenericWidget):
     """Boxy UI Class."""
+    button_size = 32
     color_key = "color"
     inherit_rotation_key = "inherit_rotation"
     inherit_scale_key = "inherit_scale"
-    button_size = 32
-    pivot_index = "pivot_index"
+    pivot_anchor_key = "pivot_anchor"
     size_key = "size"
 
     def __init__(self):
         super().__init__(title=VERSIONS.title, margin=2, spacing=2)
         self.settings = QSettings(DEVELOPER, TOOL_NAME)
-        # self.logo = self.add_widget(ImageLabel(image_path("boxy_logo.png")))
         header: ButtonBar = self.add_widget(ButtonBar(button_size=self.button_size))
         logo = header.add_widget(ImageLabel(path=image_path("boxy_icon.png")))
         logo.setFixedSize(self.button_size, self.button_size)
         header_label: QLabel = header.add_label("boxy tool", side=Side.left)
         header_label.setStyleSheet("font-size: 24pt; font-family: BM Dohyeon, Arial;")
+        header.add_stretch()
         left_alignment = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         button_bar: ButtonBar = self.add_widget(ButtonBar(button_size=self.button_size))
         button_bar.add_icon_button(icon_path=image_path("boxy.png"), tool_tip="Create Boxy", clicked=self.create_button_clicked)
         button_bar.add_icon_button(icon_path=image_path("polycube.png"), tool_tip="Create Polycube", clicked=self.polycube_button_clicked)
         button_bar.add_icon_button(icon_path=image_path("boxy_face_concave.png"), tool_tip="Concave boxy from face", clicked=self.concave_face_button_clicked)
         button_bar.add_icon_button(icon_path=image_path("boxy_face_convex.png"), tool_tip="Convex boxy from face", clicked=self.convex_face_button_clicked)
+        button_bar.add_icon_button(icon_path=image_path("settings.png"), tool_tip="Settings", clicked=self.settings_button_clicked)
         button_bar.add_stretch()
         button_bar.add_icon_button(icon_path=image_path("help.png"), tool_tip="Help", clicked=self.help_button_clicked)
         grid: GridWidget = self.add_group_box(GridWidget(title="Boxy Parameters", spacing=8))
         grid.add_label(text="Pivot Position", row=0, column=0, alignment=left_alignment)
-        self.pivot_combo_box: QComboBox = grid.add_combo_box(items=["bottom", "center", "top", "left", "right", "front", "back"], default_index=1, row=0, column=1)
+        self.anchor_picker: AnchorPicker = grid.add_widget(
+            widget=AnchorPicker(advanced_mode=get_advanced_pivot_mode()),
+            row=0, column=1
+        )
+        self.anchor_picker.setFixedHeight(90)
         grid.add_label(text="Wireframe Color", row=1, column=0, alignment=left_alignment)
         self.color_picker: ClickableLabel = grid.add_widget(widget=ClickableLabel(""), row=1, column=1)
         grid.add_label(text="Default Size", row=2, column=0, alignment=left_alignment)
@@ -143,14 +151,19 @@ class BoxyTool(GenericWidget):
         self.scale_check_box.setChecked(self.settings.value(self.inherit_scale_key, True))
         self.scale_check_box.stateChanged.connect(self.scale_check_box_state_changed)
         self.color_picker.clicked.connect(self.color_picker_clicked)
-        self.pivot_combo_box.setCurrentIndex(self.settings.value(self.pivot_index, 1))
-        self.pivot_combo_box.currentIndexChanged.connect(self.pivot_combo_box_index_changed)
+        # Restore saved anchor selection
+        saved_anchor_name = self.settings.value(self.pivot_anchor_key, "c")
+        try:
+            saved_anchor = Anchor[saved_anchor_name]
+            self.anchor_picker.selected_anchor = saved_anchor
+        except KeyError:
+            self.anchor_picker.selected_anchor = Anchor.c
+        self.anchor_picker.anchor_selected.connect(self.anchor_picker_selection_changed)
         self.size_field.setValue(self.settings.value(self.size_key, 10.0))
         self.size_field.setRange(0.1, 100000.0)
         self.size_field.setDecimals(1)
         self.size_field.setSingleStep(0.1)
         self.size_field.valueChanged.connect(self.size_field_value_changed)
-        # self.logo.setFixedHeight(80)
 
     @property
     def default_size(self):
@@ -177,8 +190,8 @@ class BoxyTool(GenericWidget):
         return self.scale_check_box.isChecked()
 
     @property
-    def pivot(self) -> Side:
-        return Side[self.pivot_combo_box.currentText()]
+    def pivot(self) -> Anchor:
+        return self.anchor_picker.selected_anchor
 
     @property
     def wireframe_color(self) -> ColorRGB:
@@ -233,7 +246,7 @@ class BoxyTool(GenericWidget):
                 size=Point3(size, size, size),
                 translation=Point3(0, 0, 0),
                 rotation=Point3(0, 0, 0),
-                pivot_side=self.pivot,
+                pivot_anchor=self.pivot,
                 color=self.wireframe_color
             )
             result = boxy_utils.build(boxy_data=boxy_data)
@@ -304,9 +317,16 @@ class BoxyTool(GenericWidget):
         help_widget = help_widgets[-1] if help_widgets else BoxyHelp(parent_widget=self)
         help_widget.show()
 
-    def pivot_combo_box_index_changed(self, arg):
-        """Event for pivot combo box."""
-        self.settings.setValue(self.pivot_index, arg)
+    def anchor_picker_selection_changed(self, anchor: Anchor):
+        """Event for anchor picker selection."""
+        self.settings.setValue(self.pivot_anchor_key, anchor.name)
+
+    def settings_button_clicked(self):
+        """Event for settings button."""
+        dialog = BoxySettingsDialog(parent=self)
+        if dialog.exec():
+            # Update anchor picker mode based on settings
+            self.anchor_picker.advanced_mode = get_advanced_pivot_mode()
 
     def polycube_button_clicked(self):
         """Event for Create Polycube button.
@@ -328,7 +348,7 @@ class BoxyTool(GenericWidget):
         if not selected_transforms:
             size = self.default_size
             polycube = boxy_utils.create_polycube(
-                pivot_side=self.pivot,
+                pivot=self.pivot,
                 size=Point3(size, size, size),
                 creation_mode=CreationMode.pivot_origin,
                 construction_history=False,
@@ -372,7 +392,7 @@ class BoxyTool(GenericWidget):
                 if result and not isinstance(result, boxy_utils.BoxyException):
                     polycube_items.append(result)
 
-        # Process polycube nodes - uses pivot from UI combo box
+        # Process polycube nodes - uses pivot from UI anchor picker
         for node in polycube_nodes:
             if not cmds.objExists(node):
                 continue

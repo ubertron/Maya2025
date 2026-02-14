@@ -72,7 +72,7 @@ class ArchitoolsStudio(GenericWidget):
         self.tree_widget: QTreeWidget = column0.add_widget(QTreeWidget())
         self.details_panel: GenericWidget = content.add_widget(GenericWidget())
         self.tag_widget: TagWidget = self.add_group_box(
-            TagWidget(title="Tags", case_mode=CaseMode.LOWER, layout_mode=LayoutMode.scroll, allow_numbers=True,
+            TagWidget(title="Tags", case_mode=CaseMode.lower, layout_mode=LayoutMode.scroll, allow_numbers=True,
                       special_characters="_", place_holder_text="Enter descriptive tags...",
                       comma_separation_mode=True))
         self.info_label: QLabel = self.add_label("Ready...", side=Side.left)
