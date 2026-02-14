@@ -94,7 +94,7 @@ class BoxyTool(GenericWidget):
         button_bar.add_icon_button(icon_path=image_path("boxy_face_convex.png"), tool_tip="Convex boxy from face", clicked=self.convex_face_button_clicked)
         button_bar.add_icon_button(icon_path=image_path("settings.png"), tool_tip="Settings", clicked=self.settings_button_clicked)
         button_bar.add_stretch()
-        button_bar.add_icon_button(icon_path=image_path("help.png"), tool_tip="Help", clicked=self.help_button_clicked)
+        button_bar.add_icon_button(icon_path=image_path("dr_steve_brule.png"), tool_tip="Help", clicked=self.help_button_clicked)
         grid: GridWidget = self.add_group_box(GridWidget(title="Boxy Parameters", spacing=8))
         grid.add_label(text="Pivot Position", row=0, column=0, alignment=left_alignment)
         self.anchor_picker: AnchorPicker = grid.add_widget(
@@ -309,6 +309,7 @@ class BoxyTool(GenericWidget):
                 self.info = f"Boxy objects created: {', '.join(boxy_items)}"
             cmds.select(boxy_items)
             node_utils.set_component_mode(ComponentType.object)
+            cmds.hilite(boxy_items, unHilite=True)
 
     def help_button_clicked(self):
         """Event for help button."""
@@ -410,6 +411,7 @@ class BoxyTool(GenericWidget):
             else:
                 self.info = f"Polycubes created: {', '.join(polycube_items)}"
             cmds.select(polycube_items)
+            node_utils.set_component_mode(ComponentType.object)
         else:
             self.info = "No polycubes created."
 

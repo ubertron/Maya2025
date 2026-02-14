@@ -65,7 +65,7 @@ class Architools(GenericWidget):
                                    clicked=self.rotate_button_clicked)
         button_bar.add_icon_button(icon_path=image_path("settings.png"), clicked=self.settings_button_clicked)
         button_bar.add_stretch()
-        button_bar.add_icon_button(icon_path=image_path("help.png"), tool_tip="Help", clicked=self.help_button_clicked)
+        button_bar.add_icon_button(icon_path=image_path("dr_steve_brule.png"), tool_tip="Help", clicked=self.help_button_clicked)
         general_form: FormWidget = self.add_group_box(FormWidget(title="General Attributes"))
         self.skirt_thickness_input: QDoubleSpinBox = general_form.add_float_field(
             label="Skirt Thickness", default_value=2.0, minimum=0.5, maximum=5.0, step=0.1)

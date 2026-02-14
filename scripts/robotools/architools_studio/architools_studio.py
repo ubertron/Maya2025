@@ -12,7 +12,7 @@ from core.point_classes import Point3
 from qtpy.QtWidgets import (
     QLabel, QTreeWidget, QLineEdit, QDialog, QTreeWidgetItem
 )
-from robotools import is_boxy
+from robotools import is_boxy, CustomType
 from robotools.anchor import Anchor
 from robotools.architools_studio import VERSIONS
 from widgets.button_bar import ButtonBar
@@ -25,6 +25,75 @@ from widgets.tag_widget import TagWidget, CaseMode, LayoutMode
 with contextlib.suppress(ImportError):
     from maya import cmds
     from maya_tools import node_utils
+
+
+class Editor(GenericWidget):
+    def __init__(self, custom_type: CustomType, parent_widget: GenericWidget):
+        super().__init__(title=f"{custom_type.name.capitalize()} Editor")
+        self.parent_widget = parent_widget
+        self.custom_type = custom_type
+        self.add_label(f"{custom_type.name.capitalize()} Editor")
+
+
+class BoxyEditor(Editor):
+    def __init__(self, parent_widget: GenericWidget):
+        super().__init__(custom_type=CustomType.boxy, parent_widget=parent_widget)
+        form: FormWidget = self.add_widget(FormWidget())
+        form.add_button(button_text="Link", label="None", clicked=self._on_link_button_clicked)
+
+    def _on_link_button_clicked(self):
+        """Event for link_button."""
+        self.parent_widget.info = "_on_connect_boxy_button_clicked"
+        boxy_nodes = [x for x in node_utils.get_selected_transforms(full_path=True) if is_boxy(node=x)]
+        if len(boxy_nodes) == 1:
+            self.parent_widget.info = boxy_nodes[0]
+        else:
+            self.parent_widget.info = "Select a single boxy node"
+        if not cmds.objExists(self.boxy_node):
+            self.parent_widget.info = "Boxy widget not found."
+
+
+class PolycubeEditor(Editor):
+    def __init__(self, parent_widget: GenericWidget):
+        super().__init__(custom_type=CustomType.polycube, parent_widget=parent_widget)
+        self.node_label = self.add_label()
+        self.node = parent_widget.current_tree_widget_item_text
+
+    def refresh(self):
+        self.node = self.parent_widget.current_tree_widget_item_text
+
+    @property
+    def node(self) -> str:
+        return self._node
+
+    @node.setter
+    def node(self, value: str):
+        self._node = value
+        self.node_label.setText(f"Node: {value}")
+
+
+
+class EditPanel(GenericWidget):
+    def __init__(self, parent_widget: GenericWidget):
+        super().__init__(title="Edit Panel")
+        self.add_widget(BoxyEditor(parent_widget=parent_widget))
+        self.add_widget(PolycubeEditor(parent_widget=parent_widget))
+        self.custom_type: CustomType | None = None
+
+    @property
+    def custom_type(self) -> CustomType | None:
+        return self._custom_type
+
+    @custom_type.setter
+    def custom_type(self, value: CustomType | None):
+        self._custom_type = value
+        [widget.setVisible(widget.custom_type is value) for widget in self.widgets]
+        widget = next((x for x in self.widgets if x.isVisible()), None)
+        if widget:
+            try:
+                widget.refresh()
+            except AttributeError:
+                pass  # Widget doesn't have refresh method
 
 
 class ArchitoolsStudio(GenericWidget):
@@ -59,22 +128,19 @@ class ArchitoolsStudio(GenericWidget):
         button_bar.add_icon_button(icon_path=image_path("lock_cvs.png"), tool_tip="Lock cvs to components")
         self.document_label: QLabel = self.add_label("Current document: None", side=Side.left)
         button_bar.add_stretch()
-        button_bar.add_icon_button(icon_path=image_path("help.png"))
+        button_bar.add_icon_button(icon_path=image_path("dr_steve_brule.png"))
         self.form: FormWidget = self.add_group_box(FormWidget(title="Architype Attributes"))
         self.architype_name_line_edit: QLineEdit = self.form.add_line_edit(label="Name",
                                                                            placeholder_text="Name of node...")
-        # self.connect_boxy_button, self.boxy_label = self.form.add_button(button_text="Connect Boxy", label="None",
-        #                                                                  clicked=self._on_connect_boxy_button_clicked,
-        #                                                                  tool_tip="Connect Boxy")
         content = self.add_widget(GenericWidget(alignment=Alignment.horizontal))
         column0 = content.add_widget(GenericWidget())
         self.top_node_label: QLabel = column0.add_label("Architype Node: None", side=Side.left)
         self.tree_widget: QTreeWidget = column0.add_widget(QTreeWidget())
-        self.details_panel: GenericWidget = content.add_widget(GenericWidget())
+        self.edit_panel: EditPanel = content.add_widget(EditPanel(parent_widget=self))
         self.tag_widget: TagWidget = self.add_group_box(
             TagWidget(title="Tags", case_mode=CaseMode.lower, layout_mode=LayoutMode.scroll, allow_numbers=True,
                       special_characters="_", place_holder_text="Enter descriptive tags...",
-                      comma_separation_mode=True))
+                      separators=","))
         self.info_label: QLabel = self.add_label("Ready...", side=Side.left)
         self.polycubes: list[str] = []
         self.boxy_node = None
@@ -115,32 +181,12 @@ class ArchitoolsStudio(GenericWidget):
             self.architype_name_line_edit.setText(filtered_text)
             self.architype_name_line_edit.blockSignals(False)
 
-    def _on_connect_boxy_button_clicked(self):
-        """Event for connect_boxy_button."""
-        self.info = "_on_connect_boxy_button_clicked"
-        boxy_nodes = [x for x in node_utils.get_selected_transforms(full_path=True) if is_boxy(node=x)]
-        if len(boxy_nodes) == 1:
-            self.boxy_label.setText(boxy_nodes[0])
-        else:
-            self.info = "Select a single boxy node"
-        if not cmds.objExists(self.boxy_node):
-            self.boxy_label.setText("None")
-
     def _on_boxy_button_clicked(self):
         """Event for add_boxy_button clicked."""
         dialog = DimensionsDialog(parent=self, title="Add Boxy")
         if dialog.exec() == QDialog.DialogCode.Accepted:
             width, height, depth = dialog.dimensions
             self.info = f"Boxy dimensions: Width={width}, Height={height}, Depth={depth}"
-            # Add top-level item to tree widget
-            # boxy_item = QTreeWidgetItem(self.tree_widget, ["boxy"])
-            # self.tree_widget.addTopLevelItem(boxy_item)
-
-            '''
-            this bit happens in the connect boxy button event
-            # Populate boxy label
-            self.boxy_node = "boxy"
-            '''
             self._update_ui()
 
     def _on_add_polycube_button_clicked(self):
@@ -169,8 +215,14 @@ class ArchitoolsStudio(GenericWidget):
 
     def _on_tree_widget_item_clicked(self, *args):
         """Event for tree_widget item clicked."""
-        self.info = str(args)
-
+        text = args[0].text(0)
+        self.info = text
+        if "Boxy" in text:
+            self.edit_panel.custom_type = CustomType.boxy
+        elif "Polycube" in text:
+            self.edit_panel.custom_type = CustomType.polycube
+        else:
+            self.edit_panel.custom_type = None
 
     def _setup_ui(self):
         """Setup ui."""
@@ -218,6 +270,10 @@ class ArchitoolsStudio(GenericWidget):
             tree_widget_item =  QTreeWidgetItem(self.tree_widget, [label])
             self.tree_widget.addTopLevelItem(tree_widget_item)
 
+    @property
+    def current_tree_widget_item_text(self) -> str:
+        """Text of the current_tree_widget_item."""
+        return self.tree_widget.currentItem().text(0) if self.tree_widget.currentItem() else "None"
 
 @dataclass
 class PolycubeData:
@@ -242,6 +298,6 @@ if __name__ == "__main__":
     from qtpy.QtWidgets import QApplication
 
     app = QApplication(sys.argv)
-    widget = ArchitoolsStudio()
-    widget.show()
+    _widget = ArchitoolsStudio()
+    _widget.show()
     sys.exit(app.exec())

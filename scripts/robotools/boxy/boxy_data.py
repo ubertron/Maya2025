@@ -90,40 +90,40 @@ class BoxyData:
         """
         hx, hy, hz = self.size.x / 2.0, self.size.y / 2.0, self.size.z / 2.0
 
-        # Offset from pivot TO center (negative of pivot offset from center)
+        # Use string keys to avoid enum identity issues with module reloads
         offsets = {
             # Face pivots
-            Anchor.f2: Point3(0.0, hy, 0.0),       # bottom -> center is +Y
-            Anchor.c: Point3(0.0, 0.0, 0.0),       # center -> center is 0
-            Anchor.f3: Point3(0.0, -hy, 0.0),      # top -> center is -Y
-            Anchor.f0: Point3(hx, 0.0, 0.0),       # left -> center is +X
-            Anchor.f1: Point3(-hx, 0.0, 0.0),      # right -> center is -X
-            Anchor.f5: Point3(0.0, 0.0, -hz),      # front -> center is -Z
-            Anchor.f4: Point3(0.0, 0.0, hz),       # back -> center is +Z
+            "f2": Point3(0.0, hy, 0.0),       # bottom -> center is +Y
+            "c": Point3(0.0, 0.0, 0.0),       # center -> center is 0
+            "f3": Point3(0.0, -hy, 0.0),      # top -> center is -Y
+            "f0": Point3(hx, 0.0, 0.0),       # left -> center is +X
+            "f1": Point3(-hx, 0.0, 0.0),      # right -> center is -X
+            "f5": Point3(0.0, 0.0, -hz),      # front -> center is -Z
+            "f4": Point3(0.0, 0.0, hz),       # back -> center is +Z
             # Edge pivots
-            Anchor.e0: Point3(0.0, hy, hz),        # bottom-back
-            Anchor.e1: Point3(0.0, hy, -hz),       # bottom-front
-            Anchor.e2: Point3(0.0, -hy, hz),       # top-back
-            Anchor.e3: Point3(0.0, -hy, -hz),      # top-front
-            Anchor.e4: Point3(hx, 0.0, hz),        # left-back
-            Anchor.e5: Point3(hx, 0.0, -hz),       # left-front
-            Anchor.e6: Point3(-hx, 0.0, hz),       # right-back
-            Anchor.e7: Point3(-hx, 0.0, -hz),      # right-front
-            Anchor.e8: Point3(hx, hy, 0.0),        # left-bottom
-            Anchor.e9: Point3(hx, -hy, 0.0),       # left-top
-            Anchor.e10: Point3(-hx, hy, 0.0),      # right-bottom
-            Anchor.e11: Point3(-hx, -hy, 0.0),     # right-top
+            "e0": Point3(0.0, hy, hz),        # bottom-back
+            "e1": Point3(0.0, hy, -hz),       # bottom-front
+            "e2": Point3(0.0, -hy, hz),       # top-back
+            "e3": Point3(0.0, -hy, -hz),      # top-front
+            "e4": Point3(hx, 0.0, hz),        # left-back
+            "e5": Point3(hx, 0.0, -hz),       # left-front
+            "e6": Point3(-hx, 0.0, hz),       # right-back
+            "e7": Point3(-hx, 0.0, -hz),      # right-front
+            "e8": Point3(hx, hy, 0.0),        # left-bottom
+            "e9": Point3(hx, -hy, 0.0),       # left-top
+            "e10": Point3(-hx, hy, 0.0),      # right-bottom
+            "e11": Point3(-hx, -hy, 0.0),     # right-top
             # Vertex pivots
-            Anchor.v0: Point3(hx, hy, hz),         # left-bottom-back
-            Anchor.v1: Point3(hx, hy, -hz),        # left-bottom-front
-            Anchor.v2: Point3(hx, -hy, hz),        # left-top-back
-            Anchor.v3: Point3(hx, -hy, -hz),       # left-top-front
-            Anchor.v4: Point3(-hx, hy, hz),        # right-bottom-back
-            Anchor.v5: Point3(-hx, hy, -hz),       # right-bottom-front
-            Anchor.v6: Point3(-hx, -hy, hz),       # right-top-back
-            Anchor.v7: Point3(-hx, -hy, -hz),      # right-top-front
+            "v0": Point3(hx, hy, hz),         # left-bottom-back
+            "v1": Point3(hx, hy, -hz),        # left-bottom-front
+            "v2": Point3(hx, -hy, hz),        # left-top-back
+            "v3": Point3(hx, -hy, -hz),       # left-top-front
+            "v4": Point3(-hx, hy, hz),        # right-bottom-back
+            "v5": Point3(-hx, hy, -hz),       # right-bottom-front
+            "v6": Point3(-hx, -hy, hz),       # right-top-back
+            "v7": Point3(-hx, -hy, -hz),      # right-top-front
         }
-        return offsets.get(self.pivot_anchor, Point3(0.0, 0.0, 0.0))
+        return offsets.get(self.pivot_anchor.name, Point3(0.0, 0.0, 0.0))
 
     @property
     def center(self) -> Point3:

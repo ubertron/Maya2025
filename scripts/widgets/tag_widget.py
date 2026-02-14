@@ -241,7 +241,10 @@ class TagWidget(QWidget):
         self._setup_ui()
 
     def _validate_separators(self, separators: str) -> str:
-        """Validate separator characters against special_characters restrictions.
+        """Validate separator characters.
+
+        Separators are used for splitting input, not for tag content,
+        so they don't need to be in special_characters.
 
         Args:
             separators: String of separator characters
@@ -258,28 +261,12 @@ class TagWidget(QWidget):
             if char in valid_separators:
                 continue
 
-            # If special_characters is restricted (non-empty list), separator must be allowed
-            if self.special_characters:
-                # Underscore is always allowed
-                if char == "_":
-                    valid_separators.append(char)
-                # Letters and numbers shouldn't be separators
-                elif char.isalnum():
-                    print(f"TagWidget: Separator '{char}' is alphanumeric, skipping")
-                    continue
-                # Check if char is in allowed special characters
-                elif char not in self.special_characters:
-                    print(f"TagWidget: Separator '{char}' not in allowed special_characters, skipping")
-                    continue
-                else:
-                    valid_separators.append(char)
-            else:
-                # No restrictions on special characters
-                # But still skip alphanumeric as separators
-                if char.isalnum():
-                    print(f"TagWidget: Separator '{char}' is alphanumeric, skipping")
-                    continue
-                valid_separators.append(char)
+            # Letters and numbers shouldn't be separators
+            if char.isalnum():
+                print(f"TagWidget: Separator '{char}' is alphanumeric, skipping")
+                continue
+
+            valid_separators.append(char)
 
         return "".join(valid_separators)
 

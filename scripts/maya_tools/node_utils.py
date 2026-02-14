@@ -58,7 +58,8 @@ class State:
 
     @property
     def is_object_mode(self) -> bool:
-        return self.component_mode == ComponentType.object
+        # Use .name comparison to avoid enum identity issues with module reloads
+        return self.component_mode.name == "object"
 
     @property
     def is_component_mode(self) -> bool:
@@ -857,16 +858,18 @@ def select_components(transform, components, component_type=ComponentType.face, 
     """
     state = State()
 
-    if component_type == ComponentType.vertex:
+    # Use .name comparison to avoid enum identity issues with module reloads
+    type_name = component_type.name if hasattr(component_type, 'name') else str(component_type)
+    if type_name == "vertex":
         cmds.select(transform.vtx[components])
-    elif component_type == ComponentType.edge:
+    elif type_name == "edge":
         cmds.select(transform.e[components])
-    elif component_type == ComponentType.face:
+    elif type_name == "face":
         cmds.select(transform.f[components])
-    elif component_type == ComponentType.uv:
+    elif type_name == "uv":
         cmds.select(transform.map[components])
     else:
-        cmds.warning('Component type not supported')
+        cmds.warning(f'Component type not supported: {type_name}')
 
     if hilite:
         cmds.hilite(transform)
@@ -879,20 +882,22 @@ def set_component_mode(component_type=ComponentType.object):
     Set component mode
     @param component_type:
     """
-    if component_type == ComponentType.object:
+    # Use .name comparison to avoid enum identity issues with module reloads
+    type_name = component_type.name if hasattr(component_type, 'name') else str(component_type)
+    if type_name == "object":
         cmds.selectMode(object=True)
     else:
         cmds.selectMode(component=True)
-        if component_type == ComponentType.vertex:
+        if type_name == "vertex":
             cmds.selectType(vertex=True)
-        elif component_type == ComponentType.edge:
+        elif type_name == "edge":
             cmds.selectType(edge=True)
-        elif component_type == ComponentType.face:
+        elif type_name == "face":
             cmds.selectType(facet=True)
-        elif component_type == ComponentType.uv:
+        elif type_name == "uv":
             cmds.selectType(polymeshUV=True)
         else:
-            cmds.warning('Unknown component type')
+            cmds.warning(f'Unknown component type: {type_name}')
 
 
 def set_component_mode_to_edge():

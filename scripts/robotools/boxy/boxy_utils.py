@@ -43,7 +43,7 @@ import robotools
 from core import color_classes, math_utils
 from core.bounds import Bounds
 from core.color_classes import ColorRGB
-from core.core_enums import CreationMode, DataType, Side, Axis
+from core.core_enums import ComponentType, CreationMode, DataType, Side, Axis
 from core.logging_utils import get_logger
 from core.point_classes import Point3, Point3Pair, UNIT3, ZERO3
 from robotools import CustomAttribute, CustomType
@@ -528,10 +528,20 @@ def convert_boxy_to_polycube(node: str, pivot: Side = None, inherit_scale: bool 
     )
     LOGGER.info(f"    polycube position after create: {node_utils.get_translation(polycube)}")
 
+    # Calculate transform position to place pivot at desired world position
+    # world_pivot = transform_pos + local_pivot, so transform_pos = world_pivot - local_pivot
+    hx, hy, hz = size.x / 2.0, size.y / 2.0, size.z / 2.0
+    local_pivot = get_anchor_offset(target_pivot, hx, hy, hz)
+    transform_pos = Point3(
+        translation.x - local_pivot.x,
+        translation.y - local_pivot.y,
+        translation.z - local_pivot.z
+    )
+
     # Apply rotation, then translation
     node_utils.set_rotation(nodes=polycube, value=rotation)
     LOGGER.info(f"    polycube position after rotation: {node_utils.get_translation(polycube)}")
-    node_utils.set_translation(nodes=polycube, value=translation, absolute=True)
+    node_utils.set_translation(nodes=polycube, value=transform_pos, absolute=True)
     LOGGER.info(f"    polycube position after translation: {node_utils.get_translation(polycube)}")
 
     # Apply scale if inheriting
@@ -677,6 +687,11 @@ def convert_polycube_to_boxy(polycube: str, color: ColorRGB = color_classes.DEEP
     _boxy_node = build(boxy_data=boxy_data)
     LOGGER.info(f"  built boxy_node: {_boxy_node}")
 
+    # Ensure object mode and clear hilite to avoid "Unknown component type" warning
+    # (State.restore may have put us in component mode)
+    node_utils.set_component_mode(ComponentType.object)
+    cmds.hilite(_boxy_node, unHilite=True)
+
     # Apply scale if inheriting
     if inherit_scale and has_scale:
         node_utils.scale(nodes=_boxy_node, value=original_scale)
@@ -714,9 +729,15 @@ def create_polycube(pivot: Anchor, size: Point3, creation_mode: CreationMode = C
         polycube = result
 
     pivot_position = get_anchor_offset(pivot, hx, hy, hz)
-    node_utils.set_pivot(nodes=polycube, value=pivot_position, reset=True)
+    node_utils.set_pivot(nodes=polycube, value=pivot_position, reset=False)
     if creation_mode is CreationMode.pivot_origin:
-        node_utils.set_translation(nodes=polycube, value=ZERO3, absolute=True)
+        # Offset translation so the pivot (at local pivot_position) is at world origin
+        # Transform position = -pivot_position makes world_pivot = transform + local_pivot = 0
+        node_utils.set_translation(
+            nodes=polycube,
+            value=Point3(-pivot_position.x, -pivot_position.y, -pivot_position.z),
+            absolute=True
+        )
 
     # Add custom attributes
     shape = node_utils.get_shape_from_transform(node=polycube, full_path=True)

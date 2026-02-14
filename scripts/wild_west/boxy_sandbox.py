@@ -10,7 +10,8 @@ from core import core_enums; reload(core_enums)
 from core import color_classes
 from core.core_enums import ComponentType
 from core.point_classes import Point3
-from robotools.anchor import Anchor
+from robotools import anchor; reload(anchor)
+from robotools.anchor import Anchor;
 from core.logging_utils import get_logger
 from maya_tools import node_utils, scene_utils
 from maya_tools import maya_widget_utils; reload(maya_widget_utils)
@@ -144,7 +145,7 @@ def test_maya_widget_utils():
 
 if __name__ == "__main__":
     run_test_cases(load=True)
-    #boxy_tool.launch()
+    # boxy_tool.launch()
     # test_boxy_build()
     #test_maya_widget_utils()
     '''node_utils.delete("cube*")
