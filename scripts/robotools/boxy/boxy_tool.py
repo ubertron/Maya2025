@@ -58,8 +58,6 @@ from widgets.image_label import ImageLabel
 with contextlib.suppress(ImportError):
     from maya import cmds
     from maya_tools import attribute_utils, maya_widget_utils, node_utils
-    from maya_tools.geometry import face_finder
-    from maya_tools.geometry.component_utils import FaceComponent, components_from_selection
     from robotools.architools import arch_utils
 
 # All architypes that can be converted
@@ -89,12 +87,12 @@ class BoxyTool(GenericWidget):
         left_alignment = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         button_bar: ButtonBar = self.add_widget(ButtonBar(button_size=self.button_size))
         button_bar.add_icon_button(icon_path=image_path("boxy.png"), tool_tip="Create Boxy", clicked=self.create_button_clicked)
-        button_bar.add_icon_button(icon_path=image_path("polycube.png"), tool_tip="Create Polycube", clicked=self.polycube_button_clicked)
+        button_bar.add_icon_button(icon_path=image_path("meshbox.png"), tool_tip="Create Meshbox", clicked=self.meshbox_button_clicked)
         button_bar.add_icon_button(icon_path=image_path("boxy_face_concave.png"), tool_tip="Concave boxy from face", clicked=self.concave_face_button_clicked)
         button_bar.add_icon_button(icon_path=image_path("boxy_face_convex.png"), tool_tip="Convex boxy from face", clicked=self.convex_face_button_clicked)
         button_bar.add_icon_button(icon_path=image_path("settings.png"), tool_tip="Settings", clicked=self.settings_button_clicked)
         button_bar.add_stretch()
-        button_bar.add_icon_button(icon_path=image_path("dr_steve_brule.png"), tool_tip="Help", clicked=self.help_button_clicked)
+        button_bar.add_icon_button(icon_path=image_path("help.png"), tool_tip="Help", clicked=self.help_button_clicked)
         grid: GridWidget = self.add_group_box(GridWidget(title="Boxy Parameters", spacing=8))
         grid.add_label(text="Pivot Position", row=0, column=0, alignment=left_alignment)
         self.anchor_picker: AnchorPicker = grid.add_widget(
@@ -117,31 +115,18 @@ class BoxyTool(GenericWidget):
         self._setup_ui()
 
     def _create_boxy_from_face(self, surface_direction: SurfaceDirection):
-        """Create a Boxy from a selected face and its opposite face."""
-        components = components_from_selection()
-
-        # Validate single face selection
-        if len(components) != 1 or not isinstance(components[0], FaceComponent):
-            self.info = "Select a single face"
-            return
-
-        face = components[0]
-
-        # Find opposite face
-        opposite = face_finder.get_opposite_face(
-            component=face,
+        """Create Boxy objects from selected face(s) and their opposite face(s)."""
+        boxy_items, info = boxy_utils.create_boxy_from_faces(
             surface_direction=surface_direction,
-            select=False
+            color=self.wireframe_color,
+            pivot=self.pivot,
+            inherit_rotation=self.inherit_rotation,
+            inherit_scale=self.inherit_scale
         )
-
-        if opposite is None:
-            self.info = "No matching face found"
-            return
-
-        # Select both faces and create Boxy
-        cmds.select([face.name, opposite.name], replace=True)
-        cmds.hilite(face.transform)
-        self.create_button_clicked()
+        self.info = info
+        if boxy_items:
+            cmds.select(boxy_items)
+            node_utils.set_component_mode(ComponentType.object)
 
     def _setup_ui(self):
         """Set up ui."""
@@ -220,15 +205,19 @@ class BoxyTool(GenericWidget):
         """Event for convex face button."""
         self._create_boxy_from_face(surface_direction=SurfaceDirection.convex)
 
-    def create_button_clicked(self):
+    def create_button_clicked(self, from_bounds: bool = False):
         """Event for create button.
 
         Context-sensitive boxy conversion:
         - Nothing selected: create default size boxy at origin
         - Boxy nodes: rebuild with current settings
         - Architype nodes (window, door, staircase): convert to boxy
-        - Polycube nodes: convert to boxy
+        - Meshbox nodes: convert to boxy
         - Other selection (vertices, faces, etc.): create new boxy from bounds
+
+        Args:
+            from_bounds: If True, skip conversion logic and create boxy from bounds only.
+                         Used when creating boxy from face selection.
         """
         from core.point_classes import Point3
         from robotools.boxy.boxy_data import BoxyData
@@ -256,14 +245,15 @@ class BoxyTool(GenericWidget):
 
         has_convertible_nodes = False
 
-        # Check for convertible nodes first
-        for node in selected_transforms:
-            if robotools.is_boxy(node):
-                has_convertible_nodes = True
-            elif any(robotools.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
-                has_convertible_nodes = True
-            elif boxy_utils.is_polycube(node):
-                has_convertible_nodes = True
+        # Check for convertible nodes first (skip if from_bounds)
+        if not from_bounds:
+            for node in selected_transforms:
+                if robotools.is_boxy(node):
+                    has_convertible_nodes = True
+                elif any(robotools.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
+                    has_convertible_nodes = True
+                elif boxy_utils.is_meshbox(node) and boxy_utils.has_simple_topology(node):
+                    has_convertible_nodes = True
 
         if has_convertible_nodes:
             # Process each node individually for conversion using full paths
@@ -283,9 +273,9 @@ class BoxyTool(GenericWidget):
                     result = arch_utils.convert_node_to_boxy(node=node, delete=True)
                     if result:
                         boxy_items.append(result)
-                elif boxy_utils.is_polycube(node):
-                    # Convert polycube to boxy
-                    result = boxy_utils.convert_polycube_to_boxy(polycube=node, color=self.wireframe_color, pivot=self.pivot, inherit_scale=self.inherit_scale)
+                elif boxy_utils.is_meshbox(node) and boxy_utils.has_simple_topology(node):
+                    # Convert meshbox to boxy (only if not refined)
+                    result = boxy_utils.convert_meshbox_to_boxy(meshbox=node, color=self.wireframe_color, pivot=self.pivot, inherit_scale=self.inherit_scale)
                     if result:
                         boxy_items.append(result)
         else:
@@ -329,39 +319,39 @@ class BoxyTool(GenericWidget):
             # Update anchor picker mode based on settings
             self.anchor_picker.advanced_mode = get_advanced_pivot_mode()
 
-    def polycube_button_clicked(self):
-        """Event for Create Polycube button.
+    def meshbox_button_clicked(self):
+        """Event for Create Meshbox button.
 
-        Context-sensitive polycube conversion:
-        - Nothing selected: create default size polycube at origin with selected pivot
-        - Boxy nodes: convert to polycube
-        - Architype nodes: convert to boxy first, then to polycube
-        - Polycube nodes: recalculate (reset transforms, use selected pivot)
+        Context-sensitive meshbox conversion:
+        - Nothing selected: create default size meshbox at origin with selected pivot
+        - Boxy nodes: convert to meshbox
+        - Architype nodes: convert to boxy first, then to meshbox
+        - Meshbox nodes: recalculate (reset transforms, use selected pivot)
         - Other: no action (only handles boxy-related nodes)
         """
         from core.point_classes import Point3
 
         # Capture selected transforms before any conversions
         selected_transforms = list(node_utils.get_selected_transforms(full_path=True))
-        polycube_items = []
+        meshbox_items = []
 
-        # If nothing selected, create default polycube at origin
+        # If nothing selected, create default meshbox at origin
         if not selected_transforms:
             size = self.default_size
-            polycube = boxy_utils.create_polycube(
+            meshbox = boxy_utils.create_meshbox(
                 pivot=self.pivot,
                 size=Point3(size, size, size),
                 creation_mode=CreationMode.pivot_origin,
                 construction_history=False,
             )
-            self.info = f"Polycube created: {polycube}"
-            cmds.select(polycube)
+            self.info = f"Meshbox created: {meshbox}"
+            cmds.select(meshbox)
             return
 
         # Categorize all nodes BEFORE any conversions (to avoid shared history issues)
         boxy_nodes = []
         architype_nodes = []
-        polycube_nodes = []
+        meshbox_nodes = []
         for node in selected_transforms:
             if not cmds.objExists(node):
                 continue
@@ -369,19 +359,19 @@ class BoxyTool(GenericWidget):
                 boxy_nodes.append(node)
             elif any(robotools.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
                 architype_nodes.append(node)
-            elif boxy_utils.is_polycube(node):
-                polycube_nodes.append(node)
-            elif boxy_utils.is_simple_cuboid(node):
-                # Cuboid without polycube attributes - still convertible
-                polycube_nodes.append(node)
+            elif boxy_utils.is_meshbox(node) and boxy_utils.has_simple_topology(node):
+                meshbox_nodes.append(node)
+            elif boxy_utils.is_simple_cuboid(node) and boxy_utils.has_simple_topology(node):
+                # Cuboid without meshbox attributes - still convertible if not refined
+                meshbox_nodes.append(node)
 
         # Process boxy nodes
         for node in boxy_nodes:
             if not cmds.objExists(node):
                 continue
-            result = boxy_utils.convert_boxy_to_polycube(node=node, pivot=self.pivot, inherit_scale=self.inherit_scale)
+            result = boxy_utils.convert_boxy_to_meshbox(node=node, pivot=self.pivot, inherit_scale=self.inherit_scale)
             if result and not isinstance(result, boxy_utils.BoxyException):
-                polycube_items.append(result)
+                meshbox_items.append(result)
 
         # Process architype nodes
         for node in architype_nodes:
@@ -389,31 +379,31 @@ class BoxyTool(GenericWidget):
                 continue
             boxy_node = arch_utils.convert_node_to_boxy(node=node, delete=True)
             if boxy_node:
-                result = boxy_utils.convert_boxy_to_polycube(node=boxy_node, pivot=self.pivot, inherit_scale=self.inherit_scale)
+                result = boxy_utils.convert_boxy_to_meshbox(node=boxy_node, pivot=self.pivot, inherit_scale=self.inherit_scale)
                 if result and not isinstance(result, boxy_utils.BoxyException):
-                    polycube_items.append(result)
+                    meshbox_items.append(result)
 
-        # Process polycube nodes - uses pivot from UI anchor picker
-        for node in polycube_nodes:
+        # Process meshbox nodes - uses pivot from UI anchor picker
+        for node in meshbox_nodes:
             if not cmds.objExists(node):
                 continue
-            boxy_node = boxy_utils.convert_polycube_to_boxy(
-                polycube=node, color=self.wireframe_color, pivot=self.pivot, inherit_scale=self.inherit_scale)
+            boxy_node = boxy_utils.convert_meshbox_to_boxy(
+                meshbox=node, color=self.wireframe_color, pivot=self.pivot, inherit_scale=self.inherit_scale)
             if boxy_node:
-                result = boxy_utils.convert_boxy_to_polycube(node=boxy_node, pivot=self.pivot, inherit_scale=self.inherit_scale)
+                result = boxy_utils.convert_boxy_to_meshbox(node=boxy_node, pivot=self.pivot, inherit_scale=self.inherit_scale)
                 if result and not isinstance(result, boxy_utils.BoxyException):
-                    polycube_items.append(result)
+                    meshbox_items.append(result)
 
         # Report results and select
-        if polycube_items:
-            if len(polycube_items) == 1:
-                self.info = f"Polycube created: {polycube_items[0]}"
+        if meshbox_items:
+            if len(meshbox_items) == 1:
+                self.info = f"Meshbox created: {meshbox_items[0]}"
             else:
-                self.info = f"Polycubes created: {', '.join(polycube_items)}"
-            cmds.select(polycube_items)
+                self.info = f"Meshboxs created: {', '.join(meshbox_items)}"
+            cmds.select(meshbox_items)
             node_utils.set_component_mode(ComponentType.object)
         else:
-            self.info = "No polycubes created."
+            self.info = "No meshboxs created."
 
     def rotation_check_box_state_changed(self):
         """Event for scale checkbox state change."""

@@ -19,6 +19,6 @@ VERSIONS = Versions(
         VersionInfo(name=TOOL_NAME, version="0.0.3", codename="panther", info="Button functions added"),
         VersionInfo(name=TOOL_NAME, version="0.0.4", codename="dumb animals", info="Boxy v2 node implemented"),
         VersionInfo(name=TOOL_NAME, version="0.0.5", codename="treefingers", info="inherit scale"),
-        VersionInfo(name=TOOL_NAME, version="0.0.9", codename="karma police", info="27 anchor pivot system"),
+        VersionInfo(name=TOOL_NAME, version="0.0.6", codename="karma police", info="27 anchor pivot system"),
     ]
 )

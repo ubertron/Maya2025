@@ -62,6 +62,21 @@ class FaceComponent(Component):
 
 
 @dataclass
+class FacePair:
+    """Represents a matched pair of source and opposite faces."""
+    source: FaceComponent
+    opposite: FaceComponent
+
+    @property
+    def transform(self) -> str:
+        return self.source.transform
+
+    @property
+    def names(self) -> list[str]:
+        return [self.source.name, self.opposite.name]
+
+
+@dataclass
 class ObjectComponent(Component):
     idx: int = -1
     component_type: ComponentType = ComponentType.object

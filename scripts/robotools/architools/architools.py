@@ -28,8 +28,6 @@ with contextlib.suppress(ImportError):
     from maya import cmds
     from maya_tools import maya_widget_utils
     from maya_tools import node_utils
-    from maya_tools.geometry import face_finder
-    from maya_tools.geometry.component_utils import FaceComponent, components_from_selection
     from robotools.boxy import boxy_utils
     from robotools.architools import arch_utils
 
@@ -53,8 +51,8 @@ class Architools(GenericWidget):
         button_bar: ButtonBar = self.add_widget(ButtonBar())
         button_bar.add_icon_button(
             icon_path=image_path("boxy_architools.png"), tool_tip="Create Boxy", clicked=self.boxy_clicked)
-        button_bar.add_icon_button(icon_path=image_path("polycube.png"), tool_tip="Create Polycube",
-                                   clicked=self.polycube_button_clicked)
+        button_bar.add_icon_button(icon_path=image_path("meshbox.png"), tool_tip="Create Meshbox",
+                                   clicked=self.meshbox_button_clicked)
         button_bar.add_icon_button(icon_path=image_path("boxy_face_concave_architools.png"),
                                    tool_tip="Concave boxy from face",
                                    clicked=self.concave_face_button_clicked)
@@ -65,7 +63,7 @@ class Architools(GenericWidget):
                                    clicked=self.rotate_button_clicked)
         button_bar.add_icon_button(icon_path=image_path("settings.png"), clicked=self.settings_button_clicked)
         button_bar.add_stretch()
-        button_bar.add_icon_button(icon_path=image_path("dr_steve_brule.png"), tool_tip="Help", clicked=self.help_button_clicked)
+        button_bar.add_icon_button(icon_path=image_path("help.png"), tool_tip="Help", clicked=self.help_button_clicked)
         general_form: FormWidget = self.add_group_box(FormWidget(title="General Attributes"))
         self.skirt_thickness_input: QDoubleSpinBox = general_form.add_float_field(
             label="Skirt Thickness", default_value=2.0, minimum=0.5, maximum=5.0, step=0.1)
@@ -83,31 +81,18 @@ class Architools(GenericWidget):
         self._setup_ui()
 
     def _create_boxy_from_face(self, surface_direction: SurfaceDirection):
-        """Create a Boxy from a selected face and its opposite face."""
-        components = components_from_selection()
-
-        # Validate single face selection
-        if len(components) != 1 or not isinstance(components[0], FaceComponent):
-            self.info = "Select a single face"
-            return
-
-        face = components[0]
-
-        # Find opposite face
-        opposite = face_finder.get_opposite_face(
-            component=face,
+        """Create Boxy objects from selected face(s) and their opposite face(s)."""
+        boxy_items, info = boxy_utils.create_boxy_from_faces(
             surface_direction=surface_direction,
-            select=False
+            color=ARCHITOOLS_COLOR,
+            pivot=Anchor.f2,  # Default bottom pivot for architools
+            inherit_rotation=True,
+            inherit_scale=True
         )
-
-        if opposite is None:
-            self.info = "No matching face found"
-            return
-
-        # Select both faces and create Boxy
-        cmds.select([face.name, opposite.name], replace=True)
-        cmds.hilite(face.transform)
-        self.boxy_clicked()
+        self.info = info
+        if boxy_items:
+            cmds.select(boxy_items)
+            node_utils.set_component_mode(ComponentType.object)
 
     def _setup_ui(self):
         auto_texture_check_box_state = self.settings.value(self.auto_texture_check_box_state, True)
@@ -156,15 +141,19 @@ class Architools(GenericWidget):
         """Event for auto_texture_check_box."""
         self.settings.setValue(self.auto_texture_check_box_state, self.auto_texture)
 
-    def boxy_clicked(self):
+    def boxy_clicked(self, from_bounds: bool = False):
         """Event for main boxy button.
 
         Context-sensitive boxy conversion:
         - Nothing selected: create default size boxy at origin
         - Boxy nodes: rebuild as ARCHITOOLS_COLOR bottom pivot boxy
         - Architype nodes (window, door, staircase): convert to boxy
-        - Polycube nodes: convert to boxy
+        - Meshbox nodes: convert to boxy
         - Other selection (vertices, faces, etc.): create new boxy from bounds
+
+        Args:
+            from_bounds: If True, skip conversion logic and create boxy from bounds only.
+                         Used when creating boxy from face selection.
         """
         # Capture selected transforms before any conversions
         selected_transforms = list(node_utils.get_selected_transforms(full_path=True))
@@ -191,14 +180,15 @@ class Architools(GenericWidget):
 
         has_convertible_nodes = False
 
-        # Check for convertible nodes first
-        for node in selected_transforms:
-            if robotools.is_boxy(node):
-                has_convertible_nodes = True
-            elif any(robotools.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
-                has_convertible_nodes = True
-            elif boxy_utils.is_polycube(node):
-                has_convertible_nodes = True
+        # Check for convertible nodes first (skip if from_bounds)
+        if not from_bounds:
+            for node in selected_transforms:
+                if robotools.is_boxy(node):
+                    has_convertible_nodes = True
+                elif any(robotools.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
+                    has_convertible_nodes = True
+                elif boxy_utils.is_meshbox(node) and boxy_utils.has_simple_topology(node):
+                    has_convertible_nodes = True
 
         if has_convertible_nodes:
             # Process each node individually for conversion
@@ -218,9 +208,9 @@ class Architools(GenericWidget):
                     result = arch_utils.convert_node_to_boxy(node=node, delete=True)
                     if result:
                         boxy_items.append(result)
-                elif boxy_utils.is_polycube(node):
-                    # Convert polycube to boxy (Architools always uses bottom pivot)
-                    result = boxy_utils.convert_polycube_to_boxy(polycube=node, color=ARCHITOOLS_COLOR,
+                elif boxy_utils.is_meshbox(node) and boxy_utils.has_simple_topology(node):
+                    # Convert meshbox to boxy (only if not refined, Architools always uses bottom pivot)
+                    result = boxy_utils.convert_meshbox_to_boxy(meshbox=node, color=ARCHITOOLS_COLOR,
                                                                  pivot=Anchor.f2)
                     if result:
                         boxy_items.append(result)
@@ -245,26 +235,26 @@ class Architools(GenericWidget):
             cmds.select(boxy_items)
             node_utils.set_component_mode(ComponentType.object)
 
-    def polycube_button_clicked(self):
-        """Event for Create Polycube button.
+    def meshbox_button_clicked(self):
+        """Event for Create Meshbox button.
 
-        Context-sensitive polycube conversion:
-        - Nothing selected: create default size polycube at origin with bottom pivot
-        - Boxy nodes: convert to polycube
-        - Architype nodes: convert to polycube (same size as if converted to boxy first)
-        - Polycube nodes: recalculate (reset transforms, pivot to bottom center)
+        Context-sensitive meshbox conversion:
+        - Nothing selected: create default size meshbox at origin with bottom pivot
+        - Boxy nodes: convert to meshbox
+        - Architype nodes: convert to meshbox (same size as if converted to boxy first)
+        - Meshbox nodes: recalculate (reset transforms, pivot to bottom center)
         - Other: no action (only handles architools-related nodes)
         """
         from core.point_classes import Point3
 
         # Capture selected transforms before any conversions
         selected_transforms = list(node_utils.get_selected_transforms(full_path=True))
-        polycube_items = []
+        meshbox_items = []
 
-        # If nothing selected, create default polycube at origin
+        # If nothing selected, create default meshbox at origin
         if not selected_transforms:
             size = self.default_cube_size
-            polycube = boxy_utils.create_polycube(
+            meshbox = boxy_utils.create_meshbox(
                 pivot=Anchor.f2,  # bottom
                 size=Point3(size, size, size),
                 creation_mode=CreationMode.pivot_origin,
@@ -273,8 +263,8 @@ class Architools(GenericWidget):
             # TODO: xray mode disabled due to Maya viewport refresh bug
             # if self.xray_mode:
             #     geometry_utils.toggle_xray()
-            self.info = f"Polycube created: {polycube}"
-            cmds.select(polycube)
+            self.info = f"Meshbox created: {meshbox}"
+            cmds.select(meshbox)
             return
 
         # Process each selected node
@@ -283,48 +273,48 @@ class Architools(GenericWidget):
             if not cmds.objExists(node):
                 continue
             if robotools.is_boxy(node):
-                # Convert boxy to polycube (Architools always uses bottom pivot)
-                print(f"DEBUG: Converting boxy to polycube: {node}")
+                # Convert boxy to meshbox (Architools always uses bottom pivot)
+                print(f"DEBUG: Converting boxy to meshbox: {node}")
                 print(f"DEBUG:   boxy position BEFORE: {node_utils.get_translation(node)}")
                 print(f"DEBUG:   boxy pivot: {boxy_utils.get_boxy_pivot(node)}")
                 boxy_data = boxy_utils.get_boxy_data(node)
                 print(f"DEBUG:   boxy_data.translation: {boxy_data.translation}")
                 print(f"DEBUG:   boxy_data.size: {boxy_data.size}")
                 print(f"DEBUG:   boxy_data.pivot_anchor: {boxy_data.pivot_anchor}")
-                result = boxy_utils.convert_boxy_to_polycube(node=node, pivot=Anchor.f2)
+                result = boxy_utils.convert_boxy_to_meshbox(node=node, pivot=Anchor.f2)
                 if result and not isinstance(result, boxy_utils.BoxyException):
-                    print(f"DEBUG:   polycube position AFTER: {node_utils.get_translation(result)}")
-                    polycube_items.append(result)
+                    print(f"DEBUG:   meshbox position AFTER: {node_utils.get_translation(result)}")
+                    meshbox_items.append(result)
             elif any(robotools.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
-                # Convert architype to boxy first, then to polycube
+                # Convert architype to boxy first, then to meshbox
                 boxy_node = arch_utils.convert_node_to_boxy(node=node, delete=True)
                 if boxy_node:
-                    result = boxy_utils.convert_boxy_to_polycube(node=boxy_node, pivot=Anchor.f2)
+                    result = boxy_utils.convert_boxy_to_meshbox(node=boxy_node, pivot=Anchor.f2)
                     if result and not isinstance(result, boxy_utils.BoxyException):
-                        polycube_items.append(result)
-            elif boxy_utils.is_polycube(node):
-                # Recalculate polycube: convert to boxy then back to polycube
-                # This resets transforms and puts pivot to bottom center
-                boxy_node = boxy_utils.convert_polycube_to_boxy(polycube=node, color=ARCHITOOLS_COLOR,
+                        meshbox_items.append(result)
+            elif boxy_utils.is_meshbox(node) and boxy_utils.has_simple_topology(node):
+                # Recalculate meshbox: convert to boxy then back to meshbox
+                # This resets transforms and puts pivot to bottom center (only if not refined)
+                boxy_node = boxy_utils.convert_meshbox_to_boxy(meshbox=node, color=ARCHITOOLS_COLOR,
                                                                 pivot=Anchor.f2)
                 if boxy_node:
-                    result = boxy_utils.convert_boxy_to_polycube(node=boxy_node, pivot=Anchor.f2)
+                    result = boxy_utils.convert_boxy_to_meshbox(node=boxy_node, pivot=Anchor.f2)
                     if result and not isinstance(result, boxy_utils.BoxyException):
-                        polycube_items.append(result)
-            # Other node types: no action
+                        meshbox_items.append(result)
+            # Other node types (including refined meshboxs): no action
 
         # Report results and select
-        if polycube_items:
-            if len(polycube_items) == 1:
-                self.info = f"Polycube created: {polycube_items[0]}"
+        if meshbox_items:
+            if len(meshbox_items) == 1:
+                self.info = f"Meshbox created: {meshbox_items[0]}"
             else:
-                self.info = f"Polycubes created: {', '.join(polycube_items)}"
-            cmds.select(polycube_items)
+                self.info = f"Meshboxs created: {', '.join(meshbox_items)}"
+            cmds.select(meshbox_items)
             # TODO: xray mode disabled due to Maya viewport refresh bug
             # if self.xray_mode:
             #     geometry_utils.toggle_xray()
         else:
-            self.info = "No polycubes created."
+            self.info = "No meshboxs created."
 
     def concave_face_button_clicked(self):
         """Event for concave face button."""
@@ -336,7 +326,7 @@ class Architools(GenericWidget):
 
     def help_button_clicked(self):
         """Event for help button."""
-        from robotools.architools.architools_help import ArchitoolsHelp
+        from robotools.architools.architools_widgets.architools_help import ArchitoolsHelp
         help_widgets = maya_widget_utils.get_widget_instances(tool_class="ArchitoolsHelp")
         help_widget = help_widgets[-1] if help_widgets else ArchitoolsHelp(parent_widget=self)
         help_widget.show()
@@ -348,7 +338,7 @@ class Architools(GenericWidget):
         Rotates orientation (not regular rotation) by -90 degrees on Y axis.
         - Architype nodes: convert to boxy, rotate orientation, convert back to same architype
         - Boxy nodes: rotate orientation
-        - Polycube nodes: convert to boxy, rotate orientation, convert back to polycube
+        - Meshbox nodes: convert to boxy, rotate orientation, convert back to meshbox
         - Other nodes: no action
         """
         from core.core_enums import Axis
@@ -387,14 +377,14 @@ class Architools(GenericWidget):
                 result = boxy_utils.edit_boxy_orientation(node=node, rotation=-90, axis=Axis.y)
                 if result:
                     rotated_items.append(result)
-            elif boxy_utils.is_polycube(node):
-                # Polycube: convert to boxy, rotate, convert back to polycube
-                temp_boxy = boxy_utils.convert_polycube_to_boxy(polycube=node, color=ARCHITOOLS_COLOR,
+            elif boxy_utils.is_meshbox(node) and boxy_utils.has_simple_topology(node):
+                # Meshbox: convert to boxy, rotate, convert back to meshbox (only if not refined)
+                temp_boxy = boxy_utils.convert_meshbox_to_boxy(meshbox=node, color=ARCHITOOLS_COLOR,
                                                                 pivot=Anchor.f2)
                 if temp_boxy:
                     rotated_boxy = boxy_utils.edit_boxy_orientation(node=temp_boxy, rotation=-90, axis=Axis.y)
                     if rotated_boxy:
-                        result = boxy_utils.convert_boxy_to_polycube(node=rotated_boxy, pivot=Anchor.f2)
+                        result = boxy_utils.convert_boxy_to_meshbox(node=rotated_boxy, pivot=Anchor.f2)
                         if result and not isinstance(result, boxy_utils.BoxyException):
                             rotated_items.append(result)
 

@@ -21,6 +21,8 @@ from robotools import anchor; reload(anchor)
 from robotools.boxy import boxy_tool; reload(boxy_tool)
 from robotools.boxy import boxy_utils; reload(boxy_utils)
 from robotools.boxy.boxy_utils import BoxyData
+from maya_tools.geometry import component_utils; reload(component_utils)
+from maya_tools.geometry import face_finder; reload(face_finder)
 
 LOGGER = get_logger(name=__name__, level=logging.DEBUG)
 TEST_SCENE = Path("/Users/andrewdavis/Dropbox/Technology/Python3/Projects/Maya2025/scenes/boxy_test_scene.ma")
@@ -144,8 +146,8 @@ def test_maya_widget_utils():
 
 
 if __name__ == "__main__":
-    run_test_cases(load=True)
-    # boxy_tool.launch()
+    # run_test_cases(load=True)
+    boxy_tool.launch()
     # test_boxy_build()
     #test_maya_widget_utils()
     '''node_utils.delete("cube*")

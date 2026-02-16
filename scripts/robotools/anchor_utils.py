@@ -91,7 +91,7 @@ def get_anchor_position_from_bounds(bounds: Bounds, anchor: Anchor) -> Point3:
 class AnchorComponents:
     """
     Class gets the reference positions of the components
-    in a Boxy or Polycube node.
+    in a Boxy or Meshbox node.
     The reference positions are calculated with the assumption that
     the node sits at the origin with zero rotation and unit scale.
     Those are the values that correspond to what we need for procedural generation.

@@ -40,8 +40,8 @@ class StaircaseData(ArchData):
         points = []
         start_z = -self.bounds.size.z / 2
         for i in range(self.count):
-            points.append(Point3(0, i * self.rise, start_z + i * self.tread))
-            points.append(Point3(0, (i + 1) * self.rise, start_z + i * self.tread))
+            points.append(Point3(0, i * self.rise, -start_z -i * self.tread))
+            points.append(Point3(0, (i + 1) * self.rise, -start_z -i * self.tread))
         return points
 
     @property

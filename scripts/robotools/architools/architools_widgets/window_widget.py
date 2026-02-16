@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import logging
 
 from qtpy.QtWidgets import QDoubleSpinBox
@@ -9,11 +8,6 @@ from robotools import CustomType
 from core.logging_utils import get_logger
 from robotools.architools import window_creator
 from robotools.architools.architools_widgets.arch_widget import ArchWidget
-from robotools.boxy import boxy_utils
-
-with contextlib.suppress(ImportError):
-    from maya import cmds
-    from maya_tools import node_utils
 
 LOGGER = get_logger(__name__, level=logging.DEBUG)
 
@@ -65,10 +59,6 @@ class WindowWidget(ArchWidget):
 
     def generate_architype(self) -> str | False:
         try:
-            position = None
-            boxy_node = next((iter(boxy_utils.get_selected_boxy_nodes())), None)
-            if boxy_node:
-                position = node_utils.get_translation(boxy_node, absolute=True)
             creator = window_creator.WindowCreator(
                 sill_depth=self.sill_depth,
                 sill_thickness=self.sill_thickness,
@@ -76,9 +66,7 @@ class WindowWidget(ArchWidget):
                 skirt=self.skirt,
                 auto_texture=self.parent_widget.auto_texture
             )
-            result = creator.create()
-            node_utils.set_translation(result, value=position, absolute=True)
-            return result
+            return creator.create()
         except (ValueError, AssertionError) as e:
             LOGGER.debug(e)
             return False

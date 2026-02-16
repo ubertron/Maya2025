@@ -1117,3 +1117,198 @@ def set_wireframe_color(node: str, color: ColorRGB, shading: bool = True):
     cmds.setAttr(f"{shape}.overrideColorR", color.normalized[0])
     cmds.setAttr(f"{shape}.overrideColorG", color.normalized[1])
     cmds.setAttr(f"{shape}.overrideColorB", color.normalized[2])
+
+
+def are_faces_connected(transform: str, faces: Sequence[int]) -> bool:
+    """
+    Check if all faces in the list share edges (form a connected region).
+
+    Args:
+        transform: The transform node name
+        faces: List of face indices to check
+
+    Returns:
+        True if all faces belong to the same shell (connected region)
+    """
+    if len(faces) <= 1:
+        return True
+    shells = group_geometry_shells(transform=transform, faces=list(faces))
+    return len(shells) == 1
+
+
+def validate_rectangular_face_block(
+    transform: str,
+    faces: Sequence[int],
+    angle_tolerance: float = 1.0,
+    coplanar_tolerance: float = 0.001
+) -> tuple[bool, str]:
+    """
+    Validate that a group of connected faces forms a perfect rectangle.
+
+    Checks:
+    1. All faces are connected (share edges)
+    2. All face vertices are coplanar
+    3. Perimeter has exactly 4 corner vertices with right angles
+
+    Args:
+        transform: The transform node name
+        faces: List of face indices to validate
+        angle_tolerance: Tolerance in degrees for right angle check
+        coplanar_tolerance: Tolerance for coplanarity check
+
+    Returns:
+        A tuple of (is_valid, message)
+    """
+    faces = list(faces)
+
+    # Single face - use simpler validation
+    if len(faces) == 1:
+        return True, "Single face is valid rectangle"
+
+    # Check connectivity
+    if not are_faces_connected(transform, faces):
+        return False, "Faces are not connected"
+
+    # Get all unique vertices from faces
+    vertex_indices = get_vertices_from_faces(node=transform, faces=faces)
+    if len(vertex_indices) < 4:
+        return False, f"Insufficient vertices ({len(vertex_indices)})"
+
+    vertex_positions = [get_vertex_position(node=transform, vertex_id=v) for v in vertex_indices]
+
+    # Check coplanarity - use first 3 vertices to define plane, check all others
+    if len(vertex_positions) >= 3:
+        v0, v1, v2 = vertex_positions[:3]
+        edge1 = Point3Pair(v0, v1).delta
+        edge2 = Point3Pair(v0, v2).delta
+        normal = Point3Pair(edge1, edge2).cross_product
+
+        if normal.magnitude < 1e-10:
+            return False, "First three vertices are collinear"
+
+        normal = normal.normalized
+
+        for i, pos in enumerate(vertex_positions[3:], start=3):
+            v_to_plane = Point3Pair(v0, pos).delta
+            distance = abs(Point3Pair(normal, v_to_plane).dot_product)
+            if distance > coplanar_tolerance:
+                return False, f"Vertex {i} is {distance:.6f} units from plane"
+
+    # Get perimeter edges and vertices
+    perimeter_edges = get_perimeter_edges_from_faces(transform=transform, faces=faces)
+    if not perimeter_edges:
+        return False, "Could not determine perimeter edges"
+
+    # Get perimeter vertices
+    perimeter_vertex_indices = get_vertices_from_edges(node=transform, edges=perimeter_edges)
+
+    # Build adjacency from perimeter edges to find corner vertices
+    # A corner vertex is connected to exactly 2 perimeter edges that are NOT collinear
+    vertex_to_edges: dict[int, list[int]] = {}
+    for edge_id in perimeter_edges:
+        edge_verts = get_vertices_from_edges(node=transform, edges=[edge_id])
+        for v in edge_verts:
+            if v not in vertex_to_edges:
+                vertex_to_edges[v] = []
+            vertex_to_edges[v].append(edge_id)
+
+    # Find actual corners: vertices where 2 perimeter edges meet at an angle (not collinear)
+    corner_vertices = []
+    collinearity_tolerance = 0.98  # cos(~11 degrees) - edges more aligned than this are collinear
+
+    for v, edges in vertex_to_edges.items():
+        if len(edges) != 2:
+            continue
+
+        # Get the direction vectors of the two edges at this vertex
+        edge1_verts = get_vertices_from_edges(node=transform, edges=[edges[0]])
+        edge2_verts = get_vertices_from_edges(node=transform, edges=[edges[1]])
+
+        # Find the "other" vertex for each edge (not v)
+        other1 = [ov for ov in edge1_verts if ov != v][0]
+        other2 = [ov for ov in edge2_verts if ov != v][0]
+
+        # Get positions
+        v_pos = get_vertex_position(node=transform, vertex_id=v)
+        other1_pos = get_vertex_position(node=transform, vertex_id=other1)
+        other2_pos = get_vertex_position(node=transform, vertex_id=other2)
+
+        # Calculate direction vectors from v to the other vertices
+        dir1 = Point3Pair(v_pos, other1_pos).delta
+        dir2 = Point3Pair(v_pos, other2_pos).delta
+
+        if dir1.magnitude < 1e-10 or dir2.magnitude < 1e-10:
+            continue
+
+        dir1_norm = dir1.normalized
+        dir2_norm = dir2.normalized
+
+        # Check if edges are collinear (dot product close to 1 or -1)
+        dot = abs(Point3Pair(dir1_norm, dir2_norm).dot_product)
+        if dot < collinearity_tolerance:
+            # Not collinear - this is a true corner
+            corner_vertices.append(v)
+
+    if len(corner_vertices) != 4:
+        return False, f"Expected 4 corners, found {len(corner_vertices)}"
+
+    # Get corner positions
+    corner_positions = [get_vertex_position(node=transform, vertex_id=v) for v in corner_vertices]
+
+    # Sort corners to form a proper rectangle ordering (by angle from centroid)
+    # Must work in the plane of the face, not just XZ plane
+    centroid = get_midpoint_from_point_list(corner_positions)
+    import math as _math
+
+    # Calculate the face plane normal from first 3 corners
+    edge1_plane = Point3Pair(corner_positions[0], corner_positions[1]).delta
+    edge2_plane = Point3Pair(corner_positions[0], corner_positions[2]).delta
+    plane_normal = Point3Pair(edge1_plane, edge2_plane).cross_product
+
+    if plane_normal.magnitude < 1e-10:
+        return False, "Degenerate plane (corners are collinear)"
+
+    plane_normal = plane_normal.normalized
+
+    # Create local 2D coordinate system in the plane
+    # Use the first edge as the U axis
+    u_axis = edge1_plane.normalized
+
+    # V axis is perpendicular to both U and normal
+    v_axis = Point3Pair(plane_normal, u_axis).cross_product.normalized
+
+    def angle_from_centroid(pos: Point3) -> float:
+        # Project position onto local 2D coordinate system
+        delta = Point3Pair(centroid, pos).delta
+        u = Point3Pair(delta, u_axis).dot_product
+        v = Point3Pair(delta, v_axis).dot_product
+        return _math.atan2(v, u)
+
+    sorted_indices = sorted(range(4), key=lambda i: angle_from_centroid(corner_positions[i]))
+    sorted_corners = [corner_positions[i] for i in sorted_indices]
+
+    # Check each corner angle is 90 degrees
+    for i in range(4):
+        prev_corner = sorted_corners[(i - 1) % 4]
+        curr_corner = sorted_corners[i]
+        next_corner = sorted_corners[(i + 1) % 4]
+
+        edge1 = Point3Pair(curr_corner, prev_corner).delta
+        edge2 = Point3Pair(curr_corner, next_corner).delta
+
+        if edge1.magnitude < 1e-10 or edge2.magnitude < 1e-10:
+            return False, f"Degenerate edge at corner {i}"
+
+        edge1_norm = edge1.normalized
+        edge2_norm = edge2.normalized
+
+        dot = Point3Pair(edge1_norm, edge2_norm).dot_product
+        dot = max(-1.0, min(1.0, dot))
+
+        angle_rad = _math.acos(dot)
+        angle_deg = _math.degrees(angle_rad)
+
+        if abs(angle_deg - 90.0) > angle_tolerance:
+            return False, f"Corner {i} has angle {angle_deg:.2f}°, expected 90°"
+
+    return True, "Valid rectangular face block"

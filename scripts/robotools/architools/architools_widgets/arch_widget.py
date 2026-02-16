@@ -65,7 +65,7 @@ class ArchWidget(GenericWidget):
         Processes all selected nodes:
         - Boxy nodes: convert directly to architype
         - Architype nodes (window, door, staircase): convert to boxy, then to target architype
-        - Polycubes: convert to boxy, then to architype
+        - Meshboxes: convert to boxy, then to architype
         """
         new_objects = []
         boxy_nodes = []
@@ -95,8 +95,8 @@ class ArchWidget(GenericWidget):
                         boxy_node = arch_utils.convert_node_to_boxy(node=node, delete=True)
                         if boxy_node:
                             boxy_nodes.append(boxy_node)
-                    elif boxy_utils.is_polycube(node):
-                        boxy_node = boxy_utils.convert_polycube_to_boxy(polycube=node)
+                    elif boxy_utils.is_meshbox(node) and boxy_utils.has_simple_topology(node):
+                        boxy_node = boxy_utils.convert_meshbox_to_boxy(meshbox=node)
                         if boxy_node:
                             boxy_nodes.append(boxy_node)
 

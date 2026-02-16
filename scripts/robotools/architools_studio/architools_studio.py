@@ -53,9 +53,9 @@ class BoxyEditor(Editor):
             self.parent_widget.info = "Boxy widget not found."
 
 
-class PolycubeEditor(Editor):
+class MeshboxEditor(Editor):
     def __init__(self, parent_widget: GenericWidget):
-        super().__init__(custom_type=CustomType.polycube, parent_widget=parent_widget)
+        super().__init__(custom_type=CustomType.meshbox, parent_widget=parent_widget)
         self.node_label = self.add_label()
         self.node = parent_widget.current_tree_widget_item_text
 
@@ -77,7 +77,7 @@ class EditPanel(GenericWidget):
     def __init__(self, parent_widget: GenericWidget):
         super().__init__(title="Edit Panel")
         self.add_widget(BoxyEditor(parent_widget=parent_widget))
-        self.add_widget(PolycubeEditor(parent_widget=parent_widget))
+        self.add_widget(MeshboxEditor(parent_widget=parent_widget))
         self.custom_type: CustomType | None = None
 
     @property
@@ -116,8 +116,8 @@ class ArchitoolsStudio(GenericWidget):
         self.add_boxy_button = button_bar.add_icon_button(icon_path=image_path("add_boxy.png"), tool_tip="Add Boxy",
                                                           clicked=self._on_boxy_button_clicked)
         button_bar.add_icon_button(icon_path=image_path("components.png"), tool_tip="Show components")
-        self.add_polycube_button = button_bar.add_icon_button(icon_path=image_path("add_polycube.png"), tool_tip="Add Polycube",
-                                                               clicked=self._on_add_polycube_button_clicked)
+        self.add_meshbox_button = button_bar.add_icon_button(icon_path=image_path("add_meshbox.png"), tool_tip="Add Meshbox",
+                                                               clicked=self._on_add_meshbox_button_clicked)
         self.add_constant_button = button_bar.add_icon_button(icon_path=image_path("add_constant.png"),
                                                               tool_tip="Add Constant")
         self.add_fixture_button = button_bar.add_icon_button(icon_path=image_path("add_fixture.png"),
@@ -128,7 +128,7 @@ class ArchitoolsStudio(GenericWidget):
         button_bar.add_icon_button(icon_path=image_path("lock_cvs.png"), tool_tip="Lock cvs to components")
         self.document_label: QLabel = self.add_label("Current document: None", side=Side.left)
         button_bar.add_stretch()
-        button_bar.add_icon_button(icon_path=image_path("dr_steve_brule.png"))
+        button_bar.add_icon_button(icon_path=image_path("help.png"))
         self.form: FormWidget = self.add_group_box(FormWidget(title="Architype Attributes"))
         self.architype_name_line_edit: QLineEdit = self.form.add_line_edit(label="Name",
                                                                            placeholder_text="Name of node...")
@@ -142,7 +142,7 @@ class ArchitoolsStudio(GenericWidget):
                       special_characters="_", place_holder_text="Enter descriptive tags...",
                       separators=","))
         self.info_label: QLabel = self.add_label("Ready...", side=Side.left)
-        self.polycubes: list[str] = []
+        self.meshboxes: list[str] = []
         self.boxy_node = None
         self._setup_ui()
 
@@ -189,19 +189,19 @@ class ArchitoolsStudio(GenericWidget):
             self.info = f"Boxy dimensions: Width={width}, Height={height}, Depth={depth}"
             self._update_ui()
 
-    def _on_add_polycube_button_clicked(self):
-        """Event for add_polycube_button clicked."""
-        dialog = DimensionsDialog(parent=self, title="Add Polycube")
+    def _on_add_meshbox_button_clicked(self):
+        """Event for add_meshbox_button clicked."""
+        dialog = DimensionsDialog(parent=self, title="Add Meshbox")
         if dialog.exec() == QDialog.DialogCode.Accepted:
             width, height, depth = dialog.dimensions
-            self.info = f"Polycube dimensions: Width={width}, Height={height}, Depth={depth}"
-            # Generate polycube name
-            polycube_name = f"Polycube{len(self.polycubes)}: -"
-            # Add to polycubes list
-            self.polycubes.append(polycube_name)
+            self.info = f"Meshbox dimensions: Width={width}, Height={height}, Depth={depth}"
+            # Generate meshbox name
+            meshbox_name = f"Meshbox{len(self.meshboxes)}: -"
+            # Add to meshboxes list
+            self.meshboxes.append(meshbox_name)
             # Add top-level item to tree widget
-            polycube_item = QTreeWidgetItem(self.tree_widget, [polycube_name])
-            self.tree_widget.addTopLevelItem(polycube_item)
+            meshbox_item = QTreeWidgetItem(self.tree_widget, [meshbox_name])
+            self.tree_widget.addTopLevelItem(meshbox_item)
             self._update_ui()
 
     def _on_architype_name_line_edit_return_pressed(self):
@@ -219,8 +219,8 @@ class ArchitoolsStudio(GenericWidget):
         self.info = text
         if "Boxy" in text:
             self.edit_panel.custom_type = CustomType.boxy
-        elif "Polycube" in text:
-            self.edit_panel.custom_type = CustomType.polycube
+        elif "Meshbox" in text:
+            self.edit_panel.custom_type = CustomType.meshbox
         else:
             self.edit_panel.custom_type = None
 
@@ -276,7 +276,7 @@ class ArchitoolsStudio(GenericWidget):
         return self.tree_widget.currentItem().text(0) if self.tree_widget.currentItem() else "None"
 
 @dataclass
-class PolycubeData:
+class MeshboxData:
     size: Point3
     pivot: Anchor
     anchor: Anchor

@@ -396,19 +396,19 @@ def _detect_pivot_from_poly_cube(node: str, bounds: Bounds) -> Side:
 
 
 def boxy_cube_toggle(wireframe_color: ColorRGB) -> tuple[list[str], list[BoxyException]]:
-    """Toggle between boxy and polycube."""
+    """Toggle between boxy and meshbox."""
     selection_list = []
     exceptions = []
     boxy_nodes = get_selected_boxy_nodes()
-    polycubes = get_selected_polycubes()
+    meshboxes = get_selected_meshboxes()
     for node in boxy_nodes:
-        result = convert_boxy_to_polycube(node=node)
+        result = convert_boxy_to_meshbox(node=node)
         if isinstance(result, BoxyException):
             exceptions.append(result)
         else:
             selection_list.append(result)
-    for polycube in polycubes:
-        result = convert_polycube_to_boxy(polycube=polycube, color=wireframe_color)
+    for meshbox in meshboxes:
+        result = convert_meshbox_to_boxy(meshbox=meshbox, color=wireframe_color)
         if isinstance(result, BoxyException):
             exceptions.append(result)
         else:
@@ -421,21 +421,21 @@ def build(boxy_data: BoxyData) -> str:
     return boxy_node.build(boxy_data=boxy_data)
 
 
-def convert_boxy_to_polycube(node: str, pivot: Side = None, inherit_scale: bool = False) -> str | BoxyException:
-    """Convert a boxy node to a polycube.
+def convert_boxy_to_meshbox(node: str, pivot: Side = None, inherit_scale: bool = False) -> str | BoxyException:
+    """Convert a boxy node to a meshbox.
 
-    Uses create_polycube() for consistent polycube creation.
+    Uses create_meshbox() for consistent meshbox creation.
 
     :param node: The boxy transform node
     :param pivot: Optional pivot override. If None, uses the boxy's original pivot.
-    :param inherit_scale: If True, preserve original scale on polycube. If False, bake scale into size.
+    :param inherit_scale: If True, preserve original scale on meshbox. If False, bake scale into size.
     """
     # Get original transform values BEFORE any modifications
     original_scale = node_utils.get_scale(node)
     original_translation = node_utils.get_translation(node)
     original_rotation = node_utils.get_rotation(node)
     has_scale = original_scale.x != 1.0 or original_scale.y != 1.0 or original_scale.z != 1.0
-    LOGGER.debug(f"convert_boxy_to_polycube: inherit_scale={inherit_scale}, has_scale={has_scale}")
+    LOGGER.debug(f"convert_boxy_to_meshbox: inherit_scale={inherit_scale}, has_scale={has_scale}")
     LOGGER.debug(f"  original_scale: {original_scale}")
     LOGGER.debug(f"  original_translation: {original_translation}")
 
@@ -446,7 +446,7 @@ def convert_boxy_to_polycube(node: str, pivot: Side = None, inherit_scale: bool 
         size = boxy_data.size  # Unscaled size from shape attributes
         rotation = original_rotation
         scale = original_scale
-        LOGGER.debug(f"=== convert_boxy_to_polycube (inherit_scale=True, has_scale=True) ===")
+        LOGGER.debug(f"=== convert_boxy_to_meshbox (inherit_scale=True, has_scale=True) ===")
         LOGGER.debug(f"  original_translation: {original_translation}")
         LOGGER.debug(f"  original_rotation: {original_rotation}")
         LOGGER.debug(f"  original_scale: {original_scale}")
@@ -497,7 +497,7 @@ def convert_boxy_to_polycube(node: str, pivot: Side = None, inherit_scale: bool 
             cmds.delete(short_name)
     else:
         # When not inheriting scale, use rebuild which bakes scale into size
-        LOGGER.info(f"  convert_boxy_to_polycube: inherit_scale=False path")
+        LOGGER.info(f"  convert_boxy_to_meshbox: inherit_scale=False path")
         LOGGER.info(f"    BEFORE rebuild - node position: {node_utils.get_translation(node)}")
         result = rebuild(node=node, pivot=pivot)
         if isinstance(result, BoxyException):
@@ -518,15 +518,15 @@ def convert_boxy_to_polycube(node: str, pivot: Side = None, inherit_scale: bool 
         if cmds.objExists(short_name):
             cmds.delete(short_name)
 
-    # Create polycube with pivot at origin, then position it
-    LOGGER.info(f"  Creating polycube: pivot={target_pivot}, size={size}")
-    polycube = create_polycube(
+    # Create meshbox with pivot at origin, then position it
+    LOGGER.info(f"  Creating meshbox: pivot={target_pivot}, size={size}")
+    meshbox = create_meshbox(
         pivot=target_pivot,
         size=size,
         creation_mode=CreationMode.pivot_origin,
         construction_history=False,
     )
-    LOGGER.info(f"    polycube position after create: {node_utils.get_translation(polycube)}")
+    LOGGER.info(f"    meshbox position after create: {node_utils.get_translation(meshbox)}")
 
     # Calculate transform position to place pivot at desired world position
     # world_pivot = transform_pos + local_pivot, so transform_pos = world_pivot - local_pivot
@@ -539,50 +539,50 @@ def convert_boxy_to_polycube(node: str, pivot: Side = None, inherit_scale: bool 
     )
 
     # Apply rotation, then translation
-    node_utils.set_rotation(nodes=polycube, value=rotation)
-    LOGGER.info(f"    polycube position after rotation: {node_utils.get_translation(polycube)}")
-    node_utils.set_translation(nodes=polycube, value=transform_pos, absolute=True)
-    LOGGER.info(f"    polycube position after translation: {node_utils.get_translation(polycube)}")
+    node_utils.set_rotation(nodes=meshbox, value=rotation)
+    LOGGER.info(f"    meshbox position after rotation: {node_utils.get_translation(meshbox)}")
+    node_utils.set_translation(nodes=meshbox, value=transform_pos, absolute=True)
+    LOGGER.info(f"    meshbox position after translation: {node_utils.get_translation(meshbox)}")
 
     # Apply scale if inheriting
     if scale is not None:
-        node_utils.scale(nodes=polycube, value=scale)
+        node_utils.scale(nodes=meshbox, value=scale)
         LOGGER.debug(f"  applied scale: {scale}")
 
-    return polycube
+    return meshbox
 
 
-def convert_polycube_to_boxy(polycube: str, color: ColorRGB = color_classes.DEEP_GREEN,
+def convert_meshbox_to_boxy(meshbox: str, color: ColorRGB = color_classes.DEEP_GREEN,
                              pivot: Anchor = None, inherit_scale: bool = False) -> str:
-    """Convert a polycube to a boxy node.
+    """Convert a meshbox to a boxy node.
 
-    Detects Robotools polycubes by checking for custom_type attribute.
+    Detects Robotools meshboxes by checking for custom_type attribute.
     Uses stored pivot_side attribute if available, otherwise detects from geometry.
 
-    :param polycube: The polycube transform node
+    :param meshbox: The meshbox transform node
     :param color: Wireframe color for the boxy
     :param pivot: Optional pivot override (Anchor). If None, uses stored/detected pivot.
     :param inherit_scale: If True, preserve original scale on boxy. If False, bake scale into size.
     """
-    LOGGER.info(f"=== convert_polycube_to_boxy({polycube}) ===")
-    shape = node_utils.get_shape_from_transform(node=polycube)
+    LOGGER.info(f"=== convert_meshbox_to_boxy({meshbox}) ===")
+    shape = node_utils.get_shape_from_transform(node=meshbox)
     LOGGER.info(f"  shape: {shape}")
 
-    # Check for custom_type attribute to verify it's a Robotools polycube
-    if not is_polycube(polycube):
-        LOGGER.info(f"  Not a Robotools polycube (missing custom_type attribute)")
-        return polycube
+    # Check for custom_type attribute to verify it's a Robotools meshbox
+    if not is_meshbox(meshbox):
+        LOGGER.info(f"  Not a Robotools meshbox (missing custom_type attribute)")
+        return meshbox
 
     # Get original scale before any operations
-    original_scale = node_utils.get_scale(polycube)
+    original_scale = node_utils.get_scale(meshbox)
     has_scale = original_scale.x != 1.0 or original_scale.y != 1.0 or original_scale.z != 1.0
     LOGGER.info(f"  original_scale: {original_scale}, inherit_scale: {inherit_scale}")
 
     # Get bounds (try CuboidFinder first for rotated faces, fall back to BoundsFinder)
-    bounds: Bounds = bounds_utils.get_cuboid(geometry=polycube)
+    bounds: Bounds = bounds_utils.get_cuboid(geometry=meshbox)
     LOGGER.info(f"  bounds from get_cuboid: {bounds}")
     if not bounds:
-        bounds = bounds_utils.get_bounds(geometry=polycube, inherit_rotations=True)
+        bounds = bounds_utils.get_bounds(geometry=meshbox, inherit_rotations=True)
         LOGGER.info(f"  bounds from get_bounds: {bounds}")
 
     # Detect original pivot from stored attribute or geometry
@@ -595,8 +595,8 @@ def convert_polycube_to_boxy(polycube: str, color: ColorRGB = color_classes.DEEP
         pivot_name = cmds.getAttr(f"{shape}.{CustomAttribute.pivot_side.name}")
         original_pivot = side_to_anchor(Side[pivot_name])
         LOGGER.info(f"  Found legacy pivot_side attribute: {original_pivot.name}")
-    elif cmds.attributeQuery(CustomAttribute.pivot_side.name, node=polycube, exists=True):
-        pivot_index = cmds.getAttr(f"{polycube}.{CustomAttribute.pivot_side.name}")
+    elif cmds.attributeQuery(CustomAttribute.pivot_side.name, node=meshbox, exists=True):
+        pivot_index = cmds.getAttr(f"{meshbox}.{CustomAttribute.pivot_side.name}")
         pivot_map = {
             0: Anchor.f2, 1: Anchor.c, 2: Anchor.f3,
             3: Anchor.f0, 4: Anchor.f1, 5: Anchor.f5, 6: Anchor.f4
@@ -604,7 +604,7 @@ def convert_polycube_to_boxy(polycube: str, color: ColorRGB = color_classes.DEEP
         original_pivot = pivot_map.get(pivot_index, Anchor.c)
         LOGGER.info(f"  Found very old pivot attribute: index={pivot_index}, pivot={original_pivot.name}")
     else:
-        detected_side = _detect_pivot_from_poly_cube(polycube, bounds)
+        detected_side = _detect_pivot_from_poly_cube(meshbox, bounds)
         original_pivot = side_to_anchor(detected_side)
         LOGGER.info(f"  Detected pivot from geometry: {original_pivot.name}")
 
@@ -627,13 +627,13 @@ def convert_polycube_to_boxy(polycube: str, color: ColorRGB = color_classes.DEEP
         LOGGER.info(f"  unbaked size: {size}")
 
         if pivot == original_pivot:
-            # Same pivot - use polycube's transform position directly
-            translation = node_utils.get_translation(polycube)
+            # Same pivot - use meshbox's transform position directly
+            translation = node_utils.get_translation(meshbox)
             LOGGER.info(f"  translation (same pivot, from transform): {translation}")
         else:
             # Pivot changed - recalculate from visual center to new pivot
             # Visual size is bounds.size (the scaled size)
-            original_translation = node_utils.get_translation(polycube)
+            original_translation = node_utils.get_translation(meshbox)
             rotation = bounds.rotation
             visual_size = bounds.size
             hx, hy, hz = visual_size.x / 2.0, visual_size.y / 2.0, visual_size.z / 2.0
@@ -662,7 +662,7 @@ def convert_polycube_to_boxy(polycube: str, color: ColorRGB = color_classes.DEEP
         LOGGER.info(f"    bounds.position (center): {bounds.position}")
         LOGGER.info(f"    bounds.size: {bounds.size}")
         LOGGER.info(f"    original_pivot: {original_pivot}, target pivot: {pivot}")
-        LOGGER.info(f"    polycube transform position: {node_utils.get_translation(polycube)}")
+        LOGGER.info(f"    meshbox transform position: {node_utils.get_translation(meshbox)}")
 
         # Always calculate from bounds - don't trust stored pivot after geometry changes
         # The bounds.position is the geometric center, calculate pivot position from there
@@ -697,22 +697,22 @@ def convert_polycube_to_boxy(polycube: str, color: ColorRGB = color_classes.DEEP
         node_utils.scale(nodes=_boxy_node, value=original_scale)
         LOGGER.info(f"  applied scale: {original_scale}")
 
-    cmds.delete(polycube)
+    cmds.delete(meshbox)
     return _boxy_node
 
 
-def create_polycube(pivot: Anchor, size: Point3, creation_mode: CreationMode = CreationMode.pivot_origin,
+def create_meshbox(pivot: Anchor, size: Point3, creation_mode: CreationMode = CreationMode.pivot_origin,
                     construction_history: bool = False) -> str:
-    """Create a custom polycube node with pivot at any of the 27 anchor positions.
+    """Create a custom meshbox node with pivot at any of the 27 anchor positions.
 
     Args:
         pivot: Anchor position for the pivot (center, face, edge, or vertex)
-        size: Dimensions of the polycube
-        creation_mode: Where to place the polycube after creation
+        size: Dimensions of the meshbox
+        creation_mode: Where to place the meshbox after creation
         construction_history: Whether to keep construction history
 
     Returns:
-        Name of the created polycube transform node
+        Name of the created meshbox transform node
     """
     hx, hy, hz = size.x / 2.0, size.y / 2.0, size.z / 2.0
 
@@ -721,29 +721,29 @@ def create_polycube(pivot: Anchor, size: Point3, creation_mode: CreationMode = C
         position=ZERO3,
         baseline=0.5,
         construction_history=construction_history,
-        name="polycube",
+        name="meshbox",
     )
     if construction_history:
-        polycube, shape = result
+        meshbox, shape = result
     else:
-        polycube = result
+        meshbox = result
 
     pivot_position = get_anchor_offset(pivot, hx, hy, hz)
-    node_utils.set_pivot(nodes=polycube, value=pivot_position, reset=False)
+    node_utils.set_pivot(nodes=meshbox, value=pivot_position, reset=False)
     if creation_mode is CreationMode.pivot_origin:
         # Offset translation so the pivot (at local pivot_position) is at world origin
         # Transform position = -pivot_position makes world_pivot = transform + local_pivot = 0
         node_utils.set_translation(
-            nodes=polycube,
+            nodes=meshbox,
             value=Point3(-pivot_position.x, -pivot_position.y, -pivot_position.z),
             absolute=True
         )
 
     # Add custom attributes
-    shape = node_utils.get_shape_from_transform(node=polycube, full_path=True)
+    shape = node_utils.get_shape_from_transform(node=meshbox, full_path=True)
     attribute_utils.add_attribute(
         node=shape, attr=CustomAttribute.custom_type.name, data_type=DataType.string,
-        lock=True, default_value=CustomType.polycube.name, channel_box=True)
+        lock=True, default_value=CustomType.meshbox.name, channel_box=True)
     attribute_utils.add_attribute(
         node=shape, attr=CustomAttribute.pivot_anchor.name, data_type=DataType.string,
         lock=True, default_value=pivot.name, channel_box=True)
@@ -757,7 +757,7 @@ def create_polycube(pivot: Anchor, size: Point3, creation_mode: CreationMode = C
         channel_box=True,
     )
 
-    return polycube
+    return meshbox
 
 
 def edit_boxy_orientation(node: str, rotation: float, axis: Axis) -> str | False:
@@ -900,21 +900,21 @@ def get_selected_boxy_positions() -> list[Point3]:
     return [node_utils.get_translation(x, absolute=True) for x in get_selected_boxy_nodes()]
 
 
-def is_polycube(node: str) -> bool:
-    """Check if node is a Robotools polycube by checking custom_type attribute.
+def is_meshbox(node: str) -> bool:
+    """Check if node is a Robotools meshbox by checking custom_type attribute.
 
     Args:
         node: Transform or shape node name.
 
     Returns:
-        True if the node is a Robotools polycube, False otherwise.
+        True if the node is a Robotools meshbox, False otherwise.
     """
     shape = node_utils.get_shape_from_transform(node=node)
     if not shape:
         return False
     if not cmds.attributeQuery(CustomAttribute.custom_type.name, node=shape, exists=True):
         return False
-    return cmds.getAttr(f"{shape}.{CustomAttribute.custom_type.name}") == CustomType.polycube.name
+    return cmds.getAttr(f"{shape}.{CustomAttribute.custom_type.name}") == CustomType.meshbox.name
 
 
 def is_simple_cuboid(node: str) -> bool:
@@ -934,10 +934,31 @@ def is_simple_cuboid(node: str) -> bool:
     return face_count == 6 and vertex_count == 8
 
 
-def get_selected_polycubes() -> list[str]:
-    """Get a list of all Robotools polycube nodes selected."""
+def has_simple_topology(node: str) -> bool:
+    """Check if mesh has simple cuboid topology (8 vertices).
+
+    Meshboxs with refined topology (more than 8 vertices) should not be
+    converted to boxy - they should be treated as regular geometry.
+
+    Args:
+        node: Transform or shape node name.
+
+    Returns:
+        True if the mesh has 8 or fewer vertices, False otherwise.
+    """
+    shape = node_utils.get_shape_from_transform(node=node)
+    if not shape:
+        return False
+    if cmds.objectType(shape) != "mesh":
+        return False
+    vertex_count = cmds.polyEvaluate(shape, vertex=True)
+    return vertex_count <= 8
+
+
+def get_selected_meshboxes() -> list[str]:
+    """Get a list of all Robotools meshbox nodes selected."""
     mesh_nodes = [x for x in node_utils.get_selected_geometry() if not robotools.is_custom_type_node(x)]
-    return [x for x in mesh_nodes if is_polycube(x)]
+    return [x for x in mesh_nodes if is_meshbox(x)]
 
 
 def rebuild(node: str, pivot: Anchor | None = None, color: ColorRGB | None = None) -> str | BoxyException:
@@ -954,20 +975,20 @@ def rebuild(node: str, pivot: Anchor | None = None, color: ColorRGB | None = Non
     original_rotation = node_utils.get_rotation(node)
     original_scale = node_utils.get_scale(node)
     original_pivot = get_boxy_pivot(node=node)
-    LOGGER.debug(f"  Original transform translation: {original_translation}")
-    LOGGER.debug(f"  Original transform rotation: {original_rotation}")
-    LOGGER.debug(f"  Original transform scale: {original_scale}")
-    LOGGER.debug(f"  Original boxy pivot: {original_pivot}")
+    LOGGER.debug(f"Original transform translation: {original_translation}")
+    LOGGER.debug(f"Original transform rotation: {original_rotation}")
+    LOGGER.debug(f"Original transform scale: {original_scale}")
+    LOGGER.debug(f"Original boxy pivot: {original_pivot}")
 
     pivot: Anchor = pivot if pivot else original_pivot
-    LOGGER.debug(f"  Target pivot: {pivot}")
+    LOGGER.debug(f"Target pivot: {pivot}")
 
     bounds: Bounds = bounds_utils.get_cuboid(geometry=node)
-    LOGGER.info(f"  Bounds from get_cuboid:")
-    LOGGER.info(f"    position (center): {bounds.position}")
-    LOGGER.info(f"    size: {bounds.size}")
-    LOGGER.info(f"    rotation: {bounds.rotation}")
-    LOGGER.info(f"  Original pivot: {original_pivot}, Target pivot: {pivot}")
+    LOGGER.debug(f"Bounds from get_cuboid:")
+    LOGGER.debug(f"position (center): {bounds.position}")
+    LOGGER.debug(f"size: {bounds.size}")
+    LOGGER.debug(f"rotation: {bounds.rotation}")
+    LOGGER.debug(f"Original pivot: {original_pivot}, Target pivot: {pivot}")
 
     # Preserve scale before deleting
     scale = node_utils.get_scale(node)
@@ -994,12 +1015,12 @@ def rebuild(node: str, pivot: Anchor | None = None, color: ColorRGB | None = Non
     if pivot == original_pivot:
         # Same pivot - use original translation directly
         translation = original_translation
-        LOGGER.info(f"  Translation (same pivot, using original): {translation}")
+        LOGGER.debug(f"Translation (same pivot, using original): {translation}")
     else:
         # Pivot changed - calculate from bounds center
-        LOGGER.info(f"  Calculating translation: bounds.center={bounds.center}, pivot={pivot}")
+        LOGGER.debug(f"Calculating translation: bounds.center={bounds.center}, pivot={pivot}")
         translation = get_anchor_position_from_bounds(bounds, pivot)
-        LOGGER.info(f"  Translation (pivot changed): {translation}")
+        LOGGER.debug(f"Translation (pivot changed): {translation}")
 
     cmds.delete(node)
     boxy_data = BoxyData(
@@ -1009,10 +1030,10 @@ def rebuild(node: str, pivot: Anchor | None = None, color: ColorRGB | None = Non
         pivot_anchor=pivot,
         color=color if color else color_classes.DEEP_GREEN,
     )
-    LOGGER.debug(f"  BoxyData created:")
-    LOGGER.debug(f"    size: {boxy_data.size}")
-    LOGGER.debug(f"    translation: {boxy_data.translation}")
-    LOGGER.debug(f"    pivot: {boxy_data.pivot_anchor}")
+    LOGGER.debug(f"BoxyData created:")
+    LOGGER.debug(f"ze: {boxy_data.size}")
+    LOGGER.debug(f"anslation: {boxy_data.translation}")
+    LOGGER.debug(f"pivot: {boxy_data.pivot_anchor}")
 
     boxy_object = build(boxy_data=boxy_data)
     # Restore scale after building (will be identity if scale was baked)
@@ -1023,9 +1044,103 @@ def rebuild(node: str, pivot: Anchor | None = None, color: ColorRGB | None = Non
     final_translation = node_utils.get_translation(boxy_object)
     final_rotation = node_utils.get_rotation(boxy_object)
     final_scale = node_utils.get_scale(boxy_object)
-    LOGGER.debug(f"  Final transform translation: {final_translation}")
-    LOGGER.debug(f"  Final transform rotation: {final_rotation}")
-    LOGGER.debug(f"  Final transform scale: {final_scale}")
+    LOGGER.debug(f"Final transform translation: {final_translation}")
+    LOGGER.debug(f"Final transform rotation: {final_rotation}")
+    LOGGER.debug(f"Final transform scale: {final_scale}")
     LOGGER.debug(f"=== end rebuild ===")
     LOGGER.debug(f"Boxy rebuilt: {boxy_object}")
     return boxy_object
+
+
+def create_boxy_from_faces(
+    surface_direction: SurfaceDirection,
+    color: ColorRGB,
+    pivot: Anchor,
+    inherit_rotation: bool = True,
+    inherit_scale: bool = True
+) -> tuple[list[str], str]:
+    """
+    Create Boxy objects from selected face(s) and their opposite face(s).
+
+    Handles multiple face selections:
+    - Single face: finds opposite face, creates one boxy
+    - Multiple disconnected faces: finds opposite for each, creates multiple boxys
+    - Connected faces forming rectangle: treats as block, finds matching block
+
+    Args:
+        surface_direction: SurfaceDirection enum (concave/convex) for search direction.
+        color: ColorRGB for the boxy wireframe color.
+        pivot: Anchor for the boxy pivot position.
+        inherit_rotation: Whether to inherit rotation from geometry.
+        inherit_scale: Whether to inherit scale from geometry.
+
+    Returns:
+        Tuple of (list of created boxy node names, info message string)
+    """
+    from maya_tools.geometry.component_utils import components_from_selection, FaceComponent
+    from maya_tools.geometry import face_finder
+
+    components = components_from_selection()
+    face_components = [c for c in components if isinstance(c, FaceComponent)]
+
+    if not face_components:
+        return [], "Select one or more faces"
+
+    boxy_items = []
+
+    if len(face_components) == 1:
+        # Single face - use existing logic
+        face = face_components[0]
+        opposite = face_finder.get_opposite_face(
+            component=face,
+            surface_direction=surface_direction,
+            select=False
+        )
+
+        if opposite is None:
+            return [], "No matching face found"
+
+        # Select both faces and create boxy
+        cmds.select([face.name, opposite.name], replace=True)
+        cmds.hilite(face.transform)
+
+        creator = Boxy(color=color)
+        creator.pivot_anchor = pivot
+        items, _ = creator.create(
+            pivot=pivot,
+            inherit_rotations=inherit_rotation,
+            inherit_scale=inherit_scale
+        )
+        boxy_items.extend(items)
+    else:
+        # Multiple faces - use group processing
+        face_pairs = face_finder.get_opposite_face_group(
+            components=face_components,
+            surface_direction=surface_direction,
+            select=False
+        )
+
+        if not face_pairs:
+            return [], "No matching faces found"
+
+        # Create boxy for each pair
+        for pair in face_pairs:
+            cmds.select(pair.names, replace=True)
+            cmds.hilite(pair.transform)
+
+            creator = Boxy(color=color)
+            creator.pivot_anchor = pivot
+            items, _ = creator.create(
+                pivot=pivot,
+                inherit_rotations=inherit_rotation,
+                inherit_scale=inherit_scale
+            )
+            boxy_items.extend(items)
+
+    # Generate info message
+    if not boxy_items:
+        return [], "No boxy objects created"
+    elif len(boxy_items) == 1:
+        return boxy_items, f"Boxy object created: {boxy_items[0]}"
+    else:
+        return boxy_items, f"Boxy objects created: {', '.join(boxy_items)}"

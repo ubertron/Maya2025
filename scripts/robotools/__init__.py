@@ -16,7 +16,7 @@ class CustomAttribute(Enum):
     hinge_side = auto()
     opening_side = auto()
     pivot_anchor = auto()  # New: stores Anchor name (e.g., "c", "f0", "e5", "v3")
-    pivot_side = auto()    # Legacy: stores Side name for old polycubes
+    pivot_side = auto()    # Legacy: stores Side name for old meshboxes
     sill_depth = auto()
     sill_thickness = auto()
     size = auto()
@@ -27,7 +27,7 @@ class CustomAttribute(Enum):
 
 class CustomType(Enum):
     boxy = auto()
-    polycube = auto()
+    meshbox = auto()
     door = auto()
     staircase = auto()
     window = auto()
