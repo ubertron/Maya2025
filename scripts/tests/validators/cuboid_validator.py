@@ -65,10 +65,8 @@ def validate_cuboid_faces(transform: str, face1_idx: int, face2_idx: int,
     center_vector = Point3Pair(center1, center2).delta
     center_vector_normalized = center_vector.normalized
 
-    print(f"  [cuboid_validator] mode received: {mode} (type: {type(mode).__name__})")
-    print(f"  [cuboid_validator] mode == SurfaceDirection.concave: {mode == SurfaceDirection.concave}")
-
-    if mode == SurfaceDirection.concave:
+    # Use .name comparison to avoid enum identity issues after module reload
+    if mode.name == "concave":
         # In concave mode, we search IN direction of normal
         # normal1 should point towards center2: dot(normal1, center_vector) ≈ 1
         # normal2 should point towards center1: dot(normal2, center_vector) ≈ -1

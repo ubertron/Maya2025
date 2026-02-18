@@ -6,7 +6,7 @@ from enum import Enum, auto
 
 with contextlib.suppress(ImportError):
     from maya import cmds
-    from maya_tools import attribute_utils
+    from maya_tools import attribute_utils, node_utils
 
 
 class CustomAttribute(Enum):
@@ -55,3 +55,20 @@ def is_custom_type_node(node: str) -> bool:
     from maya_tools.node_utils import get_shape_from_transform
     shape = get_shape_from_transform(node=node)
     return shape and attribute_utils.has_attribute(node=shape, attr=CustomAttribute.custom_type.name)
+
+
+def is_meshbox(node: str) -> bool:
+    """Check if node is a Robotools meshbox by checking custom_type attribute.
+
+    Args:
+        node: Transform or shape node name.
+
+    Returns:
+        True if the node is a Robotools meshbox, False otherwise.
+    """
+    shape = node_utils.get_shape_from_transform(node=node)
+    if not shape:
+        return False
+    if not cmds.attributeQuery(CustomAttribute.custom_type.name, node=shape, exists=True):
+        return False
+    return cmds.getAttr(f"{shape}.{CustomAttribute.custom_type.name}") == CustomType.meshbox.name

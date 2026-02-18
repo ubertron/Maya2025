@@ -309,10 +309,10 @@ class AnchorPicker(QWidget):
 
     anchor_selected = Signal(Anchor)
 
-    def __init__(self, parent=None, advanced_mode: bool = False):
+    def __init__(self, parent=None, advanced_mode: bool = False, default: Anchor = Anchor.c):
         super().__init__(parent)
         self._advanced_mode = advanced_mode
-        self._selected_anchor: Anchor = Anchor.c
+        self._selected_anchor: Anchor = default
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)

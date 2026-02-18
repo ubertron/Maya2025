@@ -135,7 +135,8 @@ class FaceFinder:
             print(f"  Dot product: {dot_product:.4f}")
 
             # Filter by search direction based on mode
-            if self.mode == SurfaceDirection.concave:
+            # Use .name comparison to avoid enum identity issues after module reload
+            if self.mode.name == "concave":
                 # Concave: search IN direction of normal (dot should be ≈ 1)
                 if abs(dot_product - 1.0) > position_tolerance:
                     print(f"  SKIP: Not in concave search direction (need dot ≈ 1, got {dot_product:.4f})")
@@ -250,23 +251,18 @@ def get_opposite_face_group(
 
     # Check connectivity of all faces
     shells = geometry_utils.group_geometry_shells(transform=transform, faces=face_indices)
-    print(f"[get_opposite_face_group] Faces: {face_indices}")
-    print(f"[get_opposite_face_group] Shells: {shells}")
 
     for shell in shells:
         shell_components = [c for c in components if c.idx in shell]
 
-        print(f"[get_opposite_face_group] Processing shell: {shell} (len={len(shell_components)})")
         if len(shell_components) == 1:
             # Single face in shell - use existing logic
-            print(f"[get_opposite_face_group] Single face, using _process_single_face()")
             result = _process_single_face(shell_components[0], surface_direction)
             if result:
                 results.append(result)
         else:
             # Multiple connected faces in shell
             is_valid_rect, msg = geometry_utils.validate_rectangular_face_block(transform, shell)
-            print(f"[get_opposite_face_group] validate_rectangular_face_block: {is_valid_rect}, msg: {msg}")
             if is_valid_rect:
                 # Connected rectangle block - process as group
                 block_results = _process_rectangle_block(shell_components, surface_direction)
@@ -330,17 +326,14 @@ def _process_rectangle_block(
 
     transform = components[0].transform
     source_indices = [c.idx for c in components]
-    print(f"[_process_rectangle_block] source_indices: {source_indices}")
 
     # Get source block data
     source_vertices = geometry_utils.get_vertices_from_faces(node=transform, faces=source_indices)
     source_positions = [geometry_utils.get_vertex_position(node=transform, vertex_id=v) for v in source_vertices]
     source_center = get_midpoint_from_point_list(source_positions)
-    print(f"[_process_rectangle_block] source_center: {source_center}")
 
     # Calculate average normal for the block
     source_normal = _calculate_block_normal(transform, source_indices)
-    print(f"[_process_rectangle_block] source_normal: {source_normal}")
 
     # Find candidate opposite face group
     opposite_indices = _find_opposite_face_block(
@@ -350,11 +343,9 @@ def _process_rectangle_block(
         source_normal=source_normal,
         surface_direction=surface_direction
     )
-    print(f"[_process_rectangle_block] opposite_indices: {opposite_indices}")
 
     if not opposite_indices or len(opposite_indices) != len(source_indices):
         # Fallback to individual processing
-        print(f"[_process_rectangle_block] FALLBACK: opposite count {len(opposite_indices) if opposite_indices else 0} != source count {len(source_indices)}")
         return _process_individual_faces(components, surface_direction)
 
     # Match source faces to opposite faces
@@ -424,7 +415,8 @@ def _find_opposite_face_block(
         dot_product = Point3Pair(source_normal, center_vector_norm).dot_product
 
         # Filter by search direction
-        if surface_direction == SurfaceDirection.concave:
+        # Use .name comparison to avoid enum identity issues after module reload
+        if surface_direction.name == "concave":
             if abs(dot_product - 1.0) > position_tolerance:
                 continue
         else:
@@ -438,7 +430,6 @@ def _find_opposite_face_block(
 
         candidates.append((candidate_idx, distance))
 
-    print(f"[_find_opposite_face_block] Total candidates found: {len(candidates)}")
     if not candidates:
         return []
 
@@ -447,23 +438,19 @@ def _find_opposite_face_block(
     target_distance = candidates[0][1]
     # Use percentage-based tolerance (10% of distance) with minimum of 5 units
     distance_tolerance = max(5.0, target_distance * 0.1)
-    print(f"[_find_opposite_face_block] target_distance: {target_distance}, tolerance: {distance_tolerance}")
 
     opposite_candidates = [
         idx for idx, dist in candidates
         if abs(dist - target_distance) < distance_tolerance
     ]
-    print(f"[_find_opposite_face_block] opposite_candidates at target distance: {opposite_candidates}")
 
     # Verify these form a connected group matching source topology
     if len(opposite_candidates) == len(source_indices):
         shells = geometry_utils.group_geometry_shells(transform, opposite_candidates)
-        print(f"[_find_opposite_face_block] shells: {shells}")
         if len(shells) == 1:  # All connected
             return opposite_candidates
 
     # If count doesn't match, try to find best matching subset
-    print(f"[_find_opposite_face_block] Count mismatch or not connected, returning subset")
     return opposite_candidates[:len(source_indices)] if len(opposite_candidates) >= len(source_indices) else []
 
 

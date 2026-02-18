@@ -187,7 +187,7 @@ class Architools(GenericWidget):
                     has_convertible_nodes = True
                 elif any(robotools.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
                     has_convertible_nodes = True
-                elif boxy_utils.is_meshbox(node) and boxy_utils.has_simple_topology(node):
+                elif robotools.is_meshbox(node) and boxy_utils.has_simple_topology(node):
                     has_convertible_nodes = True
 
         if has_convertible_nodes:
@@ -208,7 +208,7 @@ class Architools(GenericWidget):
                     result = arch_utils.convert_node_to_boxy(node=node, delete=True)
                     if result:
                         boxy_items.append(result)
-                elif boxy_utils.is_meshbox(node) and boxy_utils.has_simple_topology(node):
+                elif robotools.is_meshbox(node) and boxy_utils.has_simple_topology(node):
                     # Convert meshbox to boxy (only if not refined, Architools always uses bottom pivot)
                     result = boxy_utils.convert_meshbox_to_boxy(meshbox=node, color=ARCHITOOLS_COLOR,
                                                                  pivot=Anchor.f2)
@@ -292,7 +292,7 @@ class Architools(GenericWidget):
                     result = boxy_utils.convert_boxy_to_meshbox(node=boxy_node, pivot=Anchor.f2)
                     if result and not isinstance(result, boxy_utils.BoxyException):
                         meshbox_items.append(result)
-            elif boxy_utils.is_meshbox(node) and boxy_utils.has_simple_topology(node):
+            elif robotools.is_meshbox(node) and boxy_utils.has_simple_topology(node):
                 # Recalculate meshbox: convert to boxy then back to meshbox
                 # This resets transforms and puts pivot to bottom center (only if not refined)
                 boxy_node = boxy_utils.convert_meshbox_to_boxy(meshbox=node, color=ARCHITOOLS_COLOR,
@@ -377,7 +377,7 @@ class Architools(GenericWidget):
                 result = boxy_utils.edit_boxy_orientation(node=node, rotation=-90, axis=Axis.y)
                 if result:
                     rotated_items.append(result)
-            elif boxy_utils.is_meshbox(node) and boxy_utils.has_simple_topology(node):
+            elif robotools.is_meshbox(node) and boxy_utils.has_simple_topology(node):
                 # Meshbox: convert to boxy, rotate, convert back to meshbox (only if not refined)
                 temp_boxy = boxy_utils.convert_meshbox_to_boxy(meshbox=node, color=ARCHITOOLS_COLOR,
                                                                 pivot=Anchor.f2)

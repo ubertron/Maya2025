@@ -252,7 +252,7 @@ class BoxyTool(GenericWidget):
                     has_convertible_nodes = True
                 elif any(robotools.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
                     has_convertible_nodes = True
-                elif boxy_utils.is_meshbox(node) and boxy_utils.has_simple_topology(node):
+                elif robotools.is_meshbox(node) and boxy_utils.has_simple_topology(node):
                     has_convertible_nodes = True
 
         if has_convertible_nodes:
@@ -273,7 +273,7 @@ class BoxyTool(GenericWidget):
                     result = arch_utils.convert_node_to_boxy(node=node, delete=True)
                     if result:
                         boxy_items.append(result)
-                elif boxy_utils.is_meshbox(node) and boxy_utils.has_simple_topology(node):
+                elif robotools.is_meshbox(node) and boxy_utils.has_simple_topology(node):
                     # Convert meshbox to boxy (only if not refined)
                     result = boxy_utils.convert_meshbox_to_boxy(meshbox=node, color=self.wireframe_color, pivot=self.pivot, inherit_scale=self.inherit_scale)
                     if result:
@@ -359,7 +359,7 @@ class BoxyTool(GenericWidget):
                 boxy_nodes.append(node)
             elif any(robotools.is_custom_type(node=node, custom_type=ct) for ct in ARCHITYPES):
                 architype_nodes.append(node)
-            elif boxy_utils.is_meshbox(node) and boxy_utils.has_simple_topology(node):
+            elif robotools.is_meshbox(node) and boxy_utils.has_simple_topology(node):
                 meshbox_nodes.append(node)
             elif boxy_utils.is_simple_cuboid(node) and boxy_utils.has_simple_topology(node):
                 # Cuboid without meshbox attributes - still convertible if not refined

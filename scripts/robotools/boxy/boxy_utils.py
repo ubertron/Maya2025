@@ -46,15 +46,15 @@ from core.color_classes import ColorRGB
 from core.core_enums import ComponentType, CreationMode, DataType, Side, Axis
 from core.logging_utils import get_logger
 from core.point_classes import Point3, Point3Pair, UNIT3, ZERO3
-from robotools import CustomAttribute, CustomType
-from robotools.anchor import Anchor, BASIC_ANCHORS, anchor_to_index, anchor_to_side, index_to_anchor, side_to_anchor
-from robotools.anchor_utils import get_anchor_position_from_bounds, get_anchor_offset
+from robotools import CustomAttribute, CustomType, is_meshbox
+from robotools.anchor import Anchor, index_to_anchor, side_to_anchor
 
 with contextlib.suppress(ImportError):
     from maya import cmds
     from maya_tools import attribute_utils, node_utils
     from maya_tools.geometry import geometry_utils, component_utils, bounds_utils
     from maya_tools.node_utils import get_translation
+    from robotools.anchor_utils import get_anchor_position_from_bounds, get_anchor_offset
     from robotools.boxy import BoxyException
     from robotools.boxy import boxy_node
     from robotools.boxy.boxy_data import BoxyData
@@ -701,6 +701,12 @@ def convert_meshbox_to_boxy(meshbox: str, color: ColorRGB = color_classes.DEEP_G
     return _boxy_node
 
 
+def create_boxy(pivot_anchor: Anchor, size: Point3, color: ColorRGB) -> str:
+    """Convenience function to build a boxy."""
+    boxy_data = BoxyData(size=size, translation=ZERO3, rotation=ZERO3, pivot_anchor=pivot_anchor, color=color)
+    return build(boxy_data=boxy_data)
+
+
 def create_meshbox(pivot: Anchor, size: Point3, creation_mode: CreationMode = CreationMode.pivot_origin,
                     construction_history: bool = False) -> str:
     """Create a custom meshbox node with pivot at any of the 27 anchor positions.
@@ -898,23 +904,6 @@ def get_selected_boxy_nodes() -> list[str]:
 
 def get_selected_boxy_positions() -> list[Point3]:
     return [node_utils.get_translation(x, absolute=True) for x in get_selected_boxy_nodes()]
-
-
-def is_meshbox(node: str) -> bool:
-    """Check if node is a Robotools meshbox by checking custom_type attribute.
-
-    Args:
-        node: Transform or shape node name.
-
-    Returns:
-        True if the node is a Robotools meshbox, False otherwise.
-    """
-    shape = node_utils.get_shape_from_transform(node=node)
-    if not shape:
-        return False
-    if not cmds.attributeQuery(CustomAttribute.custom_type.name, node=shape, exists=True):
-        return False
-    return cmds.getAttr(f"{shape}.{CustomAttribute.custom_type.name}") == CustomType.meshbox.name
 
 
 def is_simple_cuboid(node: str) -> bool:
@@ -1123,10 +1112,26 @@ def create_boxy_from_faces(
         if not face_pairs:
             return [], "No matching faces found"
 
-        # Create boxy for each pair
-        for pair in face_pairs:
-            cmds.select(pair.names, replace=True)
-            cmds.hilite(pair.transform)
+        # Check if face pairs form a connected block
+        # If all source faces are in one shell AND all opposite faces are in one shell,
+        # combine them into a single boxy
+        from maya_tools.geometry import geometry_utils
+
+        transform = face_pairs[0].transform
+        source_indices = [pair.source.idx for pair in face_pairs]
+        opposite_indices = [pair.opposite.idx for pair in face_pairs]
+
+        source_shells = geometry_utils.group_geometry_shells(transform, source_indices)
+        opposite_shells = geometry_utils.group_geometry_shells(transform, opposite_indices)
+
+        # If all faces are in single connected shells, create ONE boxy
+        if len(source_shells) == 1 and len(opposite_shells) == 1:
+            # Combine all faces into one selection and create single boxy
+            all_face_names = []
+            for pair in face_pairs:
+                all_face_names.extend(pair.names)
+            cmds.select(all_face_names, replace=True)
+            cmds.hilite(transform)
 
             creator = Boxy(color=color)
             creator.pivot_anchor = pivot
@@ -1136,6 +1141,35 @@ def create_boxy_from_faces(
                 inherit_scale=inherit_scale
             )
             boxy_items.extend(items)
+        else:
+            # Multiple shell groups - create one boxy per connected shell group
+            # Map each face pair to its source shell index
+            shell_to_pairs = {}
+            for pair in face_pairs:
+                # Find which shell this pair's source face belongs to
+                for shell_idx, shell_faces in enumerate(source_shells):
+                    if pair.source.idx in shell_faces:
+                        if shell_idx not in shell_to_pairs:
+                            shell_to_pairs[shell_idx] = []
+                        shell_to_pairs[shell_idx].append(pair)
+                        break
+
+            # Create one boxy per shell group
+            for shell_idx, shell_pairs in shell_to_pairs.items():
+                all_face_names = []
+                for pair in shell_pairs:
+                    all_face_names.extend(pair.names)
+                cmds.select(all_face_names, replace=True)
+                cmds.hilite(transform)
+
+                creator = Boxy(color=color)
+                creator.pivot_anchor = pivot
+                items, _ = creator.create(
+                    pivot=pivot,
+                    inherit_rotations=inherit_rotation,
+                    inherit_scale=inherit_scale
+                )
+                boxy_items.extend(items)
 
     # Generate info message
     if not boxy_items:

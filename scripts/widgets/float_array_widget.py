@@ -64,6 +64,16 @@ class FloatArrayWidget(QWidget):
     def values(self) -> list[float]:
         return [x.value() for x in self.widgets]
 
+    @values.setter
+    def values(self, values: list[float]):
+        for idx, x in enumerate(values):
+            self.widgets[idx].setValue(x)
+        self.value_changed.emit()
+
+    def set_value(self, index: int, value: float):
+        self.widgets[index].setValue(value)
+        self.value_changed.emit()
+
     def value_changed_event(self):
         self.value_changed.emit()
 
@@ -71,7 +81,12 @@ class FloatArrayWidget(QWidget):
 if __name__ == "__main__":
     from qtpy.QtWidgets import QApplication
     app = QApplication(sys.argv)
-    widget = FloatArrayWidget()
-    widget.show()
+    widget = FloatArrayWidget(count=3, default_value=5.0, minimum=0.0, maximum=50.0, step=0.1)
+    widget.values = [14, 2, 9389.3]
     print(widget.values)
+    widget.show()
+    widget.widgets[0].setValue(14)
+    print(widget.widgets[0].value())
+    widget.values = [3, 3, 3]
+    widget.set_value(0, 13)
     app.exec()

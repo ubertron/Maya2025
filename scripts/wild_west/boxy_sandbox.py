@@ -6,6 +6,7 @@ from importlib import reload
 from maya import cmds
 from pathlib import Path
 
+import robotools; reload(robotools)
 from core import core_enums; reload(core_enums)
 from core import color_classes
 from core.core_enums import ComponentType

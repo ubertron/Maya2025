@@ -95,7 +95,7 @@ class ArchWidget(GenericWidget):
                         boxy_node = arch_utils.convert_node_to_boxy(node=node, delete=True)
                         if boxy_node:
                             boxy_nodes.append(boxy_node)
-                    elif boxy_utils.is_meshbox(node) and boxy_utils.has_simple_topology(node):
+                    elif robotools.is_meshbox(node) and boxy_utils.has_simple_topology(node):
                         boxy_node = boxy_utils.convert_meshbox_to_boxy(meshbox=node)
                         if boxy_node:
                             boxy_nodes.append(boxy_node)

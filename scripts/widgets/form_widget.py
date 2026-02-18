@@ -33,11 +33,14 @@ Copyright (c) 2026 Andrew Davis / Robotools Studio. All Rights Reserved.
 from __future__ import annotations
 
 from functools import partial
+
 from qtpy.QtWidgets import QFormLayout, QWidget, QPushButton, QLabel, QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, \
-    QCheckBox
+    QCheckBox, QHBoxLayout
 from typing import Callable, Union
 
 from core import DEVELOPER
+from core.point_classes import Point3, ZERO3
+from widgets.float_array_widget import FloatArrayWidget
 
 
 class FormWidget(QWidget):
@@ -62,6 +65,8 @@ class FormWidget(QWidget):
                 _value = widget.currentText()
             elif type(widget) in (QSpinBox, QDoubleSpinBox):
                 _value = widget.value()
+            elif type(widget) is FloatArrayWidget:
+                _value = widget.values
             else:
                 _value = None
             data[label] = _value
@@ -77,7 +82,7 @@ class FormWidget(QWidget):
         return int(self.layout().count() / 2)
 
     def add_button(self, button_text: str, label: str | None = None, clicked: Callable | None = None,
-                   tool_tip: str= "") -> QPushButton | tuple:
+                   tool_tip: str = "") -> QPushButton | tuple:
         """Add a button to the form."""
         button = QPushButton(button_text)
         if clicked:
@@ -91,7 +96,7 @@ class FormWidget(QWidget):
             self.layout().addRow(button)
             return button
 
-    def add_check_box(self, label: str, checked: bool = True, tool_tip: str="") -> QCheckBox:
+    def add_check_box(self, label: str, checked: bool = True, tool_tip: str = "") -> QCheckBox:
         """Add a checkbox to the form."""
         check_box = QCheckBox()
         check_box.setToolTip(tool_tip)
@@ -105,7 +110,8 @@ class FormWidget(QWidget):
         combo_box.setCurrentIndex(default_index)
         return self.add_row(label=label, widget=combo_box)
 
-    def add_float_field(self, label: str, default_value: int = 0, minimum: float = 0.0, maximum: float = 100.0, step: float=1.0) -> QDoubleSpinBox:
+    def add_float_field(self, label: str, default_value: int = 0, minimum: float = 0.0, maximum: float = 100.0,
+                        step: float = 1.0) -> QDoubleSpinBox:
         """Add a float field."""
         spin_box = QDoubleSpinBox()
         spin_box.setValue(default_value)
@@ -114,7 +120,8 @@ class FormWidget(QWidget):
         spin_box.setSingleStep(step)
         return self.add_row(label=label, widget=spin_box)
 
-    def add_int_field(self, label: str, default_value: int = 0, minimum: int = 0, maximum: int = 100, step: int=1) -> QSpinBox:
+    def add_int_field(self, label: str, default_value: int = 0, minimum: int = 0, maximum: int = 100,
+                      step: int = 1) -> QSpinBox:
         """Add an integer field."""
         spin_box = QSpinBox()
         spin_box.setMinimum(minimum)
@@ -133,13 +140,26 @@ class FormWidget(QWidget):
         line_edit = QLineEdit(text=default_value, placeholderText=placeholder_text)
         return self.add_row(label=label, widget=line_edit)
 
+    def add_point3_field(self, label: str, default_value: Point3 = ZERO3, minimum: float = 0.0,
+                         maximum: float = 100.0, step: float = 1.0):
+        """Add a point3 field to the form."""
+        float_field: FloatArrayWidget = FloatArrayWidget(
+            count=3,
+            minimum=minimum,
+            maximum=maximum,
+            step=step,
+        )
+        float_field.values = default_value
+        return self.add_row(label=label, widget=float_field)
+
+
     def add_row(self, label: str, widget: QWidget) -> any:
         """Add a widget to the form."""
         assert label not in self.labels, f"Label already used: {label}"
         self.layout().addRow(label, widget)
         return widget
 
-    def get_value(self, label: str) -> str | int | float:
+    def get_value(self, label: str) -> str | int | float | list:
         """Get the value of a field."""
         return self.data.get(label)
 
@@ -174,11 +194,13 @@ class ExampleFormWidget(FormWidget):
         self.color = self.add_combo_box(label="Color", items=["black", "blue", "red"], default_index=1)
         self.count_field = self.add_int_field(label="Count", default_value=10)
         self.height = self.add_float_field(label="Height", default_value=0.8)
+        self.size = self.add_point3_field(label="Size", default_value=Point3(0.0, 1.0, 10.0).values, minimum=0.0, maximum=100.0)
         self.add_button("Do It")
 
 
 if __name__ == "__main__":
     from qtpy.QtWidgets import QApplication
+
     app = QApplication()
     example_form_widget = ExampleFormWidget()
     example_form_widget.show()
