@@ -1,0 +1,49 @@
+{
+  "name": "test_table",
+  "version": "1.0",
+  "description": "",
+  "tags": [],
+  "parameters": [],
+  "nodes": [
+    {
+      "id": "e17e8e05-46f6-4691-bc7d-74d1913fa67f",
+      "type": "meshbox",
+      "name": "Table Top",
+      "parent_id": null,
+      "pivot_anchor": "f3",
+      "position_anchor": "f3",
+      "width": {
+        "mode": "max"
+      },
+      "height": {
+        "mode": "constant",
+        "value": 5.0
+      },
+      "depth": {
+        "mode": "max"
+      },
+      "children": []
+    },
+    {
+      "id": "ad5f4d8e-f024-4d52-a0b1-ff0f20b88c10",
+      "type": "meshbox",
+      "name": "Leg",
+      "parent_id": null,
+      "pivot_anchor": "f2",
+      "position_anchor": "v0",
+      "width": {
+        "mode": "constant",
+        "value": 8.0
+      },
+      "height": {
+        "mode": "constant",
+        "value": 75.0
+      },
+      "depth": {
+        "mode": "constant",
+        "value": 8.0
+      },
+      "children": []
+    }
+  ]
+}

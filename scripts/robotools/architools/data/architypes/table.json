@@ -1,0 +1,30 @@
+{
+  "name": "table",
+  "version": "1.0",
+  "description": "",
+  "tags": [],
+  "parameters": [],
+  "nodes": [
+    {
+      "id": "fa6e8890-c984-49ae-9da5-3441089d60b1",
+      "type": "meshbox",
+      "name": "table_top",
+      "parent_id": null,
+      "pivot_anchor": "f3",
+      "position_anchor": "f3",
+      "width": {
+        "mode": "constant",
+        "value": 50.0
+      },
+      "height": {
+        "mode": "constant",
+        "value": 4.0
+      },
+      "depth": {
+        "mode": "constant",
+        "value": 50.0
+      },
+      "children": []
+    }
+  ]
+}
