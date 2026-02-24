@@ -6,7 +6,7 @@ from enum import Enum, auto
 
 with contextlib.suppress(ImportError):
     from maya import cmds
-    from maya_tools import attribute_utils, node_utils
+    from maya_tools import node_utils
 
 
 class CustomAttribute(Enum):
@@ -26,11 +26,14 @@ class CustomAttribute(Enum):
 
 
 class CustomType(Enum):
-    boxy = auto()
-    meshbox = auto()
-    door = auto()
-    staircase = auto()
-    window = auto()
+    boxy = "boxy"
+    meshbox = "meshbox"
+    node_offset = "node_offset"
+    node_mirror = "node_mirror"
+    node_parameter = "node_parameter"
+    door = "door"
+    staircase = "staircase"
+    window = "window"
 
 
 def is_boxy(node: str) -> bool:
@@ -53,6 +56,7 @@ def is_custom_type(node: str, custom_type: CustomType) -> bool:
 def is_custom_type_node(node: str) -> bool:
     """Is node a custom type node."""
     from maya_tools.node_utils import get_shape_from_transform
+    from maya_tools import attribute_utils
     shape = get_shape_from_transform(node=node)
     return shape and attribute_utils.has_attribute(node=shape, attr=CustomAttribute.custom_type.name)
 

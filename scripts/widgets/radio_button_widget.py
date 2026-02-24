@@ -72,6 +72,11 @@ class RadioButtonWidget(QWidget):
     def current_button_id(self) -> int:
         return next(i for i, value in enumerate(self.radio_buttons) if value.isChecked())
 
+    def set_button_id(self, button_id: int):
+        """Set the active button by index."""
+        if 0 <= button_id < len(self.radio_buttons):
+            self.radio_buttons[button_id].setChecked(True)
+
     @property
     def current_text(self) -> int:
         return self.button_text_list[self.current_button_id]

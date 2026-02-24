@@ -35,14 +35,14 @@ import sys
 
 from qtpy.QtWidgets import QWidget, QDoubleSpinBox, QHBoxLayout, QLabel
 from qtpy.QtCore import Signal
-from scipy.interpolate.dfitpack import splint
 
 
 class FloatArrayWidget(QWidget):
     value_changed = Signal()
+    return_pressed = Signal()
 
-    def __init__(self, count: int = 3, default_value: float =0.0, minimum: float = 0.0, maximum: float = 1.0, step: float = 0.1):
-        super(FloatArrayWidget, self).__init__()
+    def __init__(self, count: int = 3, default_value: float = 0.0, minimum: float = 0.0, maximum: float = 1.0, step: float = 0.1):
+        super().__init__()
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -52,9 +52,14 @@ class FloatArrayWidget(QWidget):
             spinbox.setMinimum(minimum)
             spinbox.setMaximum(maximum)
             spinbox.valueChanged.connect(self.value_changed_event)
+            spinbox.editingFinished.connect(self._on_editing_finished)
             spinbox.setSingleStep(step)
             layout.addWidget(spinbox)
         self.setLayout(layout)
+
+    def _on_editing_finished(self):
+        """Emit return_pressed when editing is finished (return pressed or focus lost)."""
+        self.return_pressed.emit()
 
     @property
     def widgets(self) -> list[QDoubleSpinBox]:

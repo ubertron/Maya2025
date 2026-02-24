@@ -855,6 +855,24 @@ def get_boxy_pivot(node: str) -> Anchor:
     return index_to_anchor(pivot_index)
 
 
+def get_boxy_bounds(node: str) -> Bounds:
+    """Get Bounds from a boxy node.
+
+    Args:
+        node: The boxy transform node name.
+
+    Returns:
+        Bounds object with size, center position, rotation, and scale.
+    """
+    boxy_data = get_boxy_data(node)
+    return Bounds(
+        size=boxy_data.size,
+        position=boxy_data.center,  # Use center, not pivot position
+        rotation=boxy_data.rotation,
+        scale=boxy_data.scale
+    )
+
+
 def get_position_from_bounds(bounds: Point3Pair, pivot: Anchor) -> Point3:
     """Get the position of a Boxy object from the bounds for any anchor point."""
     c = bounds.center

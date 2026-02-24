@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 
 from maya import cmds
@@ -10,6 +11,7 @@ from ams import ams_paths
 from core.core_enums import AssetType, Side
 from core.core_paths import image_path
 from core import date_time_utils, file_utils
+from core import logging_utils
 from core.version_info import VersionInfo
 from maya_tools import material_utils, node_utils, scene_utils
 from maya_tools.io import fbx_utils, fbx_presets
@@ -17,12 +19,15 @@ from widgets.button_bar import ButtonBar
 from widgets.form_widget import FormWidget
 from widgets.generic_widget import GenericWidget
 
+LOGGER = logging_utils.get_logger(__name__, level=logging.INFO)
+
 TOOL_NAME = "Exporter"
 UI_SCRIPT = "from ams import exporter; exporter.Exporter().restore()"
 VERSIONS = [
-    VersionInfo(name=TOOL_NAME, version="0.0.1", codename="streethawk", info="initial version"),
-    VersionInfo(name=TOOL_NAME, version="0.0.2", codename="airwolf", info="added info about maya source file"),
-    VersionInfo(name=TOOL_NAME, version="0.0.3", codename="blue thunder", info="texture transfer")
+    VersionInfo(name=TOOL_NAME, version="0.1", codename="streethawk", info="initial version"),
+    VersionInfo(name=TOOL_NAME, version="0.2", codename="airwolf", info="added info about maya source file"),
+    VersionInfo(name=TOOL_NAME, version="0.3", codename="blue thunder", info="texture transfer"),
+    VersionInfo(name=TOOL_NAME, version="0.4", codename="manimal", info="support for #no_export tag")
 ]
 
 
@@ -153,7 +158,10 @@ class Exporter(GenericWidget):
         fbx_presets.GeometryExportPreset().activate()
         geometry_root_nodes = node_utils.get_root_geometry_transforms()
         if geometry_root_nodes:
-            cmds.select(geometry_root_nodes)
+            export_nodes = [x for x in geometry_root_nodes if node_utils.get_export_status(node=x)]
+            skipped = [x for x in geometry_root_nodes if x not in export_nodes]
+            LOGGER.info(f"Export nodes skipped: {', '.join(skipped)}")
+            cmds.select(export_nodes)
             export_path = self.export_path_abs
             fbx_utils.export_fbx(export_path=self.export_path_abs, selected=True)
             self.target_path_abs.parent.mkdir(parents=True, exist_ok=True)

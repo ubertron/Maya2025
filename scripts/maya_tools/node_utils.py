@@ -11,6 +11,7 @@ from core.core_enums import ComponentType, Attributes, DataType
 from robotools import CustomType
 from core.logging_utils import get_logger
 from core.point_classes import Point2, Point3, Point3Pair, ZERO3
+from maya_tools import attribute_utils
 from maya_tools.display_utils import warning_message, in_view_message
 from maya_tools.maya_enums import ObjectType, MayaAttributes
 
@@ -311,6 +312,12 @@ def get_dimensions(node: Optional[str] = None, format_results: bool = False,
         return dimensions
 
 
+def get_export_status(node: str) -> bool:
+    """Looks for #no_export tag on selected transform."""
+    notes = attribute_utils.get_attribute(node=node, attr="notes")
+    return "#no_export" not in notes if notes else True
+
+
 def get_geometry() -> list[str]:
     """
     Get a list of all geometry in the scene by full path.
@@ -533,7 +540,7 @@ def get_selected_joints() -> list[str]:
     return [x for x in get_selected_transforms() if cmds.objectType(x) == ObjectType.joint.name]
 
 
-def get_selected_transforms(full_path: bool = False, first_only: bool = False) -> list[str]:
+def get_selected_transforms(full_path: bool = False, first_only: bool = False, sort: bool = False) -> list[str]:
     """Get selected transforms."""
     transforms = []
     selection = cmds.ls(selection=True, flatten=True, long=full_path)
@@ -543,7 +550,8 @@ def get_selected_transforms(full_path: bool = False, first_only: bool = False) -
         elif cmds.objectType(x) in (ObjectType.mesh.name, ObjectType.nurbsCurve.name):
             # x is either shape node or transform node if objectType is mesh/curve
             transforms.append(get_transform_from_component(component=x))
-    transforms = sorted(list(set(transforms)), key=lambda y: y.lower())
+    if sort:
+        transforms = sorted(list(set(transforms)), key=lambda y: y.lower())
     return transforms[0] if (first_only and len(transforms)) else transforms
 
 
@@ -725,10 +733,12 @@ def match_translation():
 def move_to_last():
     """Move selected objects to the location of the last selected object."""
     transforms = get_selected_transforms()
+    LOGGER.debug("\n".join(transforms))
     assert len(transforms) > 1, 'Select more than one node.'
     location = get_translation(node=transforms[-1], absolute=True)
     for i in range(len(transforms) - 1):
         cmds.setAttr(f'{transforms[i]}.translate', *location.values, type=DataType.float3.name)
+        LOGGER.debug(f"Moving {transforms[i]} to {transforms[i + 1]}")
     cmds.select(transforms[:-1])
 
 
